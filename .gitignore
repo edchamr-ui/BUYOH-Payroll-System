@@ -4,12 +4,14 @@ __pycache__/
 *.pyo
 *.pyd
 
-# Virtual Environments
+# Virtual Environment
 venv/
 .env
+.env.*
 
 # Flask
 instance/
+.flaskenv
 
 # VS Code
 .vscode/
@@ -17,13 +19,35 @@ instance/
 # PyCharm
 .idea/
 
-# Database
-*.db
-*.sqlite3
+# macOS
+.DS_Store
+
+# Linux
+*~
 
 # Logs
 *.log
 
+# Database
+*.db
+*.sqlite3
+
+# Docker
+docker-compose.override.yml
+
 # Build
 dist/
 build/
+
+# PDF Cache
+*.pdf
+
+# Coverage
+.coverage
+htmlcov/
+
+# Pytest
+.pytest_cache/
+
+# Misc
+*.swp
