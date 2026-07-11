@@ -17,7 +17,10 @@ class Department(db.Model):
         index=True,
     )
 
-    description = db.Column(db.Text, nullable=True)
+    description = db.Column(
+        db.Text,
+        nullable=True,
+    )
 
     is_active = db.Column(
         db.Boolean,
@@ -36,6 +39,12 @@ class Department(db.Model):
         nullable=False,
         default=datetime.utcnow,
         onupdate=datetime.utcnow,
+    )
+
+    employees = db.relationship(
+        "Employee",
+        back_populates="department",
+        lazy="select",
     )
 
     def __repr__(self):
