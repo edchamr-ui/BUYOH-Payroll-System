@@ -116,6 +116,29 @@ class PayrollRecord(db.Model):
         back_populates="processed_payroll_records",
     )
 
+    allowances = db.relationship(
+    "Allowance",
+    back_populates="payroll_record",
+    lazy="select",
+    cascade="all, delete-orphan",
+    )
+
+    deductions = db.relationship(
+    "Deduction",
+    back_populates="payroll_record",
+    lazy="select",
+    cascade="all, delete-orphan",
+    )
+
+    payslip = db.relationship(
+    "Payslip",
+    back_populates="payroll_record",
+    uselist=False,
+    cascade="all, delete-orphan",
+    )
+
+
+
     __table_args__ = (
         db.UniqueConstraint(
             "payroll_period_id",

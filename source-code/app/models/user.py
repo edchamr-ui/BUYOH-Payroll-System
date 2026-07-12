@@ -82,5 +82,11 @@ class User(db.Model):
     lazy="select",
     )
 
+    generated_payslips = db.relationship(
+    "Payslip",
+    back_populates="generator",
+    lazy="select",
+    )
+
     def __repr__(self):
         return f"<User {self.username}>"

@@ -96,6 +96,23 @@ class Employee(db.Model):
     lazy="select",
     )
 
+    allowances = db.relationship(
+    "Allowance",
+    back_populates="employee",
+    lazy="select",
+    )
+
+    deductions = db.relationship(
+    "Deduction",
+    back_populates="employee",
+    lazy="select",
+    )
+
+    generated_payslips = db.relationship(
+    "Payslip",
+    back_populates="generator",
+    lazy="select",
+    )
 
     def __repr__(self):
         return (
