@@ -90,6 +90,13 @@ class Employee(db.Model):
         back_populates="employees",
     )
 
+    payroll_records = db.relationship(
+    "PayrollRecord",
+    back_populates="employee",
+    lazy="select",
+    )
+
+
     def __repr__(self):
         return (
             f"<Employee {self.employee_number}: "

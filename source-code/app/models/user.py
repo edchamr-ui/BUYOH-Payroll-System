@@ -76,5 +76,11 @@ class User(db.Model):
         lazy="select",
     )
 
+    processed_payroll_records = db.relationship(
+    "PayrollRecord",
+    back_populates="processor",
+    lazy="select",
+    )
+
     def __repr__(self):
         return f"<User {self.username}>"

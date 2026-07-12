@@ -64,6 +64,12 @@ class PayrollPeriod(db.Model):
         back_populates="approved_payroll_periods",
     )
 
+    payroll_records = db.relationship(
+        "PayrollRecord",
+        back_populates="payroll_period",
+        lazy="select",
+    )
+
     __table_args__ = (
         db.UniqueConstraint(
             "month",
@@ -78,4 +84,3 @@ class PayrollPeriod(db.Model):
 
     def __repr__(self):
         return f"<PayrollPeriod {self.month}/{self.year}>"
-
