@@ -1,14 +1,17 @@
 from flask import Flask
 from config import Config
 from app.extensions import db, login_manager, migrate
+
 from app.models import (
     Allowance,
+    AuditLog,
     Deduction,
     Department,
     Employee,
     PayrollPeriod,
     PayrollRecord,
     Payslip,
+    Setting,
     User,
 )
 

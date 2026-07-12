@@ -6,4 +6,5 @@ from app.models.payroll_record import PayrollRecord
 from app.models.allowance import Allowance
 from app.models.deduction import Deduction
 from app.models.payslip import Payslip
-
+from app.models.audit_log import AuditLog
+from app.models.setting import Setting

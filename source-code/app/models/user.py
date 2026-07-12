@@ -88,5 +88,17 @@ class User(db.Model):
     lazy="select",
     )
 
+    audit_logs = db.relationship(
+    "AuditLog",
+    back_populates="user",
+    lazy="select",
+    )
+
+    updated_settings = db.relationship(
+    "Setting",
+    back_populates="updater",
+    lazy="select",
+    )
+
     def __repr__(self):
         return f"<User {self.username}>"
