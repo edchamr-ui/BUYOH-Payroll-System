@@ -108,9 +108,9 @@ class Employee(db.Model):
     lazy="select",
     )
 
-    generated_payslips = db.relationship(
+    payslips = db.relationship(
     "Payslip",
-    back_populates="generator",
+    back_populates="employee",
     lazy="select",
     )
 
