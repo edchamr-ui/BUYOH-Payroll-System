@@ -1,4 +1,4 @@
-from flask import Flask
+from flask import Flask, render_template
 from flask_login import login_required
 from config import Config
 from app.extensions import db, login_manager, migrate
@@ -51,9 +51,6 @@ def create_app():
     @app.route("/")
     @login_required
     def home():
-        return """
-        <h1>BUYOH Payroll System</h1>
-        <h3>Flask Extensions Loaded Successfully</h3>
-        """
+        return render_template("dashboard.html")
 
     return app
