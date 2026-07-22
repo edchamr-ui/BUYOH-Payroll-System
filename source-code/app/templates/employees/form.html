@@ -1,0 +1,150 @@
+{% extends "base.html" %}
+
+{% block title %}
+{{ page_heading }} | BUYOH Payroll
+{% endblock %}
+
+{% block page_title %}
+{{ page_heading }}
+{% endblock %}
+
+{% block content %}
+
+<div class="app-card">
+    <div class="card-body p-4">
+
+        <form method="POST">
+            {{ form.hidden_tag() }}
+
+            <div class="row g-3">
+
+                <div class="col-md-6">
+                    {{ form.employee_number.label(class="form-label") }}
+                    {{ form.employee_number(class="form-control") }}
+
+                    {% for error in form.employee_number.errors %}
+                        <div class="text-danger small">
+                            {{ error }}
+                        </div>
+                    {% endfor %}
+                </div>
+
+                <div class="col-md-6">
+                    {{ form.department_id.label(class="form-label") }}
+                    {{ form.department_id(class="form-select") }}
+
+                    {% for error in form.department_id.errors %}
+                        <div class="text-danger small">
+                            {{ error }}
+                        </div>
+                    {% endfor %}
+                </div>
+
+                <div class="col-md-6">
+                    {{ form.first_name.label(class="form-label") }}
+                    {{ form.first_name(class="form-control") }}
+
+                    {% for error in form.first_name.errors %}
+                        <div class="text-danger small">
+                            {{ error }}
+                        </div>
+                    {% endfor %}
+                </div>
+
+                <div class="col-md-6">
+                    {{ form.last_name.label(class="form-label") }}
+                    {{ form.last_name(class="form-control") }}
+
+                    {% for error in form.last_name.errors %}
+                        <div class="text-danger small">
+                            {{ error }}
+                        </div>
+                    {% endfor %}
+                </div>
+
+                <div class="col-md-6">
+                    {{ form.national_id.label(class="form-label") }}
+                    {{ form.national_id(class="form-control") }}
+
+                    {% for error in form.national_id.errors %}
+                        <div class="text-danger small">
+                            {{ error }}
+                        </div>
+                    {% endfor %}
+                </div>
+
+                <div class="col-md-6">
+                    {{ form.job_title.label(class="form-label") }}
+                    {{ form.job_title(class="form-control") }}
+
+                    {% for error in form.job_title.errors %}
+                        <div class="text-danger small">
+                            {{ error }}
+                        </div>
+                    {% endfor %}
+                </div>
+
+                <div class="col-md-6">
+                    {{ form.employment_date.label(class="form-label") }}
+                    {{ form.employment_date(class="form-control") }}
+
+                    {% for error in form.employment_date.errors %}
+                        <div class="text-danger small">
+                            {{ error }}
+                        </div>
+                    {% endfor %}
+                </div>
+
+                <div class="col-md-6">
+                    {{ form.basic_salary.label(class="form-label") }}
+                    {{ form.basic_salary(class="form-control") }}
+
+                    {% for error in form.basic_salary.errors %}
+                        <div class="text-danger small">
+                            {{ error }}
+                        </div>
+                    {% endfor %}
+                </div>
+
+                <div class="col-md-6">
+                    {{ form.employment_status.label(class="form-label") }}
+                    {{ form.employment_status(class="form-select") }}
+
+                    {% for error in form.employment_status.errors %}
+                        <div class="text-danger small">
+                            {{ error }}
+                        </div>
+                    {% endfor %}
+                </div>
+
+            </div>
+
+            <div class="mt-4 d-flex gap-2">
+                {{ form.submit(class="btn btn-primary") }}
+
+                {% if employee %}
+                    <a
+                        href="{{ url_for(
+                            'employees.view_employee',
+                            employee_id=employee.id
+                        ) }}"
+                        class="btn btn-outline-secondary"
+                    >
+                        Cancel
+                    </a>
+                {% else %}
+                    <a
+                        href="{{ url_for('employees.list_employees') }}"
+                        class="btn btn-outline-secondary"
+                    >
+                        Cancel
+                    </a>
+                {% endif %}
+            </div>
+
+        </form>
+
+    </div>
+</div>
+
+{% endblock %}

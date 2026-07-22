@@ -1,0 +1,191 @@
+{% extends "base.html" %}
+
+{% block title %}
+{{ page_heading }} | BUYOH Payroll
+{% endblock %}
+
+{% block page_title %}
+{{ page_heading }}
+{% endblock %}
+
+{% block content %}
+
+<div class="row justify-content-center">
+
+    <div class="col-xl-9">
+
+        <div class="app-card">
+
+            <div class="card-body p-4">
+
+                <form method="POST" novalidate>
+
+                    {{ form.hidden_tag() }}
+
+                    <div class="row g-4">
+
+                        <div class="col-md-6">
+
+                            {{ form.month.label(class="form-label fw-semibold") }}
+
+                            {{ form.month(
+                                class="form-select"
+                                + (
+                                    " is-invalid"
+                                    if form.month.errors
+                                    else ""
+                                )
+                            ) }}
+
+                            {% for error in form.month.errors %}
+                                <div class="invalid-feedback">
+                                    {{ error }}
+                                </div>
+                            {% endfor %}
+
+                        </div>
+
+                        <div class="col-md-6">
+
+                            {{ form.year.label(class="form-label fw-semibold") }}
+
+                            {{ form.year(
+                                class="form-control"
+                                + (
+                                    " is-invalid"
+                                    if form.year.errors
+                                    else ""
+                                )
+                            ) }}
+
+                            {% for error in form.year.errors %}
+                                <div class="invalid-feedback">
+                                    {{ error }}
+                                </div>
+                            {% endfor %}
+
+                        </div>
+
+                        <div class="col-md-6">
+
+                            {{ form.start_date.label(
+                                class="form-label fw-semibold"
+                            ) }}
+
+                            {{ form.start_date(
+                                class="form-control"
+                                + (
+                                    " is-invalid"
+                                    if form.start_date.errors
+                                    else ""
+                                )
+                            ) }}
+
+                            {% for error in form.start_date.errors %}
+                                <div class="invalid-feedback">
+                                    {{ error }}
+                                </div>
+                            {% endfor %}
+
+                        </div>
+
+                        <div class="col-md-6">
+
+                            {{ form.end_date.label(
+                                class="form-label fw-semibold"
+                            ) }}
+
+                            {{ form.end_date(
+                                class="form-control"
+                                + (
+                                    " is-invalid"
+                                    if form.end_date.errors
+                                    else ""
+                                )
+                            ) }}
+
+                            {% for error in form.end_date.errors %}
+                                <div class="invalid-feedback">
+                                    {{ error }}
+                                </div>
+                            {% endfor %}
+
+                        </div>
+
+                        <div class="col-md-6">
+
+                            {{ form.payment_date.label(
+                                class="form-label fw-semibold"
+                            ) }}
+
+                            {{ form.payment_date(
+                                class="form-control"
+                                + (
+                                    " is-invalid"
+                                    if form.payment_date.errors
+                                    else ""
+                                )
+                            ) }}
+
+                            {% for error in form.payment_date.errors %}
+                                <div class="invalid-feedback">
+                                    {{ error }}
+                                </div>
+                            {% endfor %}
+
+                            <div class="form-text">
+                                Payment may occur during the payroll period
+                                or within 31 days after it ends.
+                            </div>
+
+                        </div>
+
+                        <div class="col-md-6">
+
+                            <label class="form-label fw-semibold">
+                                Initial Status
+                            </label>
+
+                            <input
+                                type="text"
+                                class="form-control"
+                                value="Draft"
+                                disabled
+                            >
+
+                            <div class="form-text">
+                                New payroll periods always begin in Draft.
+                            </div>
+
+                        </div>
+
+                    </div>
+
+                    <hr class="my-4">
+
+                    <div class="d-flex flex-wrap gap-2">
+
+                        {{ form.submit(class="btn btn-primary") }}
+
+                        <a
+                            href="{{ url_for(
+                                'payroll_periods.list_periods'
+                            ) }}"
+                            class="btn btn-outline-secondary"
+                        >
+                            Cancel
+                        </a>
+
+                    </div>
+
+                </form>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+{% endblock %}

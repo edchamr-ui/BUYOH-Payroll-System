@@ -1,0 +1,493 @@
+{% extends "base.html" %}
+
+{% block title %}
+Payslips | BUYOH Payroll
+{% endblock %}
+
+{% block page_title %}
+Payslips
+{% endblock %}
+
+{% block content %}
+
+<div
+    class="d-flex flex-wrap justify-content-between
+           align-items-center gap-3 mb-4"
+>
+    <div>
+        <h2 class="h3 mb-1">
+            Generated Payslips
+        </h2>
+
+        <p class="text-muted mb-0">
+            Search, download and regenerate employee payslips.
+        </p>
+    </div>
+
+    <a
+        href="{{ url_for('payroll.index') }}"
+        class="btn btn-outline-primary"
+    >
+        <i class="bi bi-cash-stack me-2"></i>
+        View Payroll
+    </a>
+</div>
+
+<div class="row g-3 mb-4">
+
+    <div class="col-sm-6 col-lg-4">
+
+        <div class="app-card h-100">
+
+            <div class="card-body p-4">
+
+                <div class="text-muted small mb-1">
+                    Total Generated
+                </div>
+
+                <div class="h3 mb-0">
+                    {{ total_payslips }}
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+    <div class="col-sm-6 col-lg-4">
+
+        <div class="app-card h-100">
+
+            <div class="card-body p-4">
+
+                <div class="text-muted small mb-1">
+                    Displayed Results
+                </div>
+
+                <div class="h3 mb-0">
+                    {{ displayed_count }}
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+    <div class="col-sm-6 col-lg-4">
+
+        <div class="app-card h-100">
+
+            <div class="card-body p-4">
+
+                <div class="text-muted small mb-1">
+                    Selected Period
+                </div>
+
+                <div class="h5 mb-0">
+
+                    {% if selected_period_id %}
+
+                        {% for period in available_periods %}
+
+                            {% if period.id == selected_period_id %}
+                                {{ period.period_name }}
+                            {% endif %}
+
+                        {% endfor %}
+
+                    {% else %}
+                        All Periods
+                    {% endif %}
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+<div class="app-card mb-4">
+
+    <div class="card-body p-4">
+
+        <form
+            method="GET"
+            action="{{ url_for('payslips.index') }}"
+            class="row g-3 align-items-end"
+        >
+
+            <div class="col-lg-6">
+
+                <label
+                    for="q"
+                    class="form-label"
+                >
+                    Search Employee
+                </label>
+
+                <div class="input-group">
+
+                    <span class="input-group-text">
+                        <i class="bi bi-search"></i>
+                    </span>
+
+                    <input
+                        type="search"
+                        id="q"
+                        name="q"
+                        value="{{ search_term }}"
+                        class="form-control"
+                        placeholder="Name or employee number"
+                    >
+
+                </div>
+
+            </div>
+
+            <div class="col-lg-3">
+
+                <label
+                    for="period_id"
+                    class="form-label"
+                >
+                    Payroll Period
+                </label>
+
+                <select
+                    id="period_id"
+                    name="period_id"
+                    class="form-select"
+                >
+
+                    <option value="">
+                        All payroll periods
+                    </option>
+
+                    {% for period in available_periods %}
+
+                        <option
+                            value="{{ period.id }}"
+                            {% if period.id == selected_period_id %}
+                                selected
+                            {% endif %}
+                        >
+                            {{ period.period_name }}
+                        </option>
+
+                    {% endfor %}
+
+                </select>
+
+            </div>
+
+            <div class="col-lg-3">
+
+                <div class="d-flex gap-2">
+
+                    <button
+                        type="submit"
+                        class="btn btn-primary flex-grow-1"
+                    >
+                        <i class="bi bi-funnel me-1"></i>
+                        Filter
+                    </button>
+
+                    <a
+                        href="{{ url_for('payslips.index') }}"
+                        class="btn btn-outline-secondary"
+                        title="Clear filters"
+                    >
+                        <i class="bi bi-x-lg"></i>
+                    </a>
+
+                </div>
+
+            </div>
+
+        </form>
+
+    </div>
+
+</div>
+
+<div class="app-card">
+
+    <div class="card-body p-0">
+
+        {% if payslips %}
+
+            <div class="table-responsive">
+
+                <table
+                    class="table table-hover align-middle mb-0"
+                >
+
+                    <thead class="table-light">
+
+                        <tr>
+
+                            <th class="px-4 py-3">
+                                Employee
+                            </th>
+
+                            <th class="py-3">
+                                Department
+                            </th>
+
+                            <th class="py-3">
+                                Payroll Period
+                            </th>
+
+                            <th class="py-3 text-end">
+                                Net Pay
+                            </th>
+
+                            <th class="py-3">
+                                Generated
+                            </th>
+
+                            <th class="py-3">
+                                Generated By
+                            </th>
+
+                            <th class="px-4 py-3 text-end">
+                                Actions
+                            </th>
+
+                        </tr>
+
+                    </thead>
+
+                    <tbody>
+
+                        {% for payslip in payslips %}
+
+                            {% set record = payslip.payroll_record %}
+                            {% set employee = payslip.employee %}
+                            {% set period = record.payroll_period %}
+
+                            <tr>
+
+                                <td class="px-4">
+
+                                    <div class="fw-semibold">
+                                        {{ employee.first_name }}
+                                        {{ employee.last_name }}
+                                    </div>
+
+                                    <small class="text-muted">
+                                        {{ employee.employee_number }}
+                                    </small>
+
+                                </td>
+
+                                <td>
+
+                                    {% if employee.department %}
+                                        {{ employee.department.name }}
+                                    {% else %}
+                                        <span class="text-muted">
+                                            Not assigned
+                                        </span>
+                                    {% endif %}
+
+                                </td>
+
+                                <td>
+
+                                    <div class="fw-semibold">
+                                        {{ period.period_name }}
+                                    </div>
+
+                                    <small class="text-muted">
+                                        Paid:
+                                        {{
+                                            period.payment_date.strftime(
+                                                "%d %b %Y"
+                                            )
+                                        }}
+                                    </small>
+
+                                </td>
+
+                                <td class="text-end fw-semibold">
+                                    ${{ "{:,.2f}".format(
+                                        record.net_pay
+                                    ) }}
+                                </td>
+
+                                <td>
+
+                                    <div>
+                                        {{
+                                            payslip.generated_at.strftime(
+                                                "%d %b %Y"
+                                            )
+                                        }}
+                                    </div>
+
+                                    <small class="text-muted">
+                                        {{
+                                            payslip.generated_at.strftime(
+                                                "%H:%M"
+                                            )
+                                        }}
+                                    </small>
+
+                                </td>
+
+                                <td>
+
+                                    {% if payslip.generator %}
+
+                                        {% if
+                                            payslip.generator.first_name
+                                            or
+                                            payslip.generator.last_name
+                                        %}
+
+                                            {{
+                                                payslip.generator.first_name
+                                                or ""
+                                            }}
+                                            {{
+                                                payslip.generator.last_name
+                                                or ""
+                                            }}
+
+                                        {% else %}
+
+                                            {{ payslip.generator.username }}
+
+                                        {% endif %}
+
+                                    {% else %}
+
+                                        <span class="text-muted">
+                                            Unknown
+                                        </span>
+
+                                    {% endif %}
+
+                                </td>
+
+                                <td class="px-4">
+
+                                    <div
+                                        class="d-flex flex-wrap
+                                               justify-content-end gap-2"
+                                    >
+
+                                        <a
+                                            href="{{ url_for(
+                                                'payroll.download_payslip',
+                                                payslip_id=payslip.id
+                                            ) }}"
+                                            class="btn btn-sm btn-success"
+                                        >
+                                            <i
+                                                class="bi bi-download me-1"
+                                            ></i>
+                                            Download
+                                        </a>
+
+                                        <form
+                                            method="POST"
+                                            action="{{ url_for(
+                                                'payroll.generate_payslip',
+                                                record_id=record.id
+                                            ) }}"
+                                            onsubmit="return confirm(
+                                                'Regenerate this payslip? '
+                                                + 'The existing PDF will '
+                                                + 'be replaced.'
+                                            );"
+                                        >
+
+                                            {{ form.hidden_tag() }}
+
+                                            <button
+                                                type="submit"
+                                                class="btn btn-sm
+                                                       btn-outline-primary"
+                                            >
+                                                <i
+                                                    class="bi
+                                                           bi-arrow-clockwise
+                                                           me-1"
+                                                ></i>
+                                                Regenerate
+                                            </button>
+
+                                        </form>
+
+                                    </div>
+
+                                </td>
+
+                            </tr>
+
+                        {% endfor %}
+
+                    </tbody>
+
+                </table>
+
+            </div>
+
+        {% else %}
+
+            <div class="text-center py-5 px-3">
+
+                <i
+                    class="bi bi-file-earmark-text
+                           fs-1 text-muted"
+                ></i>
+
+                <h3 class="h5 mt-3">
+                    No payslips found
+                </h3>
+
+                {% if search_term or selected_period_id %}
+
+                    <p class="text-muted">
+                        No generated payslips match the selected
+                        search filters.
+                    </p>
+
+                    <a
+                        href="{{ url_for('payslips.index') }}"
+                        class="btn btn-outline-primary"
+                    >
+                        Clear Filters
+                    </a>
+
+                {% else %}
+
+                    <p class="text-muted">
+                        Generated employee payslips will appear here.
+                    </p>
+
+                    <a
+                        href="{{ url_for('payroll.index') }}"
+                        class="btn btn-primary"
+                    >
+                        Go to Payroll
+                    </a>
+
+                {% endif %}
+
+            </div>
+
+        {% endif %}
+
+    </div>
+
+</div>
+
+{% endblock %}

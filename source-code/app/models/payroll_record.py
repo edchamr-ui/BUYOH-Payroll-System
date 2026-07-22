@@ -4,7 +4,7 @@ from app.extensions import db
 
 
 class PayrollRecord(db.Model):
-    """Stores one employee's payroll calculation for one payroll period."""
+    """Stores one employee payroll calculation for one period."""
 
     __tablename__ = "payroll_records"
 
@@ -61,6 +61,12 @@ class PayrollRecord(db.Model):
         default=0,
     )
 
+    employer_nssa = db.Column(
+        db.Numeric(12, 2),
+        nullable=False,
+        default=0,
+    )
+
     paye = db.Column(
         db.Numeric(12, 2),
         nullable=False,
@@ -87,6 +93,12 @@ class PayrollRecord(db.Model):
     net_pay = db.Column(
         db.Numeric(12, 2),
         nullable=False,
+    )
+
+    employer_cost = db.Column(
+        db.Numeric(12, 2),
+        nullable=False,
+        default=0,
     )
 
     status = db.Column(
@@ -117,27 +129,25 @@ class PayrollRecord(db.Model):
     )
 
     allowances = db.relationship(
-    "Allowance",
-    back_populates="payroll_record",
-    lazy="select",
-    cascade="all, delete-orphan",
+        "Allowance",
+        back_populates="payroll_record",
+        lazy="select",
+        cascade="all, delete-orphan",
     )
 
     deductions = db.relationship(
-    "Deduction",
-    back_populates="payroll_record",
-    lazy="select",
-    cascade="all, delete-orphan",
+        "Deduction",
+        back_populates="payroll_record",
+        lazy="select",
+        cascade="all, delete-orphan",
     )
 
     payslip = db.relationship(
-    "Payslip",
-    back_populates="payroll_record",
-    uselist=False,
-    cascade="all, delete-orphan",
+        "Payslip",
+        back_populates="payroll_record",
+        uselist=False,
+        cascade="all, delete-orphan",
     )
-
-
 
     __table_args__ = (
         db.UniqueConstraint(
@@ -158,12 +168,24 @@ class PayrollRecord(db.Model):
             name="ck_payroll_record_allowances_non_negative",
         ),
         db.CheckConstraint(
+            "nssa >= 0",
+            name="ck_payroll_record_nssa_non_negative",
+        ),
+        db.CheckConstraint(
+            "employer_nssa >= 0",
+            name="ck_payroll_record_employer_nssa_non_negative",
+        ),
+        db.CheckConstraint(
             "total_deductions >= 0",
             name="ck_payroll_record_deductions_non_negative",
         ),
         db.CheckConstraint(
             "net_pay >= 0",
             name="ck_payroll_record_net_pay_non_negative",
+        ),
+        db.CheckConstraint(
+            "employer_cost >= 0",
+            name="ck_payroll_record_employer_cost_non_negative",
         ),
     )
 

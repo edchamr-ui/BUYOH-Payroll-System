@@ -8,3 +8,5 @@ from app.models.deduction import Deduction
 from app.models.payslip import Payslip
 from app.models.audit_log import AuditLog
 from app.models.setting import Setting
+from app.models.statutory_rule_set import StatutoryRuleSet
+from app.models.tax_band import TaxBand

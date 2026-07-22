@@ -23,6 +23,21 @@ class PayrollPeriod(db.Model):
         nullable=False,
     )
 
+    start_date = db.Column(
+        db.Date,
+        nullable=False,
+    )
+
+    end_date = db.Column(
+        db.Date,
+        nullable=False,
+    )
+
+    payment_date = db.Column(
+        db.Date,
+        nullable=False,
+    )
+
     status = db.Column(
         db.String(30),
         nullable=False,
@@ -45,6 +60,13 @@ class PayrollPeriod(db.Model):
         db.DateTime,
         nullable=False,
         default=datetime.utcnow,
+    )
+
+    updated_at = db.Column(
+        db.DateTime,
+        nullable=False,
+        default=datetime.utcnow,
+        onupdate=datetime.utcnow,
     )
 
     approved_at = db.Column(
@@ -80,7 +102,25 @@ class PayrollPeriod(db.Model):
             "month >= 1 AND month <= 12",
             name="ck_payroll_period_valid_month",
         ),
+        db.CheckConstraint(
+            "end_date >= start_date",
+            name="ck_payroll_period_valid_date_range",
+        ),
     )
+
+    @property
+    def period_name(self):
+        """Return a human-readable period name."""
+
+        from calendar import month_name
+
+        return f"{month_name[self.month]} {self.year}"
+
+    @property
+    def is_locked(self):
+        """Return whether the payroll period is locked."""
+
+        return self.status == "Locked"
 
     def __repr__(self):
         return f"<PayrollPeriod {self.month}/{self.year}>"

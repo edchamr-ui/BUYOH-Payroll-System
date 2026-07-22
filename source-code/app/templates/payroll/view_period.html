@@ -1,0 +1,427 @@
+{% extends "base.html" %}
+
+{% block title %}
+{{ period.period_name }} Payroll | BUYOH Payroll
+{% endblock %}
+
+{% block page_title %}
+Payroll Register
+{% endblock %}
+
+{% block content %}
+
+<div
+    class="d-flex flex-wrap justify-content-between
+           align-items-center gap-3 mb-4"
+>
+
+    <div>
+        <h2 class="h3 mb-1">
+            {{ period.period_name }}
+        </h2>
+
+        <p class="text-muted mb-0">
+            Payment date:
+            {{ period.payment_date.strftime("%d %B %Y") }}
+        </p>
+    </div>
+
+    <div class="d-flex flex-wrap gap-2">
+
+        {% if period.status == "Processing" %}
+
+            <form
+                method="POST"
+                action="{{ url_for(
+                    'payroll.process_payroll',
+                    period_id=period.id
+                ) }}"
+                onsubmit="return confirm(
+                    'Create payroll records for all active employees?'
+                );"
+            >
+                {{ form.hidden_tag() }}
+
+                <button
+                    type="submit"
+                    class="btn btn-primary"
+                >
+                    <i class="bi bi-play-circle me-2"></i>
+                    Process Payroll
+                </button>
+            </form>
+
+        {% endif %}
+
+        <a
+            href="{{ url_for('payroll.index') }}"
+            class="btn btn-outline-secondary"
+        >
+            <i class="bi bi-arrow-left me-1"></i>
+            Back
+        </a>
+
+    </div>
+
+</div>
+
+{% if period.status == "Draft" %}
+
+    <div class="alert alert-warning">
+        Move this payroll period to
+        <strong>Processing</strong>
+        before generating payroll records.
+    </div>
+
+{% endif %}
+
+<div class="row g-3 mb-4">
+
+    <div class="col-sm-6 col-xl-3">
+        <div class="app-card h-100">
+            <div class="card-body p-4">
+
+                <div class="text-muted small">
+                    Employees
+                </div>
+
+                <div class="h3 mb-0">
+                    {{ employee_count }}
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <div class="col-sm-6 col-xl-3">
+        <div class="app-card h-100">
+            <div class="card-body p-4">
+
+                <div class="text-muted small">
+                    Total Basic Salary
+                </div>
+
+                <div class="h3 mb-0">
+                    ${{ "{:,.2f}".format(
+                        total_basic_salary
+                    ) }}
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <div class="col-sm-6 col-xl-3">
+        <div class="app-card h-100">
+            <div class="card-body p-4">
+
+                <div class="text-muted small">
+                    Total Deductions
+                </div>
+
+                <div class="h3 mb-0">
+                    ${{ "{:,.2f}".format(
+                        total_deductions
+                    ) }}
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <div class="col-sm-6 col-xl-3">
+        <div class="app-card h-100">
+            <div class="card-body p-4">
+
+                <div class="text-muted small">
+                    Total Net Pay
+                </div>
+
+                <div class="h3 mb-0">
+                    ${{ "{:,.2f}".format(
+                        total_net_pay
+                    ) }}
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<div class="app-card">
+
+    <div class="card-body p-0">
+
+        {% if records %}
+
+            <div class="table-responsive">
+
+                <table
+                    class="table table-hover
+                           align-middle mb-0"
+                >
+
+                    <thead class="table-light">
+
+                        <tr>
+                            <th class="px-4 py-3">
+                                Employee
+                            </th>
+
+                            <th class="py-3">
+                                Department
+                            </th>
+
+                            <th class="py-3 text-end">
+                                Basic Salary
+                            </th>
+
+                            <th class="py-3 text-end">
+                                Gross Pay
+                            </th>
+
+                            <th class="py-3 text-end">
+                                Deductions
+                            </th>
+
+                            <th class="py-3 text-end">
+                                Net Pay
+                            </th>
+
+                            <th class="px-4 py-3 text-end">
+                                Payslip
+                            </th>
+                        </tr>
+
+                    </thead>
+
+                    <tbody>
+
+                        {% for record in records %}
+
+                            <tr>
+
+                                <td class="px-4">
+
+                                    <div class="fw-semibold">
+                                        {{ record.employee.first_name }}
+                                        {{ record.employee.last_name }}
+                                    </div>
+
+                                    <small class="text-muted">
+                                        {{
+                                            record.employee
+                                            .employee_number
+                                        }}
+                                    </small>
+
+                                </td>
+
+                                <td>
+                                    {% if record.employee.department %}
+                                        {{
+                                            record.employee
+                                            .department.name
+                                        }}
+                                    {% else %}
+                                        <span class="text-muted">
+                                            Not assigned
+                                        </span>
+                                    {% endif %}
+                                </td>
+
+                                <td class="text-end">
+                                    ${{ "{:,.2f}".format(
+                                        record.basic_salary
+                                    ) }}
+                                </td>
+
+                                <td class="text-end">
+                                    ${{ "{:,.2f}".format(
+                                        record.gross_pay
+                                    ) }}
+                                </td>
+
+                                <td class="text-end">
+                                    ${{ "{:,.2f}".format(
+                                        record.total_deductions
+                                    ) }}
+                                </td>
+
+                                <td
+                                    class="text-end fw-semibold"
+                                >
+                                    ${{ "{:,.2f}".format(
+                                        record.net_pay
+                                    ) }}
+                                </td>
+
+                                <td class="px-4">
+
+                                    <div
+                                        class="d-flex flex-wrap
+                                               justify-content-end
+                                               gap-2"
+                                    >
+
+                                        {% if record.payslip %}
+
+                                            <a
+                                                href="{{ url_for(
+                                                    'payroll.download_payslip',
+                                                    payslip_id=(
+                                                        record.payslip.id
+                                                    )
+                                                ) }}"
+                                                class="btn btn-sm
+                                                       btn-success"
+                                            >
+                                                <i
+                                                    class="bi
+                                                           bi-download
+                                                           me-1"
+                                                ></i>
+                                                Download
+                                            </a>
+
+                                            <form
+                                                method="POST"
+                                                action="{{ url_for(
+                                                    'payroll.generate_payslip',
+                                                    record_id=record.id
+                                                ) }}"
+                                                onsubmit="return confirm(
+                                                    'Regenerate this payslip? '
+                                                    + 'The existing PDF will '
+                                                    + 'be replaced.'
+                                                );"
+                                            >
+                                                {{ form.hidden_tag() }}
+
+                                                <button
+                                                    type="submit"
+                                                    class="btn btn-sm
+                                                           btn-outline-primary"
+                                                >
+                                                    <i
+                                                        class="bi
+                                                               bi-arrow-clockwise
+                                                               me-1"
+                                                    ></i>
+                                                    Regenerate
+                                                </button>
+
+                                            </form>
+
+                                        {% else %}
+
+                                            <form
+                                                method="POST"
+                                                action="{{ url_for(
+                                                    'payroll.generate_payslip',
+                                                    record_id=record.id
+                                                ) }}"
+                                            >
+                                                {{ form.hidden_tag() }}
+
+                                                <button
+                                                    type="submit"
+                                                    class="btn btn-sm
+                                                           btn-primary"
+                                                >
+                                                    <i
+                                                        class="bi
+                                                               bi-file-earmark-pdf
+                                                               me-1"
+                                                    ></i>
+                                                    Generate
+                                                </button>
+
+                                            </form>
+
+                                        {% endif %}
+
+                                    </div>
+
+                                </td>
+
+                            </tr>
+
+                        {% endfor %}
+
+                    </tbody>
+
+                    <tfoot class="table-light">
+
+                        <tr class="fw-semibold">
+
+                            <td class="px-4">
+                                Register Totals
+                            </td>
+
+                            <td>
+                                {{ employee_count }} employee(s)
+                            </td>
+
+                            <td class="text-end">
+                                ${{ "{:,.2f}".format(
+                                    total_basic_salary
+                                ) }}
+                            </td>
+
+                            <td class="text-end">
+                                ${{ "{:,.2f}".format(
+                                    total_gross_pay
+                                ) }}
+                            </td>
+
+                            <td class="text-end">
+                                ${{ "{:,.2f}".format(
+                                    total_deductions
+                                ) }}
+                            </td>
+
+                            <td class="text-end">
+                                ${{ "{:,.2f}".format(
+                                    total_net_pay
+                                ) }}
+                            </td>
+
+                            <td></td>
+
+                        </tr>
+
+                    </tfoot>
+
+                </table>
+
+            </div>
+
+        {% else %}
+
+            <div class="text-center py-5">
+
+                <i
+                    class="bi bi-receipt
+                           fs-1 text-muted"
+                ></i>
+
+                <h3 class="h5 mt-3">
+                    No payroll records
+                </h3>
+
+                <p class="text-muted mb-0">
+                    Move the period to Processing and click
+                    Process Payroll.
+                </p>
+
+            </div>
+
+        {% endif %}
+
+    </div>
+
+</div>
+
+{% endblock %}

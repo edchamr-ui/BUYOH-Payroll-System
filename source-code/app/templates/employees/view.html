@@ -1,0 +1,148 @@
+{% extends "base.html" %}
+
+{% block title %}
+{{ employee.first_name }} {{ employee.last_name }} | BUYOH Payroll
+{% endblock %}
+
+{% block page_title %}
+Employee Details
+{% endblock %}
+
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2 class="h3 mb-1">
+            {{ employee.first_name }} {{ employee.last_name }}
+        </h2>
+
+        <p class="text-muted mb-0">
+            Employee Number: {{ employee.employee_number }}
+        </p>
+    </div>
+
+    <div class="d-flex gap-2">
+        <a
+            href="{{ url_for(
+                'employees.edit_employee',
+                employee_id=employee.id
+            ) }}"
+            class="btn btn-primary"
+        >
+            <i class="bi bi-pencil-square me-2"></i>
+            Edit Employee
+        </a>
+
+        <a
+            href="{{ url_for('employees.list_employees') }}"
+            class="btn btn-outline-secondary"
+        >
+            Back to Employees
+        </a>
+    </div>
+</div>
+
+<div class="app-card">
+    <div class="card-body p-4">
+
+        <div class="row g-4">
+
+            <div class="col-md-6">
+                <p class="text-muted mb-1">
+                    Full Name
+                </p>
+
+                <p class="fw-semibold mb-0">
+                    {{ employee.first_name }}
+                    {{ employee.last_name }}
+                </p>
+            </div>
+
+            <div class="col-md-6">
+                <p class="text-muted mb-1">
+                    Employee Number
+                </p>
+
+                <p class="fw-semibold mb-0">
+                    {{ employee.employee_number }}
+                </p>
+            </div>
+
+            <div class="col-md-6">
+                <p class="text-muted mb-1">
+                    National ID
+                </p>
+
+                <p class="fw-semibold mb-0">
+                    {{ employee.national_id or "Not provided" }}
+                </p>
+            </div>
+
+            <div class="col-md-6">
+                <p class="text-muted mb-1">
+                    Department
+                </p>
+
+                <p class="fw-semibold mb-0">
+                    {% if employee.department %}
+                        {{ employee.department.name }}
+                    {% else %}
+                        No department
+                    {% endif %}
+                </p>
+            </div>
+
+            <div class="col-md-6">
+                <p class="text-muted mb-1">
+                    Job Title
+                </p>
+
+                <p class="fw-semibold mb-0">
+                    {{ employee.job_title }}
+                </p>
+            </div>
+
+            <div class="col-md-6">
+                <p class="text-muted mb-1">
+                    Employment Date
+                </p>
+
+                <p class="fw-semibold mb-0">
+                    {{ employee.employment_date.strftime("%d %B %Y") }}
+                </p>
+            </div>
+
+            <div class="col-md-6">
+                <p class="text-muted mb-1">
+                    Basic Salary
+                </p>
+
+                <p class="fw-semibold mb-0">
+                    ${{ "%.2f"|format(employee.basic_salary) }}
+                </p>
+            </div>
+
+            <div class="col-md-6">
+                <p class="text-muted mb-1">
+                    Employment Status
+                </p>
+
+                <p class="mb-0">
+                    {% if employee.is_active %}
+                        <span class="badge text-bg-success">
+                            {{ employee.employment_status }}
+                        </span>
+                    {% else %}
+                        <span class="badge text-bg-secondary">
+                            {{ employee.employment_status }}
+                        </span>
+                    {% endif %}
+                </p>
+            </div>
+
+        </div>
+
+    </div>
+</div>
+
+{% endblock %}

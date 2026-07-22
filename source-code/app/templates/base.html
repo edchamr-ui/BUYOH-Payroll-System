@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
 
@@ -24,55 +25,51 @@
 
     <style>
         body {
-            background-color: #f4f6f9;
+            background: #f4f6f9;
         }
 
         .sidebar {
             min-height: 100vh;
-            background-color: #212529;
+            background: #212529;
         }
 
-        .sidebar .brand {
-            color: #ffffff;
+        .brand {
+            color: white;
             font-size: 1.4rem;
             font-weight: 600;
             text-decoration: none;
         }
 
+        .brand:hover {
+            color: white;
+        }
+
         .sidebar .nav-link {
             color: #cfd3d7;
-            border-radius: 0.375rem;
+            border-radius: 0.4rem;
             margin-bottom: 0.25rem;
         }
 
         .sidebar .nav-link:hover,
         .sidebar .nav-link.active {
-            color: #ffffff;
-            background-color: #343a40;
+            color: white;
+            background: #343a40;
+        }
+
+        .topbar {
+            background: white;
+            border-bottom: 1px solid #dee2e6;
         }
 
         .main-content {
             min-height: 100vh;
         }
 
-        .topbar {
-            background-color: #ffffff;
-            border-bottom: 1px solid #dee2e6;
-        }
-
-        .stat-card {
+        .app-card {
+            background: white;
             border: none;
             border-radius: 0.75rem;
-        }
-
-        .stat-icon {
-            width: 48px;
-            height: 48px;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            border-radius: 0.75rem;
-            font-size: 1.4rem;
+            box-shadow: 0 0.15rem 0.5rem rgba(0, 0, 0, 0.08);
         }
     </style>
 </head>
@@ -80,60 +77,112 @@
 <body>
 
 <div class="container-fluid">
+
     <div class="row">
+
+        <!-- Sidebar -->
 
         <aside class="col-md-3 col-lg-2 px-0 sidebar">
 
             <div class="p-4">
+
                 <a
                     href="{{ url_for('home') }}"
                     class="brand"
                 >
                     BUYOH Payroll
                 </a>
+
             </div>
 
             <nav class="px-3">
 
+                <!-- Dashboard -->
+
                 <a
                     href="{{ url_for('home') }}"
-                    class="nav-link active"
+                    class="nav-link {% if request.endpoint == 'home' %}active{% endif %}"
                 >
                     <i class="bi bi-speedometer2 me-2"></i>
                     Dashboard
                 </a>
 
-                <a href="#" class="nav-link">
+                <!-- Employees -->
+
+                <a
+                    href="{{ url_for('employees.list_employees') }}"
+                    class="nav-link {% if request.blueprint == 'employees' %}active{% endif %}"
+                >
                     <i class="bi bi-people me-2"></i>
                     Employees
                 </a>
 
-                <a href="#" class="nav-link">
+                <!-- Departments -->
+
+                <a
+                    href="{{ url_for('departments.list_departments') }}"
+                    class="nav-link {% if request.blueprint == 'departments' %}active{% endif %}"
+                >
                     <i class="bi bi-building me-2"></i>
                     Departments
                 </a>
 
-                <a href="#" class="nav-link">
+                <!-- Payroll Periods -->
+
+                <a
+                    href="{{ url_for('payroll_periods.list_periods') }}"
+                    class="nav-link {% if request.blueprint == 'payroll_periods' %}active{% endif %}"
+                >
+                    <i class="bi bi-calendar3 me-2"></i>
+                    Payroll Periods
+                </a>
+
+                <!-- Payroll -->
+
+                <a
+                    href="{{ url_for('payroll.index') }}"
+                    class="nav-link {% if request.blueprint == 'payroll' %}active{% endif %}"
+                >
                     <i class="bi bi-cash-stack me-2"></i>
                     Payroll
                 </a>
 
-                <a href="#" class="nav-link">
+                <!-- Payslips -->
+
+                <a
+                    href="{{ url_for('payslips.index') }}"
+                    class="nav-link {% if request.blueprint == 'payslips' %}active{% endif %}"
+                >
                     <i class="bi bi-file-earmark-text me-2"></i>
                     Payslips
                 </a>
 
-                <a href="#" class="nav-link">
+                <!-- Reports -->
+
+                <a
+                    href="{{ url_for('reports.index') }}"
+                    class="nav-link {% if request.blueprint == 'reports' %}active{% endif %}"
+                >
                     <i class="bi bi-bar-chart me-2"></i>
                     Reports
                 </a>
 
-                <a href="#" class="nav-link">
+                <!-- Audit Logs -->
+
+                <a
+                    href="#"
+                    class="nav-link"
+                >
                     <i class="bi bi-shield-check me-2"></i>
                     Audit Logs
                 </a>
 
-                <a href="#" class="nav-link">
+                <!-- Settings -->
+
+                <a
+                    href="#"
+                    class="nav-link"
+                >
                     <i class="bi bi-gear me-2"></i>
                     Settings
                 </a>
@@ -142,21 +191,24 @@
 
         </aside>
 
+        <!-- Main Content -->
+
         <div class="col-md-9 col-lg-10 px-0 main-content">
 
             <header class="topbar px-4 py-3">
 
                 <div class="d-flex justify-content-between align-items-center">
 
-                    <div>
-                        <h1 class="h4 mb-0">
-                            {% block page_title %}Dashboard{% endblock %}
-                        </h1>
-                    </div>
+                    <h1 class="h4 mb-0">
+                        {% block page_title %}
+                            Dashboard
+                        {% endblock %}
+                    </h1>
 
                     <div class="d-flex align-items-center gap-3">
 
                         <div class="text-end">
+
                             <div class="fw-semibold">
                                 {{ current_user.full_name }}
                             </div>
@@ -164,12 +216,14 @@
                             <small class="text-muted">
                                 {{ current_user.role }}
                             </small>
+
                         </div>
 
                         <form
                             method="POST"
                             action="{{ url_for('auth.logout') }}"
                         >
+
                             <button
                                 type="submit"
                                 class="btn btn-outline-danger btn-sm"
@@ -177,6 +231,7 @@
                                 <i class="bi bi-box-arrow-right me-1"></i>
                                 Log out
                             </button>
+
                         </form>
 
                     </div>
@@ -188,34 +243,49 @@
             <main class="p-4">
 
                 {% with messages = get_flashed_messages(with_categories=true) %}
-                    {% for category, message in messages %}
-                        <div
-                            class="alert alert-{{ category }} alert-dismissible fade show"
-                            role="alert"
-                        >
-                            {{ message }}
 
-                            <button
-                                type="button"
-                                class="btn-close"
-                                data-bs-dismiss="alert"
-                            ></button>
-                        </div>
-                    {% endfor %}
+                    {% if messages %}
+
+                        {% for category, message in messages %}
+
+                            <div
+                                class="alert alert-{{ category }} alert-dismissible fade show"
+                                role="alert"
+                            >
+                                {{ message }}
+
+                                <button
+                                    type="button"
+                                    class="btn-close"
+                                    data-bs-dismiss="alert"
+                                    aria-label="Close"
+                                ></button>
+                            </div>
+
+                        {% endfor %}
+
+                    {% endif %}
+
                 {% endwith %}
 
-                {% block content %}{% endblock %}
+                {% block content %}
+                {% endblock %}
 
             </main>
 
         </div>
 
     </div>
+
 </div>
 
 <script
     src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"
 ></script>
 
+{% block scripts %}
+{% endblock %}
+
 </body>
+
 </html>
