@@ -6,10 +6,27 @@ from wtforms import (
     StringField,
     SubmitField,
 )
-from wtforms.validators import DataRequired, Length, NumberRange, Optional
+from wtforms.validators import (
+    DataRequired,
+    Length,
+    NumberRange,
+    Optional,
+    ValidationError,
+)
+
+from wtforms.validators import (
+    DataRequired,
+    Email,
+    Length,
+    NumberRange,
+    Optional,
+    ValidationError,
+)
 
 
 class EmployeeForm(FlaskForm):
+    """Validate employee, payment method and banking information."""
+
     employee_number = StringField(
         "Employee Number",
         validators=[
@@ -34,6 +51,19 @@ class EmployeeForm(FlaskForm):
         ],
     )
 
+    email = StringField(
+        "Email Address",
+       validators=[
+           Optional(),
+           Email(
+               message="Enter a valid email address."
+           ),
+           Length(max=255),
+        ],
+    )
+
+
+
     national_id = StringField(
         "National ID",
         validators=[
@@ -53,12 +83,16 @@ class EmployeeForm(FlaskForm):
     department_id = SelectField(
         "Department",
         coerce=int,
-        validators=[DataRequired()],
+        validators=[
+            DataRequired(),
+        ],
     )
 
     employment_date = DateField(
         "Employment Date",
-        validators=[DataRequired()],
+        validators=[
+            DataRequired(),
+        ],
     )
 
     basic_salary = DecimalField(
@@ -78,7 +112,109 @@ class EmployeeForm(FlaskForm):
             ("Suspended", "Suspended"),
             ("Terminated", "Terminated"),
         ],
-        validators=[DataRequired()],
+        validators=[
+            DataRequired(),
+        ],
+    )
+
+    payment_method = SelectField(
+        "Payment Method",
+        choices=[
+            ("Cash", "Cash"),
+            ("Bank Transfer", "Bank Transfer"),
+        ],
+        default="Cash",
+        validators=[
+            DataRequired(),
+        ],
+    )
+
+    bank_name = StringField(
+        "Bank Name",
+        validators=[
+            Optional(),
+            Length(max=100),
+        ],
+    )
+
+    bank_branch = StringField(
+        "Bank Branch",
+        validators=[
+            Optional(),
+            Length(max=100),
+        ],
+    )
+
+    bank_code = StringField(
+        "Bank Code",
+        validators=[
+            Optional(),
+            Length(max=20),
+        ],
+    )
+
+    account_name = StringField(
+        "Account Name",
+        validators=[
+            Optional(),
+            Length(max=150),
+        ],
+    )
+
+    account_number = StringField(
+        "Account Number",
+        validators=[
+            Optional(),
+            Length(max=50),
+        ],
+    )
+
+    account_type = SelectField(
+        "Account Type",
+        choices=[
+            ("", "Select Account Type"),
+            ("Current", "Current"),
+            ("Savings", "Savings"),
+            ("Cheque", "Cheque"),
+            ("Other", "Other"),
+        ],
+        validators=[
+            Optional(),
+        ],
     )
 
     submit = SubmitField("Save Employee")
+
+    def validate_bank_name(self, field):
+        """Require a bank name for bank-transfer employees."""
+
+        if (
+            self.payment_method.data == "Bank Transfer"
+            and not field.data
+        ):
+            raise ValidationError(
+                "Bank name is required for bank transfers."
+            )
+
+    def validate_account_name(self, field):
+        """Require an account name for bank-transfer employees."""
+
+        if (
+            self.payment_method.data == "Bank Transfer"
+            and not field.data
+        ):
+            raise ValidationError(
+                "Account name is required for bank transfers."
+            )
+
+    def validate_account_number(self, field):
+        """Require an account number for bank-transfer employees."""
+
+        if (
+            self.payment_method.data == "Bank Transfer"
+            and not field.data
+        ):
+            raise ValidationError(
+                "Account number is required for bank transfers."
+            )
+

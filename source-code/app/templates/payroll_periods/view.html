@@ -12,13 +12,15 @@ Payroll Period Details
 
 {% set badge_classes = {
     "Draft": "secondary",
-    "Processing": "warning",
-    "Approved": "primary",
-    "Paid": "success",
+    "Processed": "info",
+    "Approved": "success",
     "Locked": "dark"
 } %}
 
-<div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+<div
+    class="d-flex flex-wrap justify-content-between
+           align-items-center gap-3 mb-4"
+>
 
     <div>
 
@@ -57,6 +59,17 @@ Payroll Period Details
 
         <a
             href="{{ url_for(
+                'payroll.view_period_payroll',
+                period_id=period.id
+            ) }}"
+            class="btn btn-primary"
+        >
+            <i class="bi bi-wallet2 me-1"></i>
+            Open Payroll Register
+        </a>
+
+        <a
+            href="{{ url_for(
                 'payroll_periods.list_periods'
             ) }}"
             class="btn btn-outline-secondary"
@@ -84,6 +97,7 @@ Payroll Period Details
                 <div class="row g-4">
 
                     <div class="col-md-6">
+
                         <div class="text-muted small mb-1">
                             Payroll Period
                         </div>
@@ -92,9 +106,11 @@ Payroll Period Details
                             {{ month_name[period.month] }}
                             {{ period.year }}
                         </div>
+
                     </div>
 
                     <div class="col-md-6">
+
                         <div class="text-muted small mb-1">
                             Current Status
                         </div>
@@ -107,9 +123,11 @@ Payroll Period Details
                         >
                             {{ period.status }}
                         </span>
+
                     </div>
 
                     <div class="col-md-6">
+
                         <div class="text-muted small mb-1">
                             Start Date
                         </div>
@@ -119,9 +137,11 @@ Payroll Period Details
                                 "%d %B %Y"
                             ) }}
                         </div>
+
                     </div>
 
                     <div class="col-md-6">
+
                         <div class="text-muted small mb-1">
                             End Date
                         </div>
@@ -131,9 +151,11 @@ Payroll Period Details
                                 "%d %B %Y"
                             ) }}
                         </div>
+
                     </div>
 
                     <div class="col-md-6">
+
                         <div class="text-muted small mb-1">
                             Payment Date
                         </div>
@@ -143,19 +165,29 @@ Payroll Period Details
                                 "%d %B %Y"
                             ) }}
                         </div>
+
                     </div>
 
                     <div class="col-md-6">
+
                         <div class="text-muted small mb-1">
                             Created By
                         </div>
 
                         <div class="fw-semibold">
-                            {{ period.creator.full_name }}
+                            {% if period.creator %}
+                                {{ period.creator.full_name }}
+                            {% else %}
+                                <span class="text-muted">
+                                    Unknown
+                                </span>
+                            {% endif %}
                         </div>
+
                     </div>
 
                     <div class="col-md-6">
+
                         <div class="text-muted small mb-1">
                             Created At
                         </div>
@@ -165,6 +197,7 @@ Payroll Period Details
                                 "%d %B %Y, %H:%M"
                             ) }}
                         </div>
+
                     </div>
 
                     <div class="col-md-6">
@@ -187,23 +220,69 @@ Payroll Period Details
 
                     </div>
 
-                    {% if period.approved_at %}
+                    <div class="col-md-6">
 
-                        <div class="col-md-6">
+                        <div class="text-muted small mb-1">
+                            Approved At
+                        </div>
 
-                            <div class="text-muted small mb-1">
-                                Approved At
-                            </div>
+                        <div class="fw-semibold">
 
-                            <div class="fw-semibold">
+                            {% if period.approved_at %}
                                 {{ period.approved_at.strftime(
                                     "%d %B %Y, %H:%M"
                                 ) }}
-                            </div>
+                            {% else %}
+                                <span class="text-muted">
+                                    Not approved
+                                </span>
+                            {% endif %}
 
                         </div>
 
-                    {% endif %}
+                    </div>
+
+                    <div class="col-md-6">
+
+                        <div class="text-muted small mb-1">
+                            Locked By
+                        </div>
+
+                        <div class="fw-semibold">
+
+                            {% if period.locker %}
+                                {{ period.locker.full_name }}
+                            {% else %}
+                                <span class="text-muted">
+                                    Not locked
+                                </span>
+                            {% endif %}
+
+                        </div>
+
+                    </div>
+
+                    <div class="col-md-6">
+
+                        <div class="text-muted small mb-1">
+                            Locked At
+                        </div>
+
+                        <div class="fw-semibold">
+
+                            {% if period.locked_at %}
+                                {{ period.locked_at.strftime(
+                                    "%d %B %Y, %H:%M"
+                                ) }}
+                            {% else %}
+                                <span class="text-muted">
+                                    Not locked
+                                </span>
+                            {% endif %}
+
+                        </div>
+
+                    </div>
 
                 </div>
 
@@ -215,97 +294,85 @@ Payroll Period Details
 
     <div class="col-lg-4">
 
-        <div class="app-card">
+        <div class="app-card h-100">
 
             <div class="card-body p-4">
 
                 <h3 class="h5 mb-3">
-                    Payroll Workflow
+                    Payroll Lifecycle
                 </h3>
 
-                <div class="mb-4">
+                <div class="small text-muted mb-3">
+                    Status progression
+                </div>
 
-                    <div class="small text-muted mb-2">
-                        Status progression
+                <div class="d-flex flex-column gap-2 mb-4">
+
+                    <div>
+                        <span
+                            class="badge text-bg-secondary"
+                        >
+                            Draft
+                        </span>
                     </div>
 
-                    <div class="small">
-                        Draft
-                        <i class="bi bi-arrow-right mx-1"></i>
-                        Processing
-                        <i class="bi bi-arrow-right mx-1"></i>
-                        Approved
-                        <i class="bi bi-arrow-right mx-1"></i>
-                        Paid
-                        <i class="bi bi-arrow-right mx-1"></i>
-                        Locked
+                    <div class="ps-3">
+                        <i class="bi bi-arrow-down"></i>
+                    </div>
+
+                    <div>
+                        <span
+                            class="badge text-bg-info"
+                        >
+                            Processed
+                        </span>
+                    </div>
+
+                    <div class="ps-3">
+                        <i class="bi bi-arrow-down"></i>
+                    </div>
+
+                    <div>
+                        <span
+                            class="badge text-bg-success"
+                        >
+                            Approved
+                        </span>
+                    </div>
+
+                    <div class="ps-3">
+                        <i class="bi bi-arrow-down"></i>
+                    </div>
+
+                    <div>
+                        <span
+                            class="badge text-bg-dark"
+                        >
+                            Locked
+                        </span>
                     </div>
 
                 </div>
 
-                {% if next_status %}
+                <div class="alert alert-light border mb-4">
 
-                    <form
-                        method="POST"
-                        action="{{ url_for(
-                            'payroll_periods.advance_status',
-                            period_id=period.id
-                        ) }}"
-                        onsubmit="return confirm(
-                            'Move this payroll period from {{ period.status }} to {{ next_status }}?'
-                        );"
-                    >
+                    <i class="bi bi-info-circle me-2"></i>
 
-                        {{ action_form.hidden_tag() }}
+                    Payroll processing, approval and locking
+                    are performed from the Payroll Register.
 
-                        <button
-                            type="submit"
-                            class="btn btn-primary w-100"
-                        >
+                </div>
 
-                            {% if next_status == "Processing" %}
-
-                                <i class="bi bi-play-circle me-2"></i>
-                                Start Processing
-
-                            {% elif next_status == "Approved" %}
-
-                                <i class="bi bi-check-circle me-2"></i>
-                                Approve Payroll
-
-                            {% elif next_status == "Paid" %}
-
-                                <i class="bi bi-cash-coin me-2"></i>
-                                Mark as Paid
-
-                            {% elif next_status == "Locked" %}
-
-                                <i class="bi bi-lock me-2"></i>
-                                Lock Payroll Period
-
-                            {% endif %}
-
-                        </button>
-
-                    </form>
-
-                    <p class="small text-muted mt-3 mb-0">
-                        The next status will be
-                        <strong>{{ next_status }}</strong>.
-                    </p>
-
-                {% else %}
-
-                    <div class="alert alert-dark mb-0">
-
-                        <i class="bi bi-lock-fill me-2"></i>
-
-                        This payroll period is locked and cannot
-                        be edited.
-
-                    </div>
-
-                {% endif %}
+                <a
+                    href="{{ url_for(
+                        'payroll.view_period_payroll',
+                        period_id=period.id
+                    ) }}"
+                    class="btn btn-primary w-100"
+                >
+                    <i class="bi bi-wallet2 me-2"></i>
+                    Open Payroll Register
+                </a>
 
             </div>
 

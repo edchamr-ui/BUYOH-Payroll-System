@@ -96,6 +96,14 @@ def create_app():
 
     app.register_blueprint(reports_bp)
 
+    # Register audit logs blueprint
+    from app.audit_logs import audit_logs_bp
+
+    app.register_blueprint(audit_logs_bp)
+
+
+
+
     @app.route("/")
     @login_required
     def home():

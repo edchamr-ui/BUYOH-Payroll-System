@@ -1,5 +1,7 @@
+"""Payroll period management routes."""
+
 from calendar import month_name
-from datetime import datetime, timedelta
+from datetime import timedelta
 
 from flask import (
     flash,
@@ -16,18 +18,7 @@ from sqlalchemy.exc import IntegrityError
 from app.extensions import db
 from app.models import PayrollPeriod
 from app.payroll_periods import payroll_periods_bp
-from app.payroll_periods.forms import (
-    PayrollPeriodActionForm,
-    PayrollPeriodForm,
-)
-
-
-STATUS_TRANSITIONS = {
-    "Draft": "Processing",
-    "Processing": "Approved",
-    "Approved": "Paid",
-    "Paid": "Locked",
-}
+from app.payroll_periods.forms import PayrollPeriodForm
 
 
 def validate_period_dates(form):
@@ -208,18 +199,14 @@ def add_period():
 def view_period(period_id):
     """Display one payroll period."""
 
-    period = PayrollPeriod.query.get_or_404(period_id)
-
-    action_form = PayrollPeriodActionForm()
-
-    next_status = STATUS_TRANSITIONS.get(period.status)
+    period = PayrollPeriod.query.get_or_404(
+        period_id
+    )
 
     return render_template(
         "payroll_periods/view.html",
         period=period,
         month_name=month_name,
-        action_form=action_form,
-        next_status=next_status,
     )
 
 
@@ -231,7 +218,9 @@ def view_period(period_id):
 def edit_period(period_id):
     """Edit a payroll period while it remains in Draft."""
 
-    period = PayrollPeriod.query.get_or_404(period_id)
+    period = PayrollPeriod.query.get_or_404(
+        period_id
+    )
 
     if period.status != "Draft":
         flash(
@@ -323,83 +312,4 @@ def edit_period(period_id):
         form=form,
         page_heading="Edit Payroll Period",
         period=period,
-    )
-
-
-@payroll_periods_bp.route(
-    "/<int:period_id>/advance-status",
-    methods=["POST"],
-)
-@login_required
-def advance_status(period_id):
-    """Advance a payroll period through its workflow."""
-
-    period = PayrollPeriod.query.get_or_404(period_id)
-
-    form = PayrollPeriodActionForm()
-
-    if not form.validate_on_submit():
-        flash(
-            "The payroll status request could not be validated.",
-            "danger",
-        )
-
-        return redirect(
-            url_for(
-                "payroll_periods.view_period",
-                period_id=period.id,
-            )
-        )
-
-    next_status = STATUS_TRANSITIONS.get(period.status)
-
-    if not next_status:
-        flash(
-            "This payroll period is already locked.",
-            "warning",
-        )
-
-        return redirect(
-            url_for(
-                "payroll_periods.view_period",
-                period_id=period.id,
-            )
-        )
-
-    previous_status = period.status
-    period.status = next_status
-
-    if next_status == "Approved":
-        period.approved_by = current_user.id
-        period.approved_at = datetime.utcnow()
-
-    try:
-        db.session.commit()
-
-    except Exception:
-        db.session.rollback()
-
-        flash(
-            "The payroll period status could not be updated.",
-            "danger",
-        )
-
-        return redirect(
-            url_for(
-                "payroll_periods.view_period",
-                period_id=period.id,
-            )
-        )
-
-    flash(
-        f"Payroll period moved from {previous_status} "
-        f"to {next_status}.",
-        "success",
-    )
-
-    return redirect(
-        url_for(
-            "payroll_periods.view_period",
-            period_id=period.id,
-        )
     )

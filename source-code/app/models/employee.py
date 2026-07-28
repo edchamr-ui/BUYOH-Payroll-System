@@ -34,6 +34,14 @@ class Employee(db.Model):
         nullable=False,
     )
 
+    email = db.Column(
+    db.String(255),
+    unique=True,
+    nullable=True,
+    index=True,
+    )
+
+
     national_id = db.Column(
         db.String(50),
         unique=True,
@@ -59,6 +67,49 @@ class Employee(db.Model):
         db.Numeric(12, 2),
         nullable=False,
     )
+
+    payment_method = db.Column(
+        db.String(30),
+        nullable=False,
+        default="Cash",
+        server_default="Cash",
+    )
+
+    # --------------------------------------------------
+    # Banking Information
+    # --------------------------------------------------
+
+    bank_name = db.Column(
+        db.String(100),
+        nullable=True,
+    )
+
+    bank_branch = db.Column(
+        db.String(100),
+        nullable=True,
+    )
+
+    bank_code = db.Column(
+        db.String(20),
+        nullable=True,
+    )
+
+    account_name = db.Column(
+        db.String(150),
+        nullable=True,
+    )
+
+    account_number = db.Column(
+        db.String(50),
+        nullable=True,
+    )
+
+    account_type = db.Column(
+        db.String(20),
+        nullable=True,
+    )
+
+    # --------------------------------------------------
 
     employment_status = db.Column(
         db.String(30),
@@ -91,27 +142,27 @@ class Employee(db.Model):
     )
 
     payroll_records = db.relationship(
-    "PayrollRecord",
-    back_populates="employee",
-    lazy="select",
+        "PayrollRecord",
+        back_populates="employee",
+        lazy="select",
     )
 
     allowances = db.relationship(
-    "Allowance",
-    back_populates="employee",
-    lazy="select",
+        "Allowance",
+        back_populates="employee",
+        lazy="select",
     )
 
     deductions = db.relationship(
-    "Deduction",
-    back_populates="employee",
-    lazy="select",
+        "Deduction",
+        back_populates="employee",
+        lazy="select",
     )
 
     payslips = db.relationship(
-    "Payslip",
-    back_populates="employee",
-    lazy="select",
+        "Payslip",
+        back_populates="employee",
+        lazy="select",
     )
 
     def __repr__(self):

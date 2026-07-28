@@ -28,7 +28,22 @@ Payroll Register
 
     <div class="d-flex flex-wrap gap-2">
 
-        {% if period.status == "Processing" %}
+        {% if records %}
+
+            <a
+                href="{{ url_for(
+                    'payroll.download_bulk_payslips',
+                    period_id=period.id
+                ) }}"
+                class="btn btn-outline-primary"
+            >
+                <i class="bi bi-files me-2"></i>
+                Download All Payslips
+            </a>
+
+        {% endif %}
+
+        {% if period.status == "Draft" %}
 
             <form
                 method="POST"
@@ -37,7 +52,7 @@ Payroll Register
                     period_id=period.id
                 ) }}"
                 onsubmit="return confirm(
-                    'Create payroll records for all active employees?'
+                    'Process payroll for all active employees?'
                 );"
             >
                 {{ form.hidden_tag() }}
@@ -50,6 +65,87 @@ Payroll Register
                     Process Payroll
                 </button>
             </form>
+
+        {% elif period.status == "Processed" %}
+
+            <form
+                method="POST"
+                action="{{ url_for(
+                    'payroll.approve_payroll',
+                    period_id=period.id
+                ) }}"
+                onsubmit="return confirm(
+                    'Approve this payroll period?'
+                );"
+            >
+                {{ form.hidden_tag() }}
+
+                <button
+                    type="submit"
+                    class="btn btn-success"
+                >
+                    <i class="bi bi-check-circle me-2"></i>
+                    Approve Payroll
+                </button>
+            </form>
+
+        {% elif period.status == "Approved" %}
+
+            <form
+                method="POST"
+                action="{{ url_for(
+                    'payroll.lock_payroll',
+                    period_id=period.id
+                ) }}"
+                onsubmit="return confirm(
+                    'Lock this payroll period? '
+                    + 'No further changes will be allowed.'
+                );"
+            >
+                {{ form.hidden_tag() }}
+
+                <button
+                    type="submit"
+                    class="btn btn-danger"
+                >
+                    <i class="bi bi-lock me-2"></i>
+                    Lock Payroll
+                </button>
+            </form>
+
+        {% elif period.status == "Locked" %}
+
+            {% if current_user.role == "Admin" %}
+
+                <form
+                    method="POST"
+                    action="{{ url_for(
+                        'payroll.reopen_payroll',
+                        period_id=period.id
+                    ) }}"
+                    onsubmit="return confirm(
+                        'Reopen this locked payroll period?'
+                    );"
+                >
+                    {{ form.hidden_tag() }}
+
+                    <button
+                        type="submit"
+                        class="btn btn-warning"
+                    >
+                        <i class="bi bi-unlock me-2"></i>
+                        Reopen Payroll
+                    </button>
+                </form>
+
+            {% else %}
+
+                <span class="badge bg-danger fs-6">
+                    <i class="bi bi-lock-fill me-1"></i>
+                    Payroll Locked
+                </span>
+
+            {% endif %}
 
         {% endif %}
 
@@ -67,10 +163,38 @@ Payroll Register
 
 {% if period.status == "Draft" %}
 
-    <div class="alert alert-warning">
-        Move this payroll period to
-        <strong>Processing</strong>
-        before generating payroll records.
+    <div class="alert alert-secondary">
+        <strong>Status:</strong>
+        Draft
+        <br>
+        This payroll period is ready for processing.
+    </div>
+
+{% elif period.status == "Processed" %}
+
+    <div class="alert alert-info">
+        <strong>Status:</strong>
+        Processed
+        <br>
+        Payroll has been processed and is awaiting approval.
+    </div>
+
+{% elif period.status == "Approved" %}
+
+    <div class="alert alert-success">
+        <strong>Status:</strong>
+        Approved
+        <br>
+        Payroll has been approved and is ready to be locked.
+    </div>
+
+{% elif period.status == "Locked" %}
+
+    <div class="alert alert-danger">
+        <strong>Status:</strong>
+        Locked
+        <br>
+        This payroll period is read-only.
     </div>
 
 {% endif %}
@@ -219,16 +343,22 @@ Payroll Register
                                 </td>
 
                                 <td>
+
                                     {% if record.employee.department %}
+
                                         {{
                                             record.employee
                                             .department.name
                                         }}
+
                                     {% else %}
+
                                         <span class="text-muted">
                                             Not assigned
                                         </span>
+
                                     {% endif %}
+
                                 </td>
 
                                 <td class="text-end">
@@ -249,9 +379,7 @@ Payroll Register
                                     ) }}
                                 </td>
 
-                                <td
-                                    class="text-end fw-semibold"
-                                >
+                                <td class="text-end fw-semibold">
                                     ${{ "{:,.2f}".format(
                                         record.net_pay
                                     ) }}
@@ -285,60 +413,79 @@ Payroll Register
                                                 Download
                                             </a>
 
-                                            <form
-                                                method="POST"
-                                                action="{{ url_for(
-                                                    'payroll.generate_payslip',
-                                                    record_id=record.id
-                                                ) }}"
-                                                onsubmit="return confirm(
-                                                    'Regenerate this payslip? '
-                                                    + 'The existing PDF will '
-                                                    + 'be replaced.'
-                                                );"
-                                            >
-                                                {{ form.hidden_tag() }}
+                                            {% if period.status != "Locked" %}
 
-                                                <button
-                                                    type="submit"
-                                                    class="btn btn-sm
-                                                           btn-outline-primary"
+                                                <form
+                                                    method="POST"
+                                                    action="{{ url_for(
+                                                        'payroll.generate_payslip',
+                                                        record_id=record.id
+                                                    ) }}"
+                                                    onsubmit="return confirm(
+                                                        'Regenerate this '
+                                                        + 'payslip? '
+                                                        + 'The existing PDF '
+                                                        + 'will be replaced.'
+                                                    );"
                                                 >
-                                                    <i
-                                                        class="bi
-                                                               bi-arrow-clockwise
-                                                               me-1"
-                                                    ></i>
-                                                    Regenerate
-                                                </button>
 
-                                            </form>
+                                                    {{ form.hidden_tag() }}
+
+                                                    <button
+                                                        type="submit"
+                                                        class="btn btn-sm
+                                                               btn-outline-primary"
+                                                    >
+                                                        <i
+                                                            class="bi
+                                                                   bi-arrow-clockwise
+                                                                   me-1"
+                                                        ></i>
+                                                        Regenerate
+                                                    </button>
+
+                                                </form>
+
+                                            {% endif %}
 
                                         {% else %}
 
-                                            <form
-                                                method="POST"
-                                                action="{{ url_for(
-                                                    'payroll.generate_payslip',
-                                                    record_id=record.id
-                                                ) }}"
-                                            >
-                                                {{ form.hidden_tag() }}
+                                            {% if period.status != "Locked" %}
 
-                                                <button
-                                                    type="submit"
-                                                    class="btn btn-sm
-                                                           btn-primary"
+                                                <form
+                                                    method="POST"
+                                                    action="{{ url_for(
+                                                        'payroll.generate_payslip',
+                                                        record_id=record.id
+                                                    ) }}"
                                                 >
-                                                    <i
-                                                        class="bi
-                                                               bi-file-earmark-pdf
-                                                               me-1"
-                                                    ></i>
-                                                    Generate
-                                                </button>
 
-                                            </form>
+                                                    {{ form.hidden_tag() }}
+
+                                                    <button
+                                                        type="submit"
+                                                        class="btn btn-sm
+                                                               btn-primary"
+                                                    >
+                                                        <i
+                                                            class="bi
+                                                                   bi-file-earmark-pdf
+                                                                   me-1"
+                                                        ></i>
+                                                        Generate
+                                                    </button>
+
+                                                </form>
+
+                                            {% else %}
+
+                                                <span
+                                                    class="text-muted small"
+                                                >
+                                                    Not generated
+                                                </span>
+
+                                            {% endif %}
 
                                         {% endif %}
 
@@ -411,10 +558,35 @@ Payroll Register
                     No payroll records
                 </h3>
 
-                <p class="text-muted mb-0">
-                    Move the period to Processing and click
-                    Process Payroll.
-                </p>
+                {% if period.status == "Draft" %}
+
+                    <p class="text-muted mb-0">
+                        Click Process Payroll to generate
+                        payroll records for active employees.
+                    </p>
+
+                {% elif period.status == "Processed" %}
+
+                    <p class="text-muted mb-0">
+                        Payroll is marked as processed, but no
+                        payroll records are available.
+                    </p>
+
+                {% elif period.status == "Approved" %}
+
+                    <p class="text-muted mb-0">
+                        Payroll is approved, but no payroll
+                        records are available.
+                    </p>
+
+                {% elif period.status == "Locked" %}
+
+                    <p class="text-muted mb-0">
+                        This locked payroll period contains no
+                        payroll records.
+                    </p>
+
+                {% endif %}
 
             </div>
 

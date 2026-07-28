@@ -33,6 +33,17 @@ from app.services.payslip_service import (
     PayslipService,
 )
 
+from app.payroll.workflow_service import (
+    PayrollWorkflowError,
+    PayrollWorkflowService,
+)
+
+from app.services.bulk_payslip_service import (
+    BulkPayslipService,
+    BulkPayslipServiceError,
+    NoPayrollRecordsError,
+)
+
 
 @payroll_bp.route("/")
 @login_required
@@ -95,6 +106,25 @@ def process_payroll(period_id):
     period = PayrollPeriod.query.get_or_404(
         period_id
     )
+
+    try:
+        PayrollWorkflowService.ensure_processable(
+            payroll_period=period,
+        )
+
+    except PayrollWorkflowError as error:
+        flash(
+            str(error),
+            "warning",
+        )
+
+        return redirect(
+            url_for(
+                "payroll.view_period_payroll",
+                period_id=period.id,
+            )
+        )
+
 
     form = PayrollProcessForm()
 
@@ -161,6 +191,183 @@ def process_payroll(period_id):
                 "active employees in this period.",
                 "info",
             )
+
+    return redirect(
+        url_for(
+            "payroll.view_period_payroll",
+            period_id=period.id,
+        )
+    )
+
+@payroll_bp.route(
+    "/period/<int:period_id>/approve",
+    methods=["POST"],
+)
+@login_required
+def approve_payroll(period_id):
+    """Approve a successfully processed payroll period."""
+
+    period = PayrollPeriod.query.get_or_404(
+        period_id
+    )
+
+    form = PayrollProcessForm()
+
+    if not form.validate_on_submit():
+        flash(
+            "The payroll approval request could not "
+            "be validated.",
+            "danger",
+        )
+
+        return redirect(
+            url_for(
+                "payroll.view_period_payroll",
+                period_id=period.id,
+            )
+        )
+
+    try:
+        PayrollWorkflowService.approve_period(
+            payroll_period=period,
+            user_id=current_user.id,
+        )
+
+    except PayrollWorkflowError as error:
+        flash(
+            str(error),
+            "warning",
+        )
+
+    else:
+        flash(
+            f"{period.period_name} payroll was approved "
+            f"successfully.",
+            "success",
+        )
+
+    return redirect(
+        url_for(
+            "payroll.view_period_payroll",
+            period_id=period.id,
+        )
+    )
+
+
+@payroll_bp.route(
+    "/period/<int:period_id>/lock",
+    methods=["POST"],
+)
+@login_required
+def lock_payroll(period_id):
+    """Lock an approved payroll period."""
+
+    period = PayrollPeriod.query.get_or_404(
+        period_id
+    )
+
+    form = PayrollProcessForm()
+
+    if not form.validate_on_submit():
+        flash(
+            "The payroll locking request could not "
+            "be validated.",
+            "danger",
+        )
+
+        return redirect(
+            url_for(
+                "payroll.view_period_payroll",
+                period_id=period.id,
+            )
+        )
+
+    try:
+        PayrollWorkflowService.lock_period(
+            payroll_period=period,
+            user_id=current_user.id,
+        )
+
+    except PayrollWorkflowError as error:
+        flash(
+            str(error),
+            "warning",
+        )
+
+    else:
+        flash(
+            f"{period.period_name} payroll was locked "
+            f"successfully.",
+            "success",
+        )
+
+    return redirect(
+        url_for(
+            "payroll.view_period_payroll",
+            period_id=period.id,
+        )
+    )
+
+
+@payroll_bp.route(
+    "/period/<int:period_id>/reopen",
+    methods=["POST"],
+)
+@login_required
+def reopen_payroll(period_id):
+    """Reopen a locked payroll period."""
+
+    period = PayrollPeriod.query.get_or_404(
+        period_id
+    )
+
+    form = PayrollProcessForm()
+
+    if not form.validate_on_submit():
+        flash(
+            "The payroll reopening request could not "
+            "be validated.",
+            "danger",
+        )
+
+        return redirect(
+            url_for(
+                "payroll.view_period_payroll",
+                period_id=period.id,
+            )
+        )
+
+    if current_user.role != "Admin":
+        flash(
+            "Only an administrator can reopen locked "
+            "payroll.",
+            "danger",
+        )
+
+        return redirect(
+            url_for(
+                "payroll.view_period_payroll",
+                period_id=period.id,
+            )
+        )
+
+    try:
+       PayrollWorkflowService.reopen_period(
+               payroll_period=period,
+               user_id=current_user.id,
+        )
+    except PayrollWorkflowError as error:
+        flash(
+            str(error),
+            "warning",
+        )
+
+    else:
+        flash(
+            f"{period.period_name} payroll was reopened "
+            f"successfully.",
+            "success",
+        )
 
     return redirect(
         url_for(
@@ -257,6 +464,65 @@ def generate_payslip(record_id):
             ),
         )
     )
+
+@payroll_bp.route(
+    "/period/<int:period_id>/payslips/bulk-download"
+)
+@login_required
+def download_bulk_payslips(period_id):
+    """Generate and download all period payslips in one A4 PDF."""
+
+    period = PayrollPeriod.query.get_or_404(
+        period_id
+    )
+
+    try:
+        result = (
+            BulkPayslipService.generate_for_period(
+                payroll_period=period,
+            )
+        )
+
+    except NoPayrollRecordsError as error:
+        flash(
+            str(error),
+            "warning",
+        )
+
+        return redirect(
+            url_for(
+                "payroll.view_period_payroll",
+                period_id=period.id,
+            )
+        )
+
+    except BulkPayslipServiceError as error:
+        flash(
+            str(error),
+            "danger",
+        )
+
+        return redirect(
+            url_for(
+                "payroll.view_period_payroll",
+                period_id=period.id,
+            )
+        )
+
+    download_name = (
+        f"BUYOH_All_Payslips_"
+        f"{period.year}_"
+        f"{period.month:02d}.pdf"
+    )
+
+    return send_file(
+        result.file_path.resolve(),
+        mimetype="application/pdf",
+        as_attachment=True,
+        download_name=download_name,
+    )
+
+
 
 
 @payroll_bp.route(

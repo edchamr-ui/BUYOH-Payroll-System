@@ -1,10 +1,12 @@
+"""Payroll period database model."""
+
 from datetime import datetime
 
 from app.extensions import db
 
 
 class PayrollPeriod(db.Model):
-    """Represents a monthly payroll processing cycle."""
+    """Represent a monthly payroll processing cycle."""
 
     __tablename__ = "payroll_periods"
 
@@ -42,6 +44,7 @@ class PayrollPeriod(db.Model):
         db.String(30),
         nullable=False,
         default="Draft",
+        server_default="Draft",
     )
 
     created_by = db.Column(
@@ -51,6 +54,12 @@ class PayrollPeriod(db.Model):
     )
 
     approved_by = db.Column(
+        db.Integer,
+        db.ForeignKey("users.id"),
+        nullable=True,
+    )
+
+    locked_by = db.Column(
         db.Integer,
         db.ForeignKey("users.id"),
         nullable=True,
@@ -74,6 +83,11 @@ class PayrollPeriod(db.Model):
         nullable=True,
     )
 
+    locked_at = db.Column(
+        db.DateTime,
+        nullable=True,
+    )
+
     creator = db.relationship(
         "User",
         foreign_keys=[created_by],
@@ -84,6 +98,11 @@ class PayrollPeriod(db.Model):
         "User",
         foreign_keys=[approved_by],
         back_populates="approved_payroll_periods",
+    )
+
+    locker = db.relationship(
+        "User",
+        foreign_keys=[locked_by],
     )
 
     payroll_records = db.relationship(
@@ -110,11 +129,32 @@ class PayrollPeriod(db.Model):
 
     @property
     def period_name(self):
-        """Return a human-readable period name."""
+        """Return the payroll period's human-readable name."""
 
         from calendar import month_name
 
-        return f"{month_name[self.month]} {self.year}"
+        return (
+            f"{month_name[self.month]} "
+            f"{self.year}"
+        )
+
+    @property
+    def is_draft(self):
+        """Return whether the payroll period is a draft."""
+
+        return self.status == "Draft"
+
+    @property
+    def is_processed(self):
+        """Return whether payroll has been processed."""
+
+        return self.status == "Processed"
+
+    @property
+    def is_approved(self):
+        """Return whether payroll has been approved."""
+
+        return self.status == "Approved"
 
     @property
     def is_locked(self):
@@ -122,5 +162,38 @@ class PayrollPeriod(db.Model):
 
         return self.status == "Locked"
 
+    @property
+    def can_be_processed(self):
+        """Return whether payroll processing is permitted."""
+
+        return self.status in {
+            "Draft",
+            "Processed",
+        }
+
+    @property
+    def can_be_approved(self):
+        """Return whether the period can be approved."""
+
+        return self.status == "Processed"
+
+    @property
+    def can_be_locked(self):
+        """Return whether the period can be locked."""
+
+        return self.status == "Approved"
+
+    @property
+    def can_be_reopened(self):
+        """Return whether the period can be reopened."""
+
+        return self.status == "Locked"
+
     def __repr__(self):
-        return f"<PayrollPeriod {self.month}/{self.year}>"
+        """Return a developer-friendly model representation."""
+
+        return (
+            f"<PayrollPeriod "
+            f"{self.month}/{self.year} "
+            f"status={self.status}>"
+        )

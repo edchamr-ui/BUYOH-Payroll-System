@@ -169,13 +169,16 @@
 
                 <!-- Audit Logs -->
 
-                <a
-                    href="#"
-                    class="nav-link"
-                >
-                    <i class="bi bi-shield-check me-2"></i>
-                    Audit Logs
-                </a>
+<a
+    href="{{ url_for('audit_logs.index') }}"
+    class="nav-link
+           {% if request.blueprint == 'audit_logs' %}
+               active
+           {% endif %}"
+>
+    <i class="bi bi-shield-check me-2"></i>
+    Audit Logs
+</a>                
 
                 <!-- Settings -->
 

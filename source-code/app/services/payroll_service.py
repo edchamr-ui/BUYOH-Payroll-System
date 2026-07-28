@@ -1,3 +1,5 @@
+"""Payroll processing and register service."""
+
 from dataclasses import dataclass
 from datetime import date, datetime
 from decimal import Decimal
@@ -6,6 +8,7 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from app.extensions import db
 from app.models import Employee, PayrollRecord
+from app.services.audit_log_service import AuditLogService
 from app.services.payroll_calculator import (
     PayrollCalculator,
     ZERO,
@@ -71,8 +74,12 @@ class PayrollService:
 
         return (
             PayrollRecord.query
-            .filter_by(payroll_period_id=period.id)
-            .order_by(PayrollRecord.id.asc())
+            .filter_by(
+                payroll_period_id=period.id
+            )
+            .order_by(
+                PayrollRecord.id.asc()
+            )
             .all()
         )
 
@@ -86,25 +93,35 @@ class PayrollService:
         return Decimal(str(value))
 
     @classmethod
-    def calculate_register_summary(cls, records):
+    def calculate_register_summary(
+        cls,
+        records,
+    ):
         """Calculate totals for a payroll register."""
 
         return PayrollRegisterSummary(
             employee_count=len(records),
+
             total_basic_salary=sum(
                 (
-                    cls._decimal_value(record.basic_salary)
+                    cls._decimal_value(
+                        record.basic_salary
+                    )
                     for record in records
                 ),
                 ZERO,
             ),
+
             total_gross_pay=sum(
                 (
-                    cls._decimal_value(record.gross_pay)
+                    cls._decimal_value(
+                        record.gross_pay
+                    )
                     for record in records
                 ),
                 ZERO,
             ),
+
             total_deductions=sum(
                 (
                     cls._decimal_value(
@@ -114,13 +131,17 @@ class PayrollService:
                 ),
                 ZERO,
             ),
+
             total_net_pay=sum(
                 (
-                    cls._decimal_value(record.net_pay)
+                    cls._decimal_value(
+                        record.net_pay
+                    )
                     for record in records
                 ),
                 ZERO,
             ),
+
             total_employer_nssa=sum(
                 (
                     cls._decimal_value(
@@ -130,6 +151,7 @@ class PayrollService:
                 ),
                 ZERO,
             ),
+
             total_employer_cost=sum(
                 (
                     cls._decimal_value(
@@ -146,25 +168,35 @@ class PayrollService:
         """
         Determine the statutory calculation date.
 
-        Payment date is preferred because statutory rules normally
-        apply according to the payroll payment date. The payroll
-        period end date is used as a fallback.
+        Payment date is preferred because statutory rules
+        normally apply according to the payroll payment date.
+        The period end date is used as a fallback.
         """
 
         calculation_date = (
-            period.payment_date or period.end_date
+            period.payment_date
+            or period.end_date
         )
 
         if calculation_date is None:
             raise PayrollConfigurationError(
-                "The payroll period must have a payment date "
-                "or an end date before it can be processed."
+                "The payroll period must have a payment "
+                "date or an end date before it can be "
+                "processed."
             )
 
-        if isinstance(calculation_date, datetime):
-            calculation_date = calculation_date.date()
+        if isinstance(
+            calculation_date,
+            datetime,
+        ):
+            calculation_date = (
+                calculation_date.date()
+            )
 
-        if not isinstance(calculation_date, date):
+        if not isinstance(
+            calculation_date,
+            date,
+        ):
             raise PayrollConfigurationError(
                 "The payroll calculation date is invalid."
             )
@@ -179,8 +211,8 @@ class PayrollService:
     ):
         """Load calculator configuration from PostgreSQL."""
 
-        calculation_date = cls._get_calculation_date(
-            period
+        calculation_date = (
+            cls._get_calculation_date(period)
         )
 
         try:
@@ -193,9 +225,8 @@ class PayrollService:
             )
 
             statutory_config = (
-                StatutoryRuleService.to_configuration(
-                    rule_set
-                )
+                StatutoryRuleService
+                .to_configuration(rule_set)
             )
 
         except StatutoryRuleServiceError as error:
@@ -222,21 +253,24 @@ class PayrollService:
         currency=DEFAULT_CURRENCY,
     ):
         """
-        Create missing payroll records for active employees.
+        Create payroll records for active employees.
 
-        The statutory configuration is selected according to the
-        payroll period's payment date and requested currency.
-        Existing employee records are skipped to prevent duplicates.
+        Valid transition:
+            Draft -> Processed
+
+        The payroll records, period status and audit entry
+        are committed in the same database transaction.
         """
 
-        if period.status != "Processing":
+        if period.status != "Draft":
             raise InvalidPayrollStatusError(
-                "Payroll can only be processed while the "
-                "period status is Processing."
+                "Only draft payroll periods can be processed."
             )
 
         normalized_currency = (
-            str(currency).strip().upper()
+            str(currency)
+            .strip()
+            .upper()
         )
 
         if not normalized_currency:
@@ -256,7 +290,9 @@ class PayrollService:
         active_employees = (
             Employee.query
             .filter_by(is_active=True)
-            .order_by(Employee.employee_number.asc())
+            .order_by(
+                Employee.employee_number.asc()
+            )
             .all()
         )
 
@@ -284,6 +320,7 @@ class PayrollService:
 
         try:
             for employee in active_employees:
+
                 if employee.id in existing_employee_ids:
                     skipped_count += 1
                     continue
@@ -297,44 +334,96 @@ class PayrollService:
                     payroll_period_id=period.id,
                     employee_id=employee.id,
                     processed_by=processed_by_user_id,
-                    basic_salary=calculation.basic_salary,
+
+                    basic_salary=(
+                        calculation.basic_salary
+                    ),
+
                     overtime_amount=(
                         calculation.overtime_amount
                     ),
+
                     allowances_total=(
                         calculation.allowances_total
                     ),
-                    gross_pay=calculation.gross_pay,
+
+                    gross_pay=(
+                        calculation.gross_pay
+                    ),
+
                     nssa=calculation.nssa,
+
                     employer_nssa=(
                         calculation.employer_nssa
                     ),
+
                     paye=calculation.paye,
-                    aids_levy=calculation.aids_levy,
-                    other_deductions_total=(
-                        calculation.other_deductions_total
+
+                    aids_levy=(
+                        calculation.aids_levy
                     ),
+
+                    other_deductions_total=(
+                        calculation
+                        .other_deductions_total
+                    ),
+
                     total_deductions=(
                         calculation.total_deductions
                     ),
-                    net_pay=calculation.net_pay,
+
+                    net_pay=(
+                        calculation.net_pay
+                    ),
+
                     employer_cost=(
                         calculation.employer_cost
                     ),
+
                     status="Draft",
                 )
 
                 db.session.add(payroll_record)
+
                 created_count += 1
+
+            if created_count == 0:
+                raise PayrollPersistenceError(
+                    "No new payroll records were created."
+                )
+
+            period.status = "Processed"
+
+            AuditLogService.log(
+                user_id=processed_by_user_id,
+                action="Payroll Processed",
+                entity_type="PayrollPeriod",
+                entity_id=period.id,
+                description=(
+                    f"Processed payroll for "
+                    f"{period.period_name}. "
+                    f"Created {created_count} payroll "
+                    f"record(s) using the "
+                    f"{rule_set.display_name} rule set."
+                ),
+                commit=False,
+            )
 
             db.session.commit()
 
-        except (SQLAlchemyError, ValueError) as error:
+        except PayrollPersistenceError:
+            db.session.rollback()
+            raise
+
+        except (
+            SQLAlchemyError,
+            ValueError,
+        ) as error:
             db.session.rollback()
 
             raise PayrollPersistenceError(
                 "Payroll processing failed. No new payroll "
-                "records were saved."
+                "records or audit entries were saved."
             ) from error
 
         return PayrollProcessingResult(

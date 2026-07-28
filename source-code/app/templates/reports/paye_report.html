@@ -1,0 +1,721 @@
+{% extends "base.html" %}
+
+{% block title %}
+PAYE Report | BUYOH Payroll
+{% endblock %}
+
+{% block page_title %}
+PAYE Report
+{% endblock %}
+
+{% block content %}
+
+<style>
+    .report-header {
+        position: relative;
+        z-index: 20;
+    }
+
+    .report-actions {
+        position: relative;
+        z-index: 9999;
+        isolation: isolate;
+        pointer-events: auto !important;
+    }
+
+    .report-actions .btn {
+        position: relative;
+        z-index: 10000;
+        pointer-events: auto !important;
+        cursor: pointer;
+    }
+
+    @media print {
+        .sidebar,
+        .topbar,
+        .report-actions,
+        .report-filters,
+        .no-print {
+            display: none !important;
+        }
+
+        .main-content {
+            margin: 0 !important;
+            padding: 0 !important;
+            width: 100% !important;
+        }
+
+        body {
+            background: #ffffff !important;
+        }
+
+        .app-card {
+            box-shadow: none !important;
+            border: 1px solid #dee2e6 !important;
+        }
+
+        table {
+            font-size: 10px;
+        }
+
+        @page {
+            size: landscape;
+            margin: 10mm;
+        }
+    }
+</style>
+
+<div
+    class="d-flex flex-wrap justify-content-between
+           align-items-center gap-3 mb-4 report-header"
+>
+    <div>
+        <h2 class="h3 mb-1">
+            PAYE Statutory Report
+        </h2>
+
+        <p class="text-muted mb-0">
+            Review taxable income, PAYE and AIDS levy
+            for the selected payroll period.
+        </p>
+    </div>
+
+    <div class="d-flex flex-wrap gap-2 report-actions">
+
+        <button
+            type="button"
+            class="btn btn-outline-secondary"
+            onclick="window.print();"
+        >
+            <i class="bi bi-printer me-2"></i>
+            Print
+        </button>
+
+        <button
+    type="button"
+    class="btn btn-primary"
+    data-export-url="{{ url_for(
+        'reports.paye_report_pdf',
+        period_id=selected_period.id,
+        department_id=selected_department_id,
+        q=search_term
+    ) }}"
+    onclick="window.location.href=this.dataset.exportUrl;"
+>
+    <i class="bi bi-file-earmark-pdf me-2"></i>
+    PDF
+</button>
+
+
+         <button
+    type="button"
+    class="btn btn-outline-success"
+    data-export-url="{{ url_for(
+        'reports.paye_report_excel',
+        period_id=selected_period.id,
+        department_id=selected_department_id,
+        q=search_term
+    ) }}"
+    onclick="window.location.href=this.dataset.exportUrl;"
+>
+    <i class="bi bi-file-earmark-excel me-2"></i>
+    Excel
+</button>
+
+
+
+        {% if selected_period %}
+
+            <button
+                type="button"
+                class="btn btn-outline-dark"
+                data-report-url="{{ url_for(
+                    'reports.index',
+                    period_id=selected_period.id
+                ) }}"
+                onclick="window.location.href=this.dataset.reportUrl;"
+            >
+                <i class="bi bi-arrow-left me-2"></i>
+                Reports
+            </button>
+
+        {% else %}
+
+            <a
+                href="{{ url_for('reports.index') }}"
+                class="btn btn-outline-dark"
+            >
+                <i class="bi bi-arrow-left me-2"></i>
+                Reports
+            </a>
+
+        {% endif %}
+
+    </div>
+</div>
+
+{% if selected_period %}
+
+    <div class="app-card mb-4 report-filters">
+
+        <div class="card-body p-4">
+
+            <form
+                method="GET"
+                action="{{ url_for(
+                    'reports.paye_report'
+                ) }}"
+                class="row g-3 align-items-end"
+            >
+
+                <div class="col-lg-3 col-md-6">
+
+                    <label
+                        for="period_id"
+                        class="form-label"
+                    >
+                        Payroll Period
+                    </label>
+
+                    <select
+                        id="period_id"
+                        name="period_id"
+                        class="form-select"
+                    >
+                        {% for period in available_periods %}
+
+                            <option
+                                value="{{ period.id }}"
+                                {% if period.id == selected_period.id %}
+                                    selected
+                                {% endif %}
+                            >
+                                {{ period.period_name }}
+                            </option>
+
+                        {% endfor %}
+                    </select>
+
+                </div>
+
+                <div class="col-lg-3 col-md-6">
+
+                    <label
+                        for="department_id"
+                        class="form-label"
+                    >
+                        Department
+                    </label>
+
+                    <select
+                        id="department_id"
+                        name="department_id"
+                        class="form-select"
+                    >
+                        <option value="">
+                            All Departments
+                        </option>
+
+                        {% for department in departments %}
+
+                            <option
+                                value="{{ department.id }}"
+                                {% if department.id
+                                      == selected_department_id %}
+                                    selected
+                                {% endif %}
+                            >
+                                {{ department.name }}
+                            </option>
+
+                        {% endfor %}
+                    </select>
+
+                </div>
+
+                <div class="col-lg-4 col-md-8">
+
+                    <label
+                        for="q"
+                        class="form-label"
+                    >
+                        Search Employee
+                    </label>
+
+                    <div class="input-group">
+
+                        <span class="input-group-text">
+                            <i class="bi bi-search"></i>
+                        </span>
+
+                        <input
+                            type="search"
+                            id="q"
+                            name="q"
+                            value="{{ search_term }}"
+                            class="form-control"
+                            placeholder="Name or employee number"
+                        >
+
+                    </div>
+
+                </div>
+
+                <div class="col-lg-2 col-md-4">
+
+                    <div class="d-flex gap-2">
+
+                        <button
+                            type="submit"
+                            class="btn btn-primary flex-grow-1"
+                        >
+                            Filter
+                        </button>
+
+                        <a
+                            href="{{ url_for(
+                                'reports.paye_report',
+                                period_id=selected_period.id
+                            ) }}"
+                            class="btn btn-outline-secondary"
+                            title="Clear filters"
+                        >
+                            <i class="bi bi-x-lg"></i>
+                        </a>
+
+                    </div>
+
+                </div>
+
+            </form>
+
+        </div>
+
+    </div>
+
+    <div class="app-card mb-4">
+
+        <div class="card-body p-4">
+
+            <div
+                class="d-flex flex-wrap justify-content-between
+                       align-items-center gap-3"
+            >
+
+                <div>
+                    <div class="text-muted small mb-1">
+                        Reporting Period
+                    </div>
+
+                    <h3 class="h4 mb-1">
+                        {{ selected_period.period_name }}
+                    </h3>
+
+                    <div class="text-muted">
+                        Payment date:
+                        {{
+                            selected_period.payment_date.strftime(
+                                "%d %B %Y"
+                            )
+                        }}
+                    </div>
+                </div>
+
+                <div class="text-md-end">
+
+                    <div class="text-muted small mb-1">
+                        Department
+                    </div>
+
+                    <div class="h5 mb-0">
+                        {% if selected_department %}
+                            {{ selected_department.name }}
+                        {% else %}
+                            All Departments
+                        {% endif %}
+                    </div>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+    <div class="row g-3 mb-4">
+
+        <div class="col-sm-6 col-xl-3">
+            <div class="app-card h-100">
+                <div class="card-body p-4">
+
+                    <div class="text-muted small mb-2">
+                        Employees
+                    </div>
+
+                    <div class="h4 mb-0">
+                        {{ totals.employee_count }}
+                    </div>
+
+                </div>
+            </div>
+        </div>
+
+        <div class="col-sm-6 col-xl-3">
+            <div class="app-card h-100">
+                <div class="card-body p-4">
+
+                    <div class="text-muted small mb-2">
+                        Taxable Income
+                    </div>
+
+                    <div class="h4 mb-0">
+                        ${{ "{:,.2f}".format(
+                            totals.taxable_income
+                        ) }}
+                    </div>
+
+                </div>
+            </div>
+        </div>
+
+        <div class="col-sm-6 col-xl-3">
+            <div class="app-card h-100">
+                <div class="card-body p-4">
+
+                    <div class="text-muted small mb-2">
+                        PAYE
+                    </div>
+
+                    <div class="h4 mb-0">
+                        ${{ "{:,.2f}".format(
+                            totals.paye
+                        ) }}
+                    </div>
+
+                </div>
+            </div>
+        </div>
+
+        <div class="col-sm-6 col-xl-3">
+            <div class="app-card h-100">
+                <div class="card-body p-4">
+
+                    <div class="text-muted small mb-2">
+                        Total Tax Liability
+                    </div>
+
+                    <div class="h4 mb-0 text-primary">
+                        ${{ "{:,.2f}".format(
+                            totals.total_tax
+                        ) }}
+                    </div>
+
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <div class="row g-3 mb-4">
+
+        <div class="col-md-4">
+            <div class="app-card h-100">
+                <div class="card-body p-4">
+
+                    <div class="text-muted small mb-2">
+                        Average PAYE
+                    </div>
+
+                    <div class="h5 mb-0">
+                        ${{ "{:,.2f}".format(
+                            totals.average_paye
+                        ) }}
+                    </div>
+
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <div class="app-card h-100">
+                <div class="card-body p-4">
+
+                    <div class="text-muted small mb-2">
+                        Average AIDS Levy
+                    </div>
+
+                    <div class="h5 mb-0">
+                        ${{ "{:,.2f}".format(
+                            totals.average_aids_levy
+                        ) }}
+                    </div>
+
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <div class="app-card h-100">
+                <div class="card-body p-4">
+
+                    <div class="text-muted small mb-2">
+                        Average Total Tax
+                    </div>
+
+                    <div class="h5 mb-0">
+                        ${{ "{:,.2f}".format(
+                            totals.average_total_tax
+                        ) }}
+                    </div>
+
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <div class="app-card">
+
+        <div class="card-body p-0">
+
+            {% if rows %}
+
+                <div class="table-responsive">
+
+                    <table
+                        class="table table-hover
+                               table-bordered align-middle mb-0"
+                    >
+
+                        <thead class="table-light">
+                            <tr>
+                                <th class="px-3 py-3">
+                                    Employee
+                                </th>
+
+                                <th class="py-3">
+                                    Department
+                                </th>
+
+                                <th class="py-3 text-end">
+                                    Gross Pay
+                                </th>
+
+                                <th class="py-3 text-end">
+                                    Employee NSSA
+                                </th>
+
+                                <th class="py-3 text-end">
+                                    Taxable Income
+                                </th>
+
+                                <th class="py-3 text-end">
+                                    PAYE
+                                </th>
+
+                                <th class="py-3 text-end">
+                                    AIDS Levy
+                                </th>
+
+                                <th class="px-3 py-3 text-end">
+                                    Total Tax
+                                </th>
+                            </tr>
+                        </thead>
+
+                        <tbody>
+
+                            {% for row in rows %}
+
+                                <tr>
+                                    <td class="px-3">
+
+                                        <div class="fw-semibold">
+                                            {{
+                                                row.record.employee.first_name
+                                            }}
+                                            {{
+                                                row.record.employee.last_name
+                                            }}
+                                        </div>
+
+                                        <small class="text-muted">
+                                            {{
+                                                row.record.employee.employee_number
+                                            }}
+                                        </small>
+
+                                    </td>
+
+                                    <td>
+                                        {{
+                                            row.record.employee.department.name
+                                        }}
+                                    </td>
+
+                                    <td class="text-end">
+                                        ${{ "{:,.2f}".format(
+                                            row.gross_pay
+                                        ) }}
+                                    </td>
+
+                                    <td class="text-end">
+                                        ${{ "{:,.2f}".format(
+                                            row.employee_nssa
+                                        ) }}
+                                    </td>
+
+                                    <td class="text-end">
+                                        ${{ "{:,.2f}".format(
+                                            row.taxable_income
+                                        ) }}
+                                    </td>
+
+                                    <td class="text-end">
+                                        ${{ "{:,.2f}".format(
+                                            row.paye
+                                        ) }}
+                                    </td>
+
+                                    <td class="text-end">
+                                        ${{ "{:,.2f}".format(
+                                            row.aids_levy
+                                        ) }}
+                                    </td>
+
+                                    <td
+                                        class="px-3 text-end
+                                               fw-bold text-primary"
+                                    >
+                                        ${{ "{:,.2f}".format(
+                                            row.total_tax
+                                        ) }}
+                                    </td>
+                                </tr>
+
+                            {% endfor %}
+
+                        </tbody>
+
+                        <tfoot class="table-dark">
+                            <tr class="fw-bold">
+
+                                <td class="px-3">
+                                    Report Totals
+                                </td>
+
+                                <td>
+                                    {{ totals.employee_count }}
+                                    employee{% if totals.employee_count != 1 %}s{% endif %}
+                                </td>
+
+                                <td class="text-end">
+                                    ${{ "{:,.2f}".format(
+                                        totals.gross_pay
+                                    ) }}
+                                </td>
+
+                                <td class="text-end">
+                                    ${{ "{:,.2f}".format(
+                                        totals.employee_nssa
+                                    ) }}
+                                </td>
+
+                                <td class="text-end">
+                                    ${{ "{:,.2f}".format(
+                                        totals.taxable_income
+                                    ) }}
+                                </td>
+
+                                <td class="text-end">
+                                    ${{ "{:,.2f}".format(
+                                        totals.paye
+                                    ) }}
+                                </td>
+
+                                <td class="text-end">
+                                    ${{ "{:,.2f}".format(
+                                        totals.aids_levy
+                                    ) }}
+                                </td>
+
+                                <td class="px-3 text-end">
+                                    ${{ "{:,.2f}".format(
+                                        totals.total_tax
+                                    ) }}
+                                </td>
+
+                            </tr>
+                        </tfoot>
+
+                    </table>
+
+                </div>
+
+            {% else %}
+
+                <div class="text-center py-5 px-3">
+
+                    <i
+                        class="bi bi-receipt
+                               fs-1 text-muted"
+                    ></i>
+
+                    <h3 class="h5 mt-3">
+                        No PAYE records found
+                    </h3>
+
+                    <p class="text-muted">
+                        No payroll records match the selected filters.
+                    </p>
+
+                    <a
+                        href="{{ url_for(
+                            'reports.paye_report',
+                            period_id=selected_period.id
+                        ) }}"
+                        class="btn btn-outline-primary no-print"
+                    >
+                        Clear Filters
+                    </a>
+
+                </div>
+
+            {% endif %}
+
+        </div>
+
+    </div>
+
+{% else %}
+
+    <div class="app-card">
+        <div class="card-body text-center py-5">
+
+            <i
+                class="bi bi-receipt
+                       fs-1 text-muted"
+            ></i>
+
+            <h3 class="h5 mt-3">
+                No PAYE report available
+            </h3>
+
+            <p class="text-muted">
+                Process a payroll period before opening this report.
+            </p>
+
+            <a
+                href="{{ url_for('payroll.index') }}"
+                class="btn btn-primary"
+            >
+                Go to Payroll
+            </a>
+
+        </div>
+    </div>
+
+{% endif %}
+
+{% endblock %}
