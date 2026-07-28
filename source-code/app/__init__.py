@@ -1,5 +1,4 @@
 """BUYOH Payroll application factory."""
-
 from flask import Flask, render_template
 from flask_login import login_required
 
@@ -101,9 +100,6 @@ def create_app():
 
     app.register_blueprint(audit_logs_bp)
 
-
-
-
     @app.route("/")
     @login_required
     def home():
@@ -137,9 +133,7 @@ def create_app():
             "dashboard.html",
             employee_count=employee_count,
             department_count=department_count,
-            current_payroll_status=(
-                current_payroll_status
-            ),
+            current_payroll_status=current_payroll_status,
             payslip_count=payslip_count,
         )
 

@@ -41,6 +41,28 @@ Payroll Register
                 Download All Payslips
             </a>
 
+            <form
+                method="POST"
+                action="{{ url_for(
+                    'payroll.email_period_payslips',
+                    period_id=period.id
+                ) }}"
+                onsubmit="return confirm(
+                    'Email all generated payslips to employees '
+                    + 'with valid email addresses?'
+                );"
+            >
+                {{ form.hidden_tag() }}
+
+                <button
+                    type="submit"
+                    class="btn btn-outline-success"
+                >
+                    <i class="bi bi-envelope-at me-2"></i>
+                    Email All Payslips
+                </button>
+            </form>
+
         {% endif %}
 
         {% if period.status == "Draft" %}
@@ -412,6 +434,7 @@ Payroll Register
                                                 ></i>
                                                 Download
                                             </a>
+
 
                                             {% if period.status != "Locked" %}
 
