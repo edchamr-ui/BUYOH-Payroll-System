@@ -1,0 +1,1521 @@
+{% extends "base.html" %}
+
+{% block title %}
+Settings | {{ company_settings.display_name or "Payroll" }}
+{% endblock %}
+
+{% block page_title %}
+Settings
+{% endblock %}
+
+{% block content %}
+
+<div
+    class="
+        d-flex
+        flex-wrap
+        justify-content-between
+        align-items-center
+        gap-3
+        mb-4
+    "
+>
+    <div>
+        <h2 class="h3 mb-1">
+            System Settings
+        </h2>
+
+        <p class="text-muted mb-0">
+            Manage company identity and reusable payroll
+            configuration.
+        </p>
+    </div>
+
+    {% if latest_update %}
+        <div class="text-end">
+            <div class="small text-muted">
+                Company settings last updated
+            </div>
+
+            <div class="fw-semibold">
+                {{
+                    latest_update.updated_at.strftime(
+                        "%d %b %Y at %H:%M"
+                    )
+                }}
+            </div>
+
+            {% if latest_update.updater %}
+                <small class="text-muted">
+                    by {{ latest_update.updater.full_name }}
+                </small>
+            {% endif %}
+        </div>
+    {% endif %}
+</div>
+
+<div class="app-card mb-4">
+    <div class="card-body p-2">
+
+        <ul
+            class="nav nav-pills flex-column flex-lg-row gap-1"
+            id="settingsTabs"
+            role="tablist"
+        >
+            <li class="nav-item" role="presentation">
+                <button
+                    class="
+                        nav-link
+                        {% if active_tab == 'company' %}
+                            active
+                        {% endif %}
+                    "
+                    data-bs-toggle="pill"
+                    data-bs-target="#company-settings"
+                    type="button"
+                    role="tab"
+                >
+                    <i class="bi bi-building me-2"></i>
+                    Company
+                </button>
+            </li>
+
+            <li class="nav-item" role="presentation">
+                <button
+                    class="
+                        nav-link
+                        {% if active_tab == 'allowances' %}
+                            active
+                        {% endif %}
+                    "
+                    data-bs-toggle="pill"
+                    data-bs-target="#allowance-settings"
+                    type="button"
+                    role="tab"
+                >
+                    <i class="bi bi-plus-circle me-2"></i>
+                    Allowance Types
+                </button>
+            </li>
+
+            <li class="nav-item" role="presentation">
+                <button
+                    class="
+                        nav-link
+                        {% if active_tab == 'deductions' %}
+                            active
+                        {% endif %}
+                    "
+                    data-bs-toggle="pill"
+                    data-bs-target="#deduction-settings"
+                    type="button"
+                    role="tab"
+                >
+                    <i class="bi bi-dash-circle me-2"></i>
+                    Deduction Types
+                </button>
+            </li>
+        </ul>
+
+    </div>
+</div>
+
+<div class="tab-content">
+
+    <!-- Company Settings -->
+
+    <div
+        class="
+            tab-pane fade
+            {% if active_tab == 'company' %}
+                show active
+            {% endif %}
+        "
+        id="company-settings"
+        role="tabpanel"
+    >
+
+        <form
+            method="POST"
+            enctype="multipart/form-data"
+        >
+            {{ company_form.hidden_tag() }}
+
+            <div class="app-card mb-4">
+                <div class="card-body p-4">
+
+                    <h3 class="h5 mb-1">
+                        Company Identity
+                    </h3>
+
+                    <p class="text-muted mb-4">
+                        Official registration and identity details.
+                    </p>
+
+                    <div class="row g-3">
+
+                        <div class="col-lg-6">
+                            {{
+                                company_form.company_name.label(
+                                    class="form-label"
+                                )
+                            }}
+
+                            {{
+                                company_form.company_name(
+                                    class="form-control"
+                                )
+                            }}
+                        </div>
+
+                        <div class="col-lg-6">
+                            {{
+                                company_form.trading_name.label(
+                                    class="form-label"
+                                )
+                            }}
+
+                            {{
+                                company_form.trading_name(
+                                    class="form-control"
+                                )
+                            }}
+                        </div>
+
+                        <div class="col-lg-4">
+                            {{
+                                company_form.registration_number.label(
+                                    class="form-label"
+                                )
+                            }}
+
+                            {{
+                                company_form.registration_number(
+                                    class="form-control"
+                                )
+                            }}
+                        </div>
+
+                        <div class="col-lg-4">
+                            {{
+                                company_form.tax_number.label(
+                                    class="form-label"
+                                )
+                            }}
+
+                            {{
+                                company_form.tax_number(
+                                    class="form-control"
+                                )
+                            }}
+                        </div>
+
+                        <div class="col-lg-4">
+                            {{
+                                company_form.nssa_employer_number.label(
+                                    class="form-label"
+                                )
+                            }}
+
+                            {{
+                                company_form.nssa_employer_number(
+                                    class="form-control"
+                                )
+                            }}
+                        </div>
+
+                    </div>
+
+                </div>
+            </div>
+
+            <div class="app-card mb-4">
+                <div class="card-body p-4">
+
+                    <h3 class="h5 mb-1">
+                        Contact Information
+                    </h3>
+
+                    <p class="text-muted mb-4">
+                        Company addresses and communication details.
+                    </p>
+
+                    <div class="row g-3">
+
+                        <div class="col-lg-6">
+                            {{
+                                company_form.physical_address.label(
+                                    class="form-label"
+                                )
+                            }}
+
+                            {{
+                                company_form.physical_address(
+                                    class="form-control",
+                                    rows="4"
+                                )
+                            }}
+                        </div>
+
+                        <div class="col-lg-6">
+                            {{
+                                company_form.postal_address.label(
+                                    class="form-label"
+                                )
+                            }}
+
+                            {{
+                                company_form.postal_address(
+                                    class="form-control",
+                                    rows="4"
+                                )
+                            }}
+                        </div>
+
+                        <div class="col-lg-4">
+                            {{
+                                company_form.phone.label(
+                                    class="form-label"
+                                )
+                            }}
+
+                            {{
+                                company_form.phone(
+                                    class="form-control"
+                                )
+                            }}
+                        </div>
+
+                        <div class="col-lg-4">
+                            {{
+                                company_form.email.label(
+                                    class="form-label"
+                                )
+                            }}
+
+                            {{
+                                company_form.email(
+                                    class="form-control"
+                                )
+                            }}
+                        </div>
+
+                        <div class="col-lg-4">
+                            {{
+                                company_form.website.label(
+                                    class="form-label"
+                                )
+                            }}
+
+                            {{
+                                company_form.website(
+                                    class="form-control",
+                                    placeholder="https://example.com"
+                                )
+                            }}
+                        </div>
+
+                    </div>
+
+                </div>
+            </div>
+
+            <div class="app-card mb-4">
+                <div class="card-body p-4">
+
+                    <h3 class="h5 mb-1">
+                        Payroll Defaults
+                    </h3>
+
+                    <p class="text-muted mb-4">
+                        Default values used when processing payroll.
+                    </p>
+
+                    <div class="row g-3">
+
+                        <div class="col-lg-4">
+                            {{
+                                company_form.currency.label(
+                                    class="form-label"
+                                )
+                            }}
+
+                            {{
+                                company_form.currency(
+                                    class="form-select"
+                                )
+                            }}
+                        </div>
+
+                        <div class="col-lg-4">
+                            {{
+                                company_form.payroll_country.label(
+                                    class="form-label"
+                                )
+                            }}
+
+                            {{
+                                company_form.payroll_country(
+                                    class="form-select"
+                                )
+                            }}
+                        </div>
+
+                        <div class="col-lg-4">
+                            {{
+                                company_form.default_payment_day.label(
+                                    class="form-label"
+                                )
+                            }}
+
+                            {{
+                                company_form.default_payment_day(
+                                    class="form-control",
+                                    min="1",
+                                    max="31"
+                                )
+                            }}
+                        </div>
+
+                        <div class="col-12">
+                            <label class="form-label">
+                                Company Logo
+                            </label>
+
+                            <div class="border rounded p-4 bg-light">
+
+                                <div
+                                    class="
+                                        row
+                                        g-4
+                                        align-items-center
+                                    "
+                                >
+
+                                    <div class="col-md-auto">
+
+                                        <div
+                                            class="
+                                                bg-white
+                                                border
+                                                rounded
+                                                d-flex
+                                                align-items-center
+                                                justify-content-center
+                                                overflow-hidden
+                                            "
+                                            style="
+                                                width: 160px;
+                                                height: 100px;
+                                            "
+                                        >
+
+                                            {% if current_logo_url %}
+                                                <img
+                                                    src="{{ current_logo_url }}"
+                                                    alt="Current company logo"
+                                                    class="img-fluid"
+                                                    style="
+                                                        max-height: 90px;
+                                                        max-width: 150px;
+                                                        object-fit: contain;
+                                                    "
+                                                >
+                                            {% else %}
+                                                <div
+                                                    class="
+                                                        text-center
+                                                        text-muted
+                                                    "
+                                                >
+                                                    <i
+                                                        class="
+                                                            bi
+                                                            bi-image
+                                                            fs-2
+                                                        "
+                                                    ></i>
+
+                                                    <div class="small mt-1">
+                                                        No logo uploaded
+                                                    </div>
+                                                </div>
+                                            {% endif %}
+
+                                        </div>
+
+                                    </div>
+
+                                    <div class="col">
+
+                                        {{
+                                            company_form.company_logo.label(
+                                                class="form-label"
+                                            )
+                                        }}
+
+                                        {{
+                                            company_form.company_logo(
+                                                class="form-control",
+                                                accept=(
+                                                    ".png,.jpg,.jpeg,.webp"
+                                                )
+                                            )
+                                        }}
+
+                                        <div class="form-text">
+                                            A transparent PNG is recommended.
+                                        </div>
+
+                                        {% if current_logo_url %}
+                                            <div class="form-check mt-3">
+
+                                                {{
+                                                    company_form
+                                                    .remove_company_logo(
+                                                        class=(
+                                                            "form-check-input"
+                                                        )
+                                                    )
+                                                }}
+
+                                                {{
+                                                    company_form
+                                                    .remove_company_logo
+                                                    .label(
+                                                        class=(
+                                                            "form-check-label "
+                                                            "text-danger"
+                                                        )
+                                                    )
+                                                }}
+
+                                            </div>
+                                        {% endif %}
+
+                                    </div>
+
+                                </div>
+
+                            </div>
+                        </div>
+
+                    </div>
+
+                </div>
+            </div>
+
+            <div class="app-card mb-4">
+                <div class="card-body p-4">
+
+                    <h3 class="h5 mb-1">
+                        Payslip Communication
+                    </h3>
+
+                    <p class="text-muted mb-4">
+                        Default wording used on payslips and emails.
+                    </p>
+
+                    <div class="row g-3">
+
+                        <div class="col-12">
+                            {{
+                                company_form.payslip_footer.label(
+                                    class="form-label"
+                                )
+                            }}
+
+                            {{
+                                company_form.payslip_footer(
+                                    class="form-control",
+                                    rows="3"
+                                )
+                            }}
+                        </div>
+
+                        <div class="col-12">
+                            {{
+                                company_form
+                                .payslip_email_subject
+                                .label(
+                                    class="form-label"
+                                )
+                            }}
+
+                            {{
+                                company_form
+                                .payslip_email_subject(
+                                    class="form-control"
+                                )
+                            }}
+                        </div>
+
+                        <div class="col-12">
+                            {{
+                                company_form
+                                .payslip_email_message
+                                .label(
+                                    class="form-label"
+                                )
+                            }}
+
+                            {{
+                                company_form
+                                .payslip_email_message(
+                                    class="form-control",
+                                    rows="8"
+                                )
+                            }}
+                        </div>
+
+                    </div>
+
+                </div>
+            </div>
+
+            <div class="d-flex justify-content-end mb-4">
+                {{
+                    company_form.submit(
+                        class="btn btn-primary btn-lg"
+                    )
+                }}
+            </div>
+
+        </form>
+
+    </div>
+
+    <!-- Allowance Types -->
+
+    <div
+        class="
+            tab-pane fade
+            {% if active_tab == 'allowances' %}
+                show active
+            {% endif %}
+        "
+        id="allowance-settings"
+        role="tabpanel"
+    >
+
+        <div class="row g-4">
+
+            <div class="col-xl-5">
+
+                <div class="app-card">
+                    <div class="card-body p-4">
+
+                        <h3 class="h5 mb-1">
+                            {% if allowance_form.allowance_type_id.data %}
+                                Edit Allowance Type
+                            {% else %}
+                                Add Allowance Type
+                            {% endif %}
+                        </h3>
+
+                        <p class="text-muted mb-4">
+                            Create reusable earnings that can be
+                            assigned to employees.
+                        </p>
+
+                        <form
+                            method="POST"
+                            action="{{ url_for(
+                                'settings.save_allowance_type'
+                            ) }}"
+                        >
+                            {{ allowance_form.hidden_tag() }}
+
+                            <div class="mb-3">
+                                {{
+                                    allowance_form.name.label(
+                                        class="form-label"
+                                    )
+                                }}
+
+                                {{
+                                    allowance_form.name(
+                                        class="form-control",
+                                        placeholder="Housing Allowance"
+                                    )
+                                }}
+                            </div>
+
+                            <div class="mb-3">
+                                {{
+                                    allowance_form.code.label(
+                                        class="form-label"
+                                    )
+                                }}
+
+                                {{
+                                    allowance_form.code(
+                                        class="form-control",
+                                        placeholder="HOUSING"
+                                    )
+                                }}
+                            </div>
+
+                            <div class="mb-3">
+                                {{
+                                    allowance_form.description.label(
+                                        class="form-label"
+                                    )
+                                }}
+
+                                {{
+                                    allowance_form.description(
+                                        class="form-control",
+                                        rows="3"
+                                    )
+                                }}
+                            </div>
+
+                            <div class="mb-3">
+                                {{
+                                    allowance_form
+                                    .calculation_method
+                                    .label(
+                                        class="form-label"
+                                    )
+                                }}
+
+                                {{
+                                    allowance_form
+                                    .calculation_method(
+                                        class="form-select"
+                                    )
+                                }}
+                            </div>
+
+                            <div class="row g-3 mb-3">
+
+                                <div class="col-md-6">
+                                    {{
+                                        allowance_form
+                                        .default_amount
+                                        .label(
+                                            class="form-label"
+                                        )
+                                    }}
+
+                                    {{
+                                        allowance_form.default_amount(
+                                            class="form-control",
+                                            min="0",
+                                            step="0.01"
+                                        )
+                                    }}
+                                </div>
+
+                                <div class="col-md-6">
+                                    {{
+                                        allowance_form
+                                        .default_percentage
+                                        .label(
+                                            class="form-label"
+                                        )
+                                    }}
+
+                                    {{
+                                        allowance_form
+                                        .default_percentage(
+                                            class="form-control",
+                                            min="0",
+                                            max="100",
+                                            step="0.0001"
+                                        )
+                                    }}
+                                </div>
+
+                            </div>
+
+                            <div class="form-check mb-2">
+                                {{
+                                    allowance_form.is_taxable(
+                                        class="form-check-input"
+                                    )
+                                }}
+
+                                {{
+                                    allowance_form.is_taxable.label(
+                                        class="form-check-label"
+                                    )
+                                }}
+                            </div>
+
+                            <div class="form-check mb-2">
+                                {{
+                                    allowance_form.is_recurring(
+                                        class="form-check-input"
+                                    )
+                                }}
+
+                                {{
+                                    allowance_form.is_recurring.label(
+                                        class="form-check-label"
+                                    )
+                                }}
+                            </div>
+
+                            <div class="form-check mb-4">
+                                {{
+                                    allowance_form.is_active(
+                                        class="form-check-input"
+                                    )
+                                }}
+
+                                {{
+                                    allowance_form.is_active.label(
+                                        class="form-check-label"
+                                    )
+                                }}
+                            </div>
+
+                            <div class="d-flex flex-wrap gap-2">
+
+                                {{
+                                    allowance_form.submit(
+                                        class="btn btn-primary"
+                                    )
+                                }}
+
+                                {% if allowance_form.allowance_type_id.data %}
+                                    <a
+                                        href="{{ url_for(
+                                            'settings.index',
+                                            tab='allowances'
+                                        ) }}"
+                                        class="btn btn-outline-secondary"
+                                    >
+                                        Cancel Edit
+                                    </a>
+                                {% endif %}
+
+                            </div>
+
+                        </form>
+
+                    </div>
+                </div>
+
+            </div>
+
+            <div class="col-xl-7">
+
+                <div class="app-card overflow-hidden">
+
+                    <div class="card-body p-4 border-bottom">
+                        <h3 class="h5 mb-1">
+                            Configured Allowance Types
+                        </h3>
+
+                        <p class="text-muted mb-0">
+                            {{ allowance_types|length }}
+                            allowance type(s) configured.
+                        </p>
+                    </div>
+
+                    {% if allowance_types %}
+
+                        <div class="table-responsive">
+
+                            <table
+                                class="
+                                    table
+                                    table-hover
+                                    align-middle
+                                    mb-0
+                                "
+                            >
+                                <thead class="table-light">
+                                    <tr>
+                                        <th class="px-4 py-3">
+                                            Allowance
+                                        </th>
+
+                                        <th class="py-3">
+                                            Calculation
+                                        </th>
+
+                                        <th class="py-3">
+                                            Status
+                                        </th>
+
+                                        <th class="text-end px-4 py-3">
+                                            Actions
+                                        </th>
+                                    </tr>
+                                </thead>
+
+                                <tbody>
+
+                                    {% for allowance_type in allowance_types %}
+
+                                        <tr>
+                                            <td class="px-4">
+
+                                                <div class="fw-semibold">
+                                                    {{ allowance_type.name }}
+                                                </div>
+
+                                                <small class="text-muted">
+                                                    {{ allowance_type.code }}
+                                                </small>
+
+                                            </td>
+
+                                            <td>
+
+                                                <div>
+                                                    {{
+                                                        allowance_type
+                                                        .calculation_method
+                                                    }}
+                                                </div>
+
+                                                <small class="text-muted">
+
+                                                    {% if
+                                                        allowance_type
+                                                        .calculation_method
+                                                        == "Percentage"
+                                                    %}
+                                                        {{
+                                                            allowance_type
+                                                            .default_percentage
+                                                        }}%
+                                                    {% else %}
+                                                        {{
+                                                            "%.2f"|format(
+                                                                allowance_type
+                                                                .default_amount
+                                                            )
+                                                        }}
+                                                    {% endif %}
+
+                                                </small>
+
+                                            </td>
+
+                                            <td>
+                                                {% if allowance_type.is_active %}
+                                                    <span
+                                                        class="
+                                                            badge
+                                                            text-bg-success
+                                                        "
+                                                    >
+                                                        Active
+                                                    </span>
+                                                {% else %}
+                                                    <span
+                                                        class="
+                                                            badge
+                                                            text-bg-secondary
+                                                        "
+                                                    >
+                                                        Inactive
+                                                    </span>
+                                                {% endif %}
+                                            </td>
+
+                                            <td class="text-end px-4">
+
+                                                <div
+                                                    class="
+                                                        d-inline-flex
+                                                        gap-2
+                                                    "
+                                                >
+
+                                                    <a
+                                                        href="{{ url_for(
+                                                            'settings.index',
+                                                            tab='allowances',
+                                                            edit_allowance=allowance_type.id
+                                                        ) }}"
+                                                        class="
+                                                            btn
+                                                            btn-sm
+                                                            btn-outline-primary
+                                                        "
+                                                    >
+                                                        <i
+                                                            class="
+                                                                bi
+                                                                bi-pencil
+                                                            "
+                                                        ></i>
+                                                    </a>
+
+                                                    <form
+                                                        method="POST"
+                                                        action="{{ url_for(
+                                                            'settings.toggle_allowance_type',
+                                                            allowance_type_id=allowance_type.id
+                                                        ) }}"
+                                                    >
+                                                        {{
+                                                            allowance_form
+                                                            .csrf_token
+                                                        }}
+
+                                                        <button
+                                                            type="submit"
+                                                            class="
+                                                                btn
+                                                                btn-sm
+                                                                {% if allowance_type.is_active %}
+                                                                    btn-outline-danger
+                                                                {% else %}
+                                                                    btn-outline-success
+                                                                {% endif %}
+                                                            "
+                                                        >
+                                                            {% if allowance_type.is_active %}
+                                                                Deactivate
+                                                            {% else %}
+                                                                Activate
+                                                            {% endif %}
+                                                        </button>
+                                                    </form>
+
+                                                </div>
+
+                                            </td>
+                                        </tr>
+
+                                    {% endfor %}
+
+                                </tbody>
+                            </table>
+
+                        </div>
+
+                    {% else %}
+
+                        <div class="text-center py-5 px-4">
+
+                            <i
+                                class="
+                                    bi
+                                    bi-plus-circle
+                                    fs-1
+                                    text-muted
+                                "
+                            ></i>
+
+                            <h4 class="h6 mt-3">
+                                No allowance types configured
+                            </h4>
+
+                            <p class="text-muted mb-0">
+                                Create housing, transport, meal
+                                or other reusable allowance types.
+                            </p>
+
+                        </div>
+
+                    {% endif %}
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+    <!-- Deduction Types -->
+
+    <div
+        class="
+            tab-pane fade
+            {% if active_tab == 'deductions' %}
+                show active
+            {% endif %}
+        "
+        id="deduction-settings"
+        role="tabpanel"
+    >
+
+        <div class="row g-4">
+
+            <div class="col-xl-5">
+
+                <div class="app-card">
+                    <div class="card-body p-4">
+
+                        <h3 class="h5 mb-1">
+                            {% if deduction_form.deduction_type_id.data %}
+                                Edit Deduction Type
+                            {% else %}
+                                Add Deduction Type
+                            {% endif %}
+                        </h3>
+
+                        <p class="text-muted mb-4">
+                            Create reusable employee deductions
+                            and employer contributions.
+                        </p>
+
+                        <form
+                            method="POST"
+                            action="{{ url_for(
+                                'settings.save_deduction_type'
+                            ) }}"
+                        >
+                            {{ deduction_form.hidden_tag() }}
+
+                            <div class="mb-3">
+                                {{
+                                    deduction_form.name.label(
+                                        class="form-label"
+                                    )
+                                }}
+
+                                {{
+                                    deduction_form.name(
+                                        class="form-control",
+                                        placeholder="CIMAS Medical Aid"
+                                    )
+                                }}
+                            </div>
+
+                            <div class="mb-3">
+                                {{
+                                    deduction_form.code.label(
+                                        class="form-label"
+                                    )
+                                }}
+
+                                {{
+                                    deduction_form.code(
+                                        class="form-control",
+                                        placeholder="CIMAS"
+                                    )
+                                }}
+                            </div>
+
+                            <div class="mb-3">
+                                {{
+                                    deduction_form.description.label(
+                                        class="form-label"
+                                    )
+                                }}
+
+                                {{
+                                    deduction_form.description(
+                                        class="form-control",
+                                        rows="3"
+                                    )
+                                }}
+                            </div>
+
+                            <div class="row g-3 mb-3">
+
+                                <div class="col-md-6">
+                                    {{
+                                        deduction_form.category.label(
+                                            class="form-label"
+                                        )
+                                    }}
+
+                                    {{
+                                        deduction_form.category(
+                                            class="form-select"
+                                        )
+                                    }}
+                                </div>
+
+                                <div class="col-md-6">
+                                    {{
+                                        deduction_form
+                                        .calculation_method
+                                        .label(
+                                            class="form-label"
+                                        )
+                                    }}
+
+                                    {{
+                                        deduction_form
+                                        .calculation_method(
+                                            class="form-select"
+                                        )
+                                    }}
+                                </div>
+
+                            </div>
+
+                            <div class="row g-3 mb-3">
+
+                                <div class="col-md-6">
+                                    {{
+                                        deduction_form
+                                        .default_amount
+                                        .label(
+                                            class="form-label"
+                                        )
+                                    }}
+
+                                    {{
+                                        deduction_form.default_amount(
+                                            class="form-control",
+                                            min="0",
+                                            step="0.01"
+                                        )
+                                    }}
+                                </div>
+
+                                <div class="col-md-6">
+                                    {{
+                                        deduction_form
+                                        .default_percentage
+                                        .label(
+                                            class="form-label"
+                                        )
+                                    }}
+
+                                    {{
+                                        deduction_form
+                                        .default_percentage(
+                                            class="form-control",
+                                            min="0",
+                                            max="100",
+                                            step="0.0001"
+                                        )
+                                    }}
+                                </div>
+
+                                <div class="col-md-6">
+                                    {{
+                                        deduction_form
+                                        .employer_percentage
+                                        .label(
+                                            class="form-label"
+                                        )
+                                    }}
+
+                                    {{
+                                        deduction_form
+                                        .employer_percentage(
+                                            class="form-control",
+                                            min="0",
+                                            max="100",
+                                            step="0.0001"
+                                        )
+                                    }}
+                                </div>
+
+                            </div>
+
+                            <div class="form-check mb-2">
+                                {{
+                                    deduction_form.is_statutory(
+                                        class="form-check-input"
+                                    )
+                                }}
+
+                                {{
+                                    deduction_form.is_statutory.label(
+                                        class="form-check-label"
+                                    )
+                                }}
+                            </div>
+
+                            <div class="form-check mb-2">
+                                {{
+                                    deduction_form.reduces_net_pay(
+                                        class="form-check-input"
+                                    )
+                                }}
+
+                                {{
+                                    deduction_form.reduces_net_pay.label(
+                                        class="form-check-label"
+                                    )
+                                }}
+                            </div>
+
+                            <div class="form-check mb-2">
+                                {{
+                                    deduction_form.is_recurring(
+                                        class="form-check-input"
+                                    )
+                                }}
+
+                                {{
+                                    deduction_form.is_recurring.label(
+                                        class="form-check-label"
+                                    )
+                                }}
+                            </div>
+
+                            <div class="form-check mb-4">
+                                {{
+                                    deduction_form.is_active(
+                                        class="form-check-input"
+                                    )
+                                }}
+
+                                {{
+                                    deduction_form.is_active.label(
+                                        class="form-check-label"
+                                    )
+                                }}
+                            </div>
+
+                            <div class="d-flex flex-wrap gap-2">
+
+                                {{
+                                    deduction_form.submit(
+                                        class="btn btn-primary"
+                                    )
+                                }}
+
+                                {% if deduction_form.deduction_type_id.data %}
+                                    <a
+                                        href="{{ url_for(
+                                            'settings.index',
+                                            tab='deductions'
+                                        ) }}"
+                                        class="btn btn-outline-secondary"
+                                    >
+                                        Cancel Edit
+                                    </a>
+                                {% endif %}
+
+                            </div>
+
+                        </form>
+
+                    </div>
+                </div>
+
+            </div>
+
+            <div class="col-xl-7">
+
+                <div class="app-card overflow-hidden">
+
+                    <div class="card-body p-4 border-bottom">
+                        <h3 class="h5 mb-1">
+                            Configured Deduction Types
+                        </h3>
+
+                        <p class="text-muted mb-0">
+                            {{ deduction_types|length }}
+                            deduction type(s) configured.
+                        </p>
+                    </div>
+
+                    {% if deduction_types %}
+
+                        <div class="table-responsive">
+
+                            <table
+                                class="
+                                    table
+                                    table-hover
+                                    align-middle
+                                    mb-0
+                                "
+                            >
+                                <thead class="table-light">
+                                    <tr>
+                                        <th class="px-4 py-3">
+                                            Deduction
+                                        </th>
+
+                                        <th class="py-3">
+                                            Category
+                                        </th>
+
+                                        <th class="py-3">
+                                            Net Pay
+                                        </th>
+
+                                        <th class="py-3">
+                                            Status
+                                        </th>
+
+                                        <th class="text-end px-4 py-3">
+                                            Actions
+                                        </th>
+                                    </tr>
+                                </thead>
+
+                                <tbody>
+
+                                    {% for deduction_type in deduction_types %}
+
+                                        <tr>
+                                            <td class="px-4">
+
+                                                <div class="fw-semibold">
+                                                    {{ deduction_type.name }}
+                                                </div>
+
+                                                <small class="text-muted">
+                                                    {{ deduction_type.code }}
+                                                </small>
+
+                                            </td>
+
+                                            <td>
+                                                <span
+                                                    class="
+                                                        badge
+                                                        text-bg-light
+                                                        border
+                                                    "
+                                                >
+                                                    {{ deduction_type.category }}
+                                                </span>
+                                            </td>
+
+                                            <td>
+                                                {% if deduction_type.reduces_net_pay %}
+                                                    <span class="text-danger">
+                                                        Deducts
+                                                    </span>
+                                                {% else %}
+                                                    <span class="text-muted">
+                                                        Employer only
+                                                    </span>
+                                                {% endif %}
+                                            </td>
+
+                                            <td>
+                                                {% if deduction_type.is_active %}
+                                                    <span
+                                                        class="
+                                                            badge
+                                                            text-bg-success
+                                                        "
+                                                    >
+                                                        Active
+                                                    </span>
+                                                {% else %}
+                                                    <span
+                                                        class="
+                                                            badge
+                                                            text-bg-secondary
+                                                        "
+                                                    >
+                                                        Inactive
+                                                    </span>
+                                                {% endif %}
+                                            </td>
+
+                                            <td class="text-end px-4">
+
+                                                <div
+                                                    class="
+                                                        d-inline-flex
+                                                        gap-2
+                                                    "
+                                                >
+
+                                                    <a
+                                                        href="{{ url_for(
+                                                            'settings.index',
+                                                            tab='deductions',
+                                                            edit_deduction=deduction_type.id
+                                                        ) }}"
+                                                        class="
+                                                            btn
+                                                            btn-sm
+                                                            btn-outline-primary
+                                                        "
+                                                    >
+                                                        <i
+                                                            class="
+                                                                bi
+                                                                bi-pencil
+                                                            "
+                                                        ></i>
+                                                    </a>
+
+                                                    <form
+                                                        method="POST"
+                                                        action="{{ url_for(
+                                                            'settings.toggle_deduction_type',
+                                                            deduction_type_id=deduction_type.id
+                                                        ) }}"
+                                                    >
+                                                        {{
+                                                            deduction_form
+                                                            .csrf_token
+                                                        }}
+
+                                                        <button
+                                                            type="submit"
+                                                            class="
+                                                                btn
+                                                                btn-sm
+                                                                {% if deduction_type.is_active %}
+                                                                    btn-outline-danger
+                                                                {% else %}
+                                                                    btn-outline-success
+                                                                {% endif %}
+                                                            "
+                                                        >
+                                                            {% if deduction_type.is_active %}
+                                                                Deactivate
+                                                            {% else %}
+                                                                Activate
+                                                            {% endif %}
+                                                        </button>
+                                                    </form>
+
+                                                </div>
+
+                                            </td>
+                                        </tr>
+
+                                    {% endfor %}
+
+                                </tbody>
+                            </table>
+
+                        </div>
+
+                    {% else %}
+
+                        <div class="text-center py-5 px-4">
+
+                            <i
+                                class="
+                                    bi
+                                    bi-dash-circle
+                                    fs-1
+                                    text-muted
+                                "
+                            ></i>
+
+                            <h4 class="h6 mt-3">
+                                No deduction types configured
+                            </h4>
+
+                            <p class="text-muted mb-0">
+                                Create CIMAS, NEC, pension, loans
+                                and other reusable deductions.
+                            </p>
+
+                        </div>
+
+                    {% endif %}
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+{% endblock %}

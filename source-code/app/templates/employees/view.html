@@ -1,148 +1,1669 @@
 {% extends "base.html" %}
 
 {% block title %}
-{{ employee.first_name }} {{ employee.last_name }} | BUYOH Payroll
+    {{ employee.first_name }} {{ employee.last_name }}
+    | BUYOH Payroll
 {% endblock %}
 
 {% block page_title %}
-Employee Details
+    Employee Workspace
 {% endblock %}
 
 {% block content %}
 
-<div class="d-flex justify-content-between align-items-center mb-4">
-    <div>
-        <h2 class="h3 mb-1">
-            {{ employee.first_name }} {{ employee.last_name }}
-        </h2>
+<!-- Employee Header -->
 
-        <p class="text-muted mb-0">
-            Employee Number: {{ employee.employee_number }}
-        </p>
-    </div>
+<div class="app-card mb-4">
 
-    <div class="d-flex gap-2">
-        <a
-            href="{{ url_for(
-                'employees.edit_employee',
-                employee_id=employee.id
-            ) }}"
-            class="btn btn-primary"
-        >
-            <i class="bi bi-pencil-square me-2"></i>
-            Edit Employee
-        </a>
-
-        <a
-            href="{{ url_for('employees.list_employees') }}"
-            class="btn btn-outline-secondary"
-        >
-            Back to Employees
-        </a>
-    </div>
-</div>
-
-<div class="app-card">
     <div class="card-body p-4">
 
-        <div class="row g-4">
+        <div
+            class="
+                d-flex
+                flex-column
+                flex-xl-row
+                justify-content-between
+                align-items-xl-center
+                gap-4
+            "
+        >
 
-            <div class="col-md-6">
-                <p class="text-muted mb-1">
-                    Full Name
-                </p>
+            <div class="d-flex align-items-center gap-3">
 
-                <p class="fw-semibold mb-0">
-                    {{ employee.first_name }}
-                    {{ employee.last_name }}
-                </p>
-            </div>
+                <div
+                    class="
+                        rounded-circle
+                        bg-primary-subtle
+                        text-primary
+                        d-flex
+                        align-items-center
+                        justify-content-center
+                        flex-shrink-0
+                    "
+                    style="width: 72px; height: 72px;"
+                >
+                    <i class="bi bi-person-fill fs-2"></i>
+                </div>
 
-            <div class="col-md-6">
-                <p class="text-muted mb-1">
-                    Employee Number
-                </p>
+                <div>
 
-                <p class="fw-semibold mb-0">
-                    {{ employee.employee_number }}
-                </p>
-            </div>
+                    <div class="d-flex flex-wrap align-items-center gap-2">
 
-            <div class="col-md-6">
-                <p class="text-muted mb-1">
-                    National ID
-                </p>
+                        <h2 class="h3 mb-0">
+                            {{ employee.first_name }}
+                            {{ employee.last_name }}
+                        </h2>
 
-                <p class="fw-semibold mb-0">
-                    {{ employee.national_id or "Not provided" }}
-                </p>
-            </div>
+                        {% if employee.is_active %}
 
-            <div class="col-md-6">
-                <p class="text-muted mb-1">
-                    Department
-                </p>
+                            <span class="badge text-bg-success">
+                                <i class="bi bi-check-circle me-1"></i>
+                                {{ employee.employment_status }}
+                            </span>
 
-                <p class="fw-semibold mb-0">
-                    {% if employee.department %}
-                        {{ employee.department.name }}
-                    {% else %}
-                        No department
-                    {% endif %}
-                </p>
-            </div>
+                        {% else %}
 
-            <div class="col-md-6">
-                <p class="text-muted mb-1">
-                    Job Title
-                </p>
+                            <span class="badge text-bg-secondary">
+                                <i class="bi bi-person-dash me-1"></i>
+                                {{ employee.employment_status }}
+                            </span>
 
-                <p class="fw-semibold mb-0">
-                    {{ employee.job_title }}
-                </p>
-            </div>
+                        {% endif %}
 
-            <div class="col-md-6">
-                <p class="text-muted mb-1">
-                    Employment Date
-                </p>
+                    </div>
 
-                <p class="fw-semibold mb-0">
-                    {{ employee.employment_date.strftime("%d %B %Y") }}
-                </p>
-            </div>
+                    <div class="text-muted mt-2">
 
-            <div class="col-md-6">
-                <p class="text-muted mb-1">
-                    Basic Salary
-                </p>
-
-                <p class="fw-semibold mb-0">
-                    ${{ "%.2f"|format(employee.basic_salary) }}
-                </p>
-            </div>
-
-            <div class="col-md-6">
-                <p class="text-muted mb-1">
-                    Employment Status
-                </p>
-
-                <p class="mb-0">
-                    {% if employee.is_active %}
-                        <span class="badge text-bg-success">
-                            {{ employee.employment_status }}
+                        <span>
+                            {{ employee.employee_number }}
                         </span>
-                    {% else %}
-                        <span class="badge text-bg-secondary">
-                            {{ employee.employment_status }}
+
+                        <span class="mx-2">
+                            •
                         </span>
-                    {% endif %}
-                </p>
+
+                        <span>
+                            {{ employee.job_title }}
+                        </span>
+
+                        <span class="mx-2">
+                            •
+                        </span>
+
+                        <span>
+                            {% if employee.department %}
+                                {{ employee.department.name }}
+                            {% else %}
+                                No department
+                            {% endif %}
+                        </span>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+            <div class="d-flex flex-wrap gap-2">
+
+                <a
+                    href="{{ url_for(
+                        'employees.edit_employee',
+                        employee_id=employee.id
+                    ) }}"
+                    class="btn btn-primary"
+                >
+                    <i class="bi bi-pencil-square me-2"></i>
+                    Edit Employee
+                </a>
+
+                <a
+                    href="{{ url_for('employees.list_employees') }}"
+                    class="btn btn-outline-secondary"
+                >
+                    <i class="bi bi-arrow-left me-2"></i>
+                    Employees
+                </a>
+
             </div>
 
         </div>
 
     </div>
+
+</div>
+
+<!-- KPI Cards -->
+
+<div class="row g-3 mb-4">
+
+    <div class="col-sm-6 col-xl-3">
+
+        <div class="app-card h-100">
+
+            <div class="card-body p-4">
+
+                <div class="d-flex justify-content-between">
+
+                    <div>
+
+                        <div class="text-muted small mb-2">
+                            Basic Salary
+                        </div>
+
+                        <div class="fs-4 fw-bold">
+                            ${{ "%.2f"|format(employee.basic_salary) }}
+                        </div>
+
+                    </div>
+
+                    <div class="text-primary fs-3">
+                        <i class="bi bi-cash"></i>
+                    </div>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+    <div class="col-sm-6 col-xl-3">
+
+        <div class="app-card h-100">
+
+            <div class="card-body p-4">
+
+                <div class="d-flex justify-content-between">
+
+                    <div>
+
+                        <div class="text-muted small mb-2">
+                            Latest Gross Pay
+                        </div>
+
+                        <div class="fs-4 fw-bold">
+
+                            {% if latest_payroll_record %}
+
+                                ${{
+                                    "%.2f"|format(
+                                        latest_payroll_record.gross_pay
+                                    )
+                                }}
+
+                            {% else %}
+
+                                $0.00
+
+                            {% endif %}
+
+                        </div>
+
+                    </div>
+
+                    <div class="text-success fs-3">
+                        <i class="bi bi-graph-up-arrow"></i>
+                    </div>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+    <div class="col-sm-6 col-xl-3">
+
+        <div class="app-card h-100">
+
+            <div class="card-body p-4">
+
+                <div class="d-flex justify-content-between">
+
+                    <div>
+
+                        <div class="text-muted small mb-2">
+                            Latest Deductions
+                        </div>
+
+                        <div class="fs-4 fw-bold">
+
+                            {% if latest_payroll_record %}
+
+                                ${{
+                                    "%.2f"|format(
+                                        latest_payroll_record.total_deductions
+                                    )
+                                }}
+
+                            {% else %}
+
+                                $0.00
+
+                            {% endif %}
+
+                        </div>
+
+                    </div>
+
+                    <div class="text-danger fs-3">
+                        <i class="bi bi-dash-circle"></i>
+                    </div>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+    <div class="col-sm-6 col-xl-3">
+
+        <div class="app-card h-100">
+
+            <div class="card-body p-4">
+
+                <div class="d-flex justify-content-between">
+
+                    <div>
+
+                        <div class="text-muted small mb-2">
+                            Latest Net Pay
+                        </div>
+
+                        <div class="fs-4 fw-bold">
+
+                            {% if latest_payroll_record %}
+
+                                ${{
+                                    "%.2f"|format(
+                                        latest_payroll_record.net_pay
+                                    )
+                                }}
+
+                            {% else %}
+
+                                $0.00
+
+                            {% endif %}
+
+                        </div>
+
+                    </div>
+
+                    <div class="text-primary fs-3">
+                        <i class="bi bi-wallet2"></i>
+                    </div>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+<!-- Workspace Navigation -->
+
+<div class="app-card mb-4">
+
+    <div class="card-body p-2">
+
+        <ul
+            class="nav nav-pills flex-column flex-md-row gap-1"
+            id="employeeWorkspaceTabs"
+            role="tablist"
+        >
+
+            <li class="nav-item" role="presentation">
+
+                <button
+                    class="nav-link active"
+                    id="overview-tab"
+                    data-bs-toggle="pill"
+                    data-bs-target="#overview"
+                    type="button"
+                    role="tab"
+                >
+                    <i class="bi bi-person-vcard me-1"></i>
+                    Overview
+                </button>
+
+            </li>
+
+            <li class="nav-item" role="presentation">
+
+                <button
+                    class="nav-link"
+                    id="payroll-tab"
+                    data-bs-toggle="pill"
+                    data-bs-target="#payroll"
+                    type="button"
+                    role="tab"
+                >
+                    <i class="bi bi-clock-history me-1"></i>
+                    Payroll History
+                </button>
+
+            </li>
+
+            <li class="nav-item" role="presentation">
+
+                <button
+                    class="nav-link"
+                    id="earnings-tab"
+                    data-bs-toggle="pill"
+                    data-bs-target="#earnings"
+                    type="button"
+                    role="tab"
+                >
+                    <i class="bi bi-plus-circle me-1"></i>
+                    Allowances
+                </button>
+
+            </li>
+
+            <li class="nav-item" role="presentation">
+
+                <button
+                    class="nav-link"
+                    id="deductions-tab"
+                    data-bs-toggle="pill"
+                    data-bs-target="#deductions"
+                    type="button"
+                    role="tab"
+                >
+                    <i class="bi bi-dash-circle me-1"></i>
+                    Deductions
+                </button>
+
+            </li>
+
+            <li class="nav-item" role="presentation">
+
+                <button
+                    class="nav-link"
+                    id="emails-tab"
+                    data-bs-toggle="pill"
+                    data-bs-target="#emails"
+                    type="button"
+                    role="tab"
+                >
+                    <i class="bi bi-envelope-check me-1"></i>
+                    Email History
+                </button>
+
+            </li>
+
+        </ul>
+
+    </div>
+
+</div>
+
+<div class="tab-content">
+
+    <!-- Overview Tab -->
+
+    <div
+        class="tab-pane fade show active"
+        id="overview"
+        role="tabpanel"
+    >
+
+        <div class="row g-4">
+
+            <div class="col-xl-6">
+
+                <div class="app-card h-100">
+
+                    <div class="card-body p-4">
+
+                        <h3 class="h5 mb-4">
+                            <i class="bi bi-person me-2"></i>
+                            Personal Details
+                        </h3>
+
+                        <div class="row g-4">
+
+                            <div class="col-md-6">
+
+                                <div class="text-muted small mb-1">
+                                    Full Name
+                                </div>
+
+                                <div class="fw-semibold">
+                                    {{ employee.first_name }}
+                                    {{ employee.last_name }}
+                                </div>
+
+                            </div>
+
+                            <div class="col-md-6">
+
+                                <div class="text-muted small mb-1">
+                                    Employee Number
+                                </div>
+
+                                <div class="fw-semibold">
+                                    {{ employee.employee_number }}
+                                </div>
+
+                            </div>
+
+                            <div class="col-md-6">
+
+                                <div class="text-muted small mb-1">
+                                    Email Address
+                                </div>
+
+                                <div class="fw-semibold">
+
+                                    {% if employee.email %}
+
+                                        <a
+                                            href="mailto:{{ employee.email }}"
+                                            class="text-decoration-none"
+                                        >
+                                            {{ employee.email }}
+                                        </a>
+
+                                    {% else %}
+
+                                        <span class="text-muted">
+                                            Not provided
+                                        </span>
+
+                                    {% endif %}
+
+                                </div>
+
+                            </div>
+
+                            <div class="col-md-6">
+
+                                <div class="text-muted small mb-1">
+                                    National ID
+                                </div>
+
+                                <div class="fw-semibold">
+                                    {{ employee.national_id or "Not provided" }}
+                                </div>
+
+                            </div>
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+            <div class="col-xl-6">
+
+                <div class="app-card h-100">
+
+                    <div class="card-body p-4">
+
+                        <h3 class="h5 mb-4">
+                            <i class="bi bi-briefcase me-2"></i>
+                            Employment Details
+                        </h3>
+
+                        <div class="row g-4">
+
+                            <div class="col-md-6">
+
+                                <div class="text-muted small mb-1">
+                                    Job Title
+                                </div>
+
+                                <div class="fw-semibold">
+                                    {{ employee.job_title }}
+                                </div>
+
+                            </div>
+
+                            <div class="col-md-6">
+
+                                <div class="text-muted small mb-1">
+                                    Department
+                                </div>
+
+                                <div class="fw-semibold">
+
+                                    {% if employee.department %}
+                                        {{ employee.department.name }}
+                                    {% else %}
+                                        No department
+                                    {% endif %}
+
+                                </div>
+
+                            </div>
+
+                            <div class="col-md-6">
+
+                                <div class="text-muted small mb-1">
+                                    Employment Date
+                                </div>
+
+                                <div class="fw-semibold">
+                                    {{
+                                        employee.employment_date.strftime(
+                                            "%d %B %Y"
+                                        )
+                                    }}
+                                </div>
+
+                            </div>
+
+                            <div class="col-md-6">
+
+                                <div class="text-muted small mb-1">
+                                    Employment Status
+                                </div>
+
+                                <div class="fw-semibold">
+                                    {{ employee.employment_status }}
+                                </div>
+
+                            </div>
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+            <div class="col-xl-6">
+
+                <div class="app-card h-100">
+
+                    <div class="card-body p-4">
+
+                        <h3 class="h5 mb-4">
+                            <i class="bi bi-bank me-2"></i>
+                            Banking Details
+                        </h3>
+
+                        <div class="row g-4">
+
+                            <div class="col-md-6">
+
+                                <div class="text-muted small mb-1">
+                                    Payment Method
+                                </div>
+
+                                <div class="fw-semibold">
+                                    {{ employee.payment_method }}
+                                </div>
+
+                            </div>
+
+                            <div class="col-md-6">
+
+                                <div class="text-muted small mb-1">
+                                    Bank
+                                </div>
+
+                                <div class="fw-semibold">
+                                    {{ employee.bank_name or "Not provided" }}
+                                </div>
+
+                            </div>
+
+                            <div class="col-md-6">
+
+                                <div class="text-muted small mb-1">
+                                    Branch
+                                </div>
+
+                                <div class="fw-semibold">
+                                    {{ employee.bank_branch or "Not provided" }}
+                                </div>
+
+                            </div>
+
+                            <div class="col-md-6">
+
+                                <div class="text-muted small mb-1">
+                                    Bank Code
+                                </div>
+
+                                <div class="fw-semibold">
+                                    {{ employee.bank_code or "Not provided" }}
+                                </div>
+
+                            </div>
+
+                            <div class="col-md-6">
+
+                                <div class="text-muted small mb-1">
+                                    Account Name
+                                </div>
+
+                                <div class="fw-semibold">
+                                    {{ employee.account_name or "Not provided" }}
+                                </div>
+
+                            </div>
+
+                            <div class="col-md-6">
+
+                                <div class="text-muted small mb-1">
+                                    Account Number
+                                </div>
+
+                                <div class="fw-semibold">
+                                    {{
+                                        employee.account_number
+                                        or "Not provided"
+                                    }}
+                                </div>
+
+                            </div>
+
+                            <div class="col-md-6">
+
+                                <div class="text-muted small mb-1">
+                                    Account Type
+                                </div>
+
+                                <div class="fw-semibold">
+                                    {{ employee.account_type or "Not provided" }}
+                                </div>
+
+                            </div>
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+            <div class="col-xl-6">
+
+                <div class="app-card h-100">
+
+                    <div class="card-body p-4">
+
+                        <h3 class="h5 mb-4">
+                            <i class="bi bi-activity me-2"></i>
+                            Payroll Summary
+                        </h3>
+
+                        <div class="row g-4">
+
+                            <div class="col-6">
+
+                                <div class="text-muted small mb-1">
+                                    Payroll Periods
+                                </div>
+
+                                <div class="fs-4 fw-bold">
+                                    {{ total_payroll_periods }}
+                                </div>
+
+                            </div>
+
+                            <div class="col-6">
+
+                                <div class="text-muted small mb-1">
+                                    Payslips Generated
+                                </div>
+
+                                <div class="fs-4 fw-bold">
+                                    {{ generated_payslip_count }}
+                                </div>
+
+                            </div>
+
+                            <div class="col-12">
+
+                                <div class="text-muted small mb-1">
+                                    Latest Payroll Period
+                                </div>
+
+                                <div class="fw-semibold">
+
+                                    {% if latest_payroll_record %}
+
+                                        {{
+                                            latest_payroll_record
+                                            .payroll_period
+                                            .period_name
+                                        }}
+
+                                    {% else %}
+
+                                        No payroll processed
+
+                                    {% endif %}
+
+                                </div>
+
+                            </div>
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+    <!-- Payroll History Tab -->
+
+    <div
+        class="tab-pane fade"
+        id="payroll"
+        role="tabpanel"
+    >
+
+        <div class="app-card overflow-hidden">
+
+            {% if payroll_records %}
+
+                <div class="table-responsive">
+
+                    <table class="table table-hover align-middle mb-0">
+
+                        <thead class="table-light">
+
+                            <tr>
+                                <th class="px-4 py-3">
+                                    Payroll Period
+                                </th>
+
+                                <th class="py-3">
+                                    Basic Salary
+                                </th>
+
+                                <th class="py-3">
+                                    Gross Pay
+                                </th>
+
+                                <th class="py-3">
+                                    Deductions
+                                </th>
+
+                                <th class="py-3">
+                                    Net Pay
+                                </th>
+
+                                <th class="py-3">
+                                    Status
+                                </th>
+
+                                <th class="text-end px-4 py-3">
+                                    Payslip
+                                </th>
+                            </tr>
+
+                        </thead>
+
+                        <tbody>
+
+                            {% for record in payroll_records %}
+
+                                <tr>
+
+                                    <td class="px-4">
+
+                                        <div class="fw-semibold">
+                                            {{
+                                                record
+                                                .payroll_period
+                                                .period_name
+                                            }}
+                                        </div>
+
+                                        <small class="text-muted">
+                                            Paid
+                                            {{
+                                                record
+                                                .payroll_period
+                                                .payment_date
+                                                .strftime("%d %b %Y")
+                                            }}
+                                        </small>
+
+                                    </td>
+
+                                    <td>
+                                        ${{
+                                            "%.2f"|format(
+                                                record.basic_salary
+                                            )
+                                        }}
+                                    </td>
+
+                                    <td>
+                                        ${{
+                                            "%.2f"|format(
+                                                record.gross_pay
+                                            )
+                                        }}
+                                    </td>
+
+                                    <td class="text-danger">
+                                        ${{
+                                            "%.2f"|format(
+                                                record.total_deductions
+                                            )
+                                        }}
+                                    </td>
+
+                                    <td class="fw-semibold text-success">
+                                        ${{
+                                            "%.2f"|format(
+                                                record.net_pay
+                                            )
+                                        }}
+                                    </td>
+
+                                    <td>
+
+                                        {% if record.status == "Approved" %}
+
+                                            <span class="badge text-bg-success">
+                                                Approved
+                                            </span>
+
+                                        {% elif record.status == "Locked" %}
+
+                                            <span class="badge text-bg-dark">
+                                                Locked
+                                            </span>
+
+                                        {% elif record.status == "Processed" %}
+
+                                            <span class="badge text-bg-primary">
+                                                Processed
+                                            </span>
+
+                                        {% else %}
+
+                                            <span class="badge text-bg-secondary">
+                                                {{ record.status }}
+                                            </span>
+
+                                        {% endif %}
+
+                                    </td>
+
+                                    <td class="text-end px-4">
+
+                                        {% if record.payslip %}
+
+                                            <a
+                                                href="{{ url_for(
+                                                    'payroll.download_payslip',
+                                                    payslip_id=record.payslip.id
+                                                ) }}"
+                                                class="btn btn-sm btn-outline-primary"
+                                            >
+                                                <i
+                                                    class="bi bi-download me-1"
+                                                ></i>
+                                                Download
+                                            </a>
+
+                                        {% else %}
+
+                                            <span class="text-muted small">
+                                                Not generated
+                                            </span>
+
+                                        {% endif %}
+
+                                    </td>
+
+                                </tr>
+
+                            {% endfor %}
+
+                        </tbody>
+
+                    </table>
+
+                </div>
+
+            {% else %}
+
+                <div class="text-center py-5">
+
+                    <i class="bi bi-clock-history fs-1 text-muted"></i>
+
+                    <h3 class="h5 mt-3">
+                        No payroll history
+                    </h3>
+
+                    <p class="text-muted mb-0">
+                        This employee has not yet been included
+                        in a payroll run.
+                    </p>
+
+                </div>
+
+            {% endif %}
+
+        </div>
+
+    </div>
+
+    <!-- Allowances Tab -->
+
+    <div
+        class="tab-pane fade"
+        id="earnings"
+        role="tabpanel"
+    >
+
+        <div class="app-card overflow-hidden">
+
+            {% if latest_allowances %}
+
+                <div class="card-body p-4 border-bottom">
+
+                    <h3 class="h5 mb-1">
+                        Latest Payroll Allowances
+                    </h3>
+
+                    <p class="text-muted mb-0">
+                        {{
+                            latest_payroll_record
+                            .payroll_period
+                            .period_name
+                        }}
+                    </p>
+
+                </div>
+
+                <div class="table-responsive">
+
+                    <table class="table table-hover align-middle mb-0">
+
+                        <thead class="table-light">
+
+                            <tr>
+                                <th class="px-4 py-3">
+                                    Allowance
+                                </th>
+
+                                <th class="py-3">
+                                    Description
+                                </th>
+
+                                <th class="text-end px-4 py-3">
+                                    Amount
+                                </th>
+                            </tr>
+
+                        </thead>
+
+                        <tbody>
+
+                            {% for allowance in latest_allowances %}
+
+                                <tr>
+
+                                    <td class="px-4 fw-semibold">
+                                        {{ allowance.allowance_type }}
+                                    </td>
+
+                                    <td>
+                                        {{
+                                            allowance.description
+                                            or "—"
+                                        }}
+                                    </td>
+
+                                    <td class="text-end px-4 text-success">
+                                        ${{
+                                            "%.2f"|format(
+                                                allowance.amount
+                                            )
+                                        }}
+                                    </td>
+
+                                </tr>
+
+                            {% endfor %}
+
+                        </tbody>
+
+                    </table>
+
+                </div>
+
+            {% else %}
+
+                <div class="text-center py-5">
+
+                    <i class="bi bi-plus-circle fs-1 text-muted"></i>
+
+                    <h3 class="h5 mt-3">
+                        No allowances recorded
+                    </h3>
+
+                    <p class="text-muted mb-0">
+                        No allowances were recorded in the
+                        employee's latest payroll.
+                    </p>
+
+                </div>
+
+            {% endif %}
+
+        </div>
+
+    </div>
+
+    <!-- Deductions Tab -->
+
+        <!-- Deductions Tab -->
+
+<div
+    class="tab-pane fade"
+    id="deductions"
+    role="tabpanel"
+>
+
+    {% if latest_payroll_record %}
+
+        <div class="row g-4">
+
+            <!-- Statutory Deductions -->
+
+            <div class="col-xl-7">
+
+                <div class="app-card overflow-hidden h-100">
+
+                    <div class="card-body p-4 border-bottom">
+
+                        <div
+                            class="
+                                d-flex
+                                flex-wrap
+                                justify-content-between
+                                align-items-center
+                                gap-2
+                            "
+                        >
+
+                            <div>
+
+                                <h3 class="h5 mb-1">
+                                    Statutory Deductions
+                                </h3>
+
+                                <p class="text-muted mb-0">
+                                    {{
+                                        latest_payroll_record
+                                        .payroll_period
+                                        .period_name
+                                    }}
+                                </p>
+
+                            </div>
+
+                            <span class="badge text-bg-light border">
+                                Latest Payroll
+                            </span>
+
+                        </div>
+
+                    </div>
+
+                    <div class="table-responsive">
+
+                        <table
+                            class="
+                                table
+                                table-hover
+                                align-middle
+                                mb-0
+                            "
+                        >
+
+                            <thead class="table-light">
+
+                                <tr>
+
+                                    <th class="px-4 py-3">
+                                        Deduction
+                                    </th>
+
+                                    <th class="py-3">
+                                        Description
+                                    </th>
+
+                                    <th class="text-end px-4 py-3">
+                                        Amount
+                                    </th>
+
+                                </tr>
+
+                            </thead>
+
+                            <tbody>
+
+                                <tr>
+
+                                    <td class="px-4 fw-semibold">
+                                        NSSA
+                                    </td>
+
+                                    <td class="text-muted">
+                                        Employee NSSA contribution
+                                    </td>
+
+                                    <td class="text-end px-4">
+                                        ${{
+                                            "%.2f"|format(
+                                                latest_payroll_record.nssa
+                                            )
+                                        }}
+                                    </td>
+
+                                </tr>
+
+                                <tr>
+
+                                    <td class="px-4 fw-semibold">
+                                        PAYE
+                                    </td>
+
+                                    <td class="text-muted">
+                                        Pay As You Earn income tax
+                                    </td>
+
+                                    <td class="text-end px-4">
+                                        ${{
+                                            "%.2f"|format(
+                                                latest_payroll_record.paye
+                                            )
+                                        }}
+                                    </td>
+
+                                </tr>
+
+                                <tr>
+
+                                    <td class="px-4 fw-semibold">
+                                        AIDS Levy
+                                    </td>
+
+                                    <td class="text-muted">
+                                        AIDS levy calculated on PAYE
+                                    </td>
+
+                                    <td class="text-end px-4">
+                                        ${{
+                                            "%.2f"|format(
+                                                latest_payroll_record.aids_levy
+                                            )
+                                        }}
+                                    </td>
+
+                                </tr>
+
+                                <tr>
+
+                                    <td class="px-4 fw-semibold">
+                                        Other Deductions
+                                    </td>
+
+                                    <td class="text-muted">
+                                        Additional payroll deductions
+                                    </td>
+
+                                    <td class="text-end px-4">
+                                        ${{
+                                            "%.2f"|format(
+                                                latest_payroll_record
+                                                .other_deductions_total
+                                            )
+                                        }}
+                                    </td>
+
+                                </tr>
+
+                            </tbody>
+
+                            <tfoot class="table-light">
+
+                                <tr>
+
+                                    <th
+                                        colspan="2"
+                                        class="px-4 py-3"
+                                    >
+                                        Total Deductions
+                                    </th>
+
+                                    <th
+                                        class="
+                                            text-end
+                                            text-danger
+                                            px-4
+                                            py-3
+                                        "
+                                    >
+                                        ${{
+                                            "%.2f"|format(
+                                                latest_payroll_record
+                                                .total_deductions
+                                            )
+                                        }}
+                                    </th>
+
+                                </tr>
+
+                            </tfoot>
+
+                        </table>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+            <!-- Manual Deduction Records -->
+
+            <div class="col-xl-5">
+
+                <div class="app-card overflow-hidden h-100">
+
+                    <div class="card-body p-4 border-bottom">
+
+                        <h3 class="h5 mb-1">
+                            Individual Deductions
+                        </h3>
+
+                        <p class="text-muted mb-0">
+                            Loans, medical aid and other
+                            employee-specific deductions.
+                        </p>
+
+                    </div>
+
+                    {% if latest_deductions %}
+
+                        <div class="table-responsive">
+
+                            <table
+                                class="
+                                    table
+                                    table-hover
+                                    align-middle
+                                    mb-0
+                                "
+                            >
+
+                                <thead class="table-light">
+
+                                    <tr>
+
+                                        <th class="px-4 py-3">
+                                            Deduction
+                                        </th>
+
+                                        <th class="text-end px-4 py-3">
+                                            Amount
+                                        </th>
+
+                                    </tr>
+
+                                </thead>
+
+                                <tbody>
+
+                                    {% for deduction in latest_deductions %}
+
+                                        <tr>
+
+                                            <td class="px-4">
+
+                                                <div class="fw-semibold">
+                                                    {{
+                                                        deduction
+                                                        .deduction_type
+                                                    }}
+                                                </div>
+
+                                                {% if deduction.description %}
+
+                                                    <small class="text-muted">
+                                                        {{
+                                                            deduction
+                                                            .description
+                                                        }}
+                                                    </small>
+
+                                                {% endif %}
+
+                                            </td>
+
+                                            <td
+                                                class="
+                                                    text-end
+                                                    text-danger
+                                                    px-4
+                                                "
+                                            >
+                                                ${{
+                                                    "%.2f"|format(
+                                                        deduction.amount
+                                                    )
+                                                }}
+                                            </td>
+
+                                        </tr>
+
+                                    {% endfor %}
+
+                                </tbody>
+
+                            </table>
+
+                        </div>
+
+                    {% else %}
+
+                        <div class="text-center py-5 px-4">
+
+                            <i
+                                class="
+                                    bi
+                                    bi-dash-circle
+                                    fs-1
+                                    text-muted
+                                "
+                            ></i>
+
+                            <h4 class="h6 mt-3">
+                                No individual deductions
+                            </h4>
+
+                            <p class="text-muted mb-0">
+                                No loans, medical aid or other
+                                employee-specific deductions were
+                                recorded in this payroll.
+                            </p>
+
+                        </div>
+
+                    {% endif %}
+
+                </div>
+
+            </div>
+
+        </div>
+
+    {% else %}
+
+        <div class="app-card">
+
+            <div class="text-center py-5">
+
+                <i
+                    class="
+                        bi
+                        bi-dash-circle
+                        fs-1
+                        text-muted
+                    "
+                ></i>
+
+                <h3 class="h5 mt-3">
+                    No payroll deductions
+                </h3>
+
+                <p class="text-muted mb-0">
+                    This employee has not yet been included
+                    in a payroll run.
+                </p>
+
+            </div>
+
+        </div>
+
+    {% endif %}
+
+</div>
+
+    <!-- Email History Tab -->
+
+    <div
+        class="tab-pane fade"
+        id="emails"
+        role="tabpanel"
+    >
+
+        <div class="app-card overflow-hidden">
+
+            {% if email_deliveries %}
+
+                <div class="table-responsive">
+
+                    <table class="table table-hover align-middle mb-0">
+
+                        <thead class="table-light">
+
+                            <tr>
+                                <th class="px-4 py-3">
+                                    Payroll Period
+                                </th>
+
+                                <th class="py-3">
+                                    Recipient
+                                </th>
+
+                                <th class="py-3">
+                                    Status
+                                </th>
+
+                                <th class="py-3">
+                                    Sent
+                                </th>
+
+                                <th class="py-3">
+                                    Sender
+                                </th>
+
+                                <th class="px-4 py-3">
+                                    Failure Reason
+                                </th>
+                            </tr>
+
+                        </thead>
+
+                        <tbody>
+
+                            {% for delivery in email_deliveries %}
+
+                                <tr>
+
+                                    <td class="px-4 fw-semibold">
+                                        {{
+                                            delivery
+                                            .payroll_period
+                                            .period_name
+                                        }}
+                                    </td>
+
+                                    <td>
+                                        {{
+                                            delivery.recipient_email
+                                            or "No email address"
+                                        }}
+                                    </td>
+
+                                    <td>
+
+                                        {% if delivery.is_delivered %}
+
+                                            <span class="badge text-bg-success">
+                                                <i
+                                                    class="
+                                                        bi
+                                                        bi-check-circle
+                                                        me-1
+                                                    "
+                                                ></i>
+                                                Delivered
+                                            </span>
+
+                                        {% elif delivery.is_failed %}
+
+                                            <span class="badge text-bg-danger">
+                                                <i
+                                                    class="
+                                                        bi
+                                                        bi-x-circle
+                                                        me-1
+                                                    "
+                                                ></i>
+                                                Failed
+                                            </span>
+
+                                        {% else %}
+
+                                            <span class="badge text-bg-warning">
+                                                <i
+                                                    class="
+                                                        bi
+                                                        bi-clock
+                                                        me-1
+                                                    "
+                                                ></i>
+                                                Pending
+                                            </span>
+
+                                        {% endif %}
+
+                                    </td>
+
+                                    <td>
+
+                                        {% if delivery.sent_at %}
+
+                                            <div>
+                                                {{
+                                                    delivery.sent_at.strftime(
+                                                        "%d %b %Y"
+                                                    )
+                                                }}
+                                            </div>
+
+                                            <small class="text-muted">
+                                                {{
+                                                    delivery.sent_at.strftime(
+                                                        "%H:%M"
+                                                    )
+                                                }}
+                                            </small>
+
+                                        {% else %}
+
+                                            <span class="text-muted">
+                                                Not completed
+                                            </span>
+
+                                        {% endif %}
+
+                                    </td>
+
+                                    <td>
+                                        {{ delivery.sender.full_name }}
+                                    </td>
+
+                                    <td class="px-4">
+
+                                        {% if delivery.failure_reason %}
+
+                                            <span class="text-danger">
+                                                {{ delivery.failure_reason }}
+                                            </span>
+
+                                        {% else %}
+
+                                            <span class="text-muted">
+                                                —
+                                            </span>
+
+                                        {% endif %}
+
+                                    </td>
+
+                                </tr>
+
+                            {% endfor %}
+
+                        </tbody>
+
+                    </table>
+
+                </div>
+
+                <div class="card-body p-3 border-top">
+
+                    <a
+                        href="{{ url_for(
+                            'email_deliveries.index',
+                            search=employee.employee_number
+                        ) }}"
+                        class="btn btn-sm btn-outline-primary"
+                    >
+                        <i class="bi bi-envelope-check me-1"></i>
+                        Open Full Delivery History
+                    </a>
+
+                </div>
+
+            {% else %}
+
+                <div class="text-center py-5">
+
+                    <i class="bi bi-envelope fs-1 text-muted"></i>
+
+                    <h3 class="h5 mt-3">
+                        No email history
+                    </h3>
+
+                    <p class="text-muted mb-0">
+                        Payslip email attempts for this employee
+                        will appear here.
+                    </p>
+
+                </div>
+
+            {% endif %}
+
+        </div>
+
+    </div>
+
 </div>
 
 {% endblock %}

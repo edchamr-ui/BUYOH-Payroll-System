@@ -1,16 +1,21 @@
 """Bulk A4 payslip-book generation service."""
 
 from dataclasses import dataclass
+from html import unescape
 from pathlib import Path
 from typing import Sequence
 
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.units import mm
+from reportlab.lib.utils import ImageReader
 from reportlab.pdfgen.canvas import Canvas
 from sqlalchemy.exc import SQLAlchemyError
 
 from app.models import PayrollRecord
+from app.services.company_settings_service import (
+    CompanySettingsService,
+)
 from app.services.payslip_service import PayslipService
 
 
@@ -60,10 +65,6 @@ class BulkPayslipService:
             * PAYSLIP_GAP
         )
     ) / PAYSLIPS_PER_PAGE
-
-    COMPANY_NAME = PayslipService.COMPANY_NAME
-    COMPANY_ADDRESS = PayslipService.COMPANY_ADDRESS
-    CURRENCY_LABEL = PayslipService.CURRENCY_LABEL
 
     @classmethod
     def generate_for_period(
@@ -125,7 +126,7 @@ class BulkPayslipService:
         cls,
         payroll_period,
     ) -> Path:
-        """Create the output directory and bulk PDF filename."""
+        """Create the output directory and neutral PDF filename."""
 
         output_directory = (
             Path("instance")
@@ -140,12 +141,108 @@ class BulkPayslipService:
         )
 
         filename = (
-            f"BUYOH_All_Payslips_"
+            f"all_payslips_"
             f"{payroll_period.year}_"
             f"{payroll_period.month:02d}.pdf"
         )
 
         return output_directory / filename
+
+    @staticmethod
+    def _company_profile():
+        """Return the configured company profile."""
+
+        return (
+            CompanySettingsService.get_company_profile()
+        )
+
+    @classmethod
+    def _company_name(
+        cls,
+        company_profile,
+    ) -> str:
+        """Return the configured registered or display name."""
+
+        company_name = str(
+            company_profile.get(
+                "company_name",
+                "",
+            )
+            or ""
+        ).strip()
+
+        display_name = str(
+            company_profile.get(
+                "display_name",
+                "",
+            )
+            or ""
+        ).strip()
+
+        return (
+            company_name
+            or display_name
+            or "Company"
+        )
+
+    @classmethod
+    def _company_address(
+        cls,
+        company_profile,
+    ) -> str:
+        """Return the preferred configured company address."""
+
+        physical_address = str(
+            company_profile.get(
+                "physical_address",
+                "",
+            )
+            or ""
+        ).strip()
+
+        postal_address = str(
+            company_profile.get(
+                "postal_address",
+                "",
+            )
+            or ""
+        ).strip()
+
+        return (
+            physical_address
+            or postal_address
+            or ""
+        )
+
+    @classmethod
+    def _currency_label(
+        cls,
+        company_profile,
+    ) -> str:
+        """Return the configured payroll currency."""
+
+        return str(
+            company_profile.get(
+                "currency",
+                "",
+            )
+            or "USD"
+        ).strip()
+
+    @classmethod
+    def _payslip_footer(
+        cls,
+        company_profile,
+    ) -> str:
+        """Return the configured payslip footer."""
+
+        return str(
+            company_profile.get(
+                "payslip_footer",
+                "",
+            )
+            or ""
+        ).strip()
 
     @classmethod
     def _create_pdf(
@@ -154,6 +251,8 @@ class BulkPayslipService:
         output_path: Path,
     ) -> int:
         """Draw up to three payslips on each A4 portrait page."""
+
+        company_profile = cls._company_profile()
 
         pdf = Canvas(
             str(output_path),
@@ -191,6 +290,7 @@ class BulkPayslipService:
             cls._draw_payslip(
                 pdf=pdf,
                 payroll_record=payroll_record,
+                company_profile=company_profile,
                 x=cls.PAGE_MARGIN_X,
                 y=payslip_bottom,
                 width=cls.PAYSLIP_WIDTH,
@@ -273,6 +373,7 @@ class BulkPayslipService:
         cls,
         pdf: Canvas,
         payroll_record: PayrollRecord,
+        company_profile: dict,
         x: float,
         y: float,
         width: float,
@@ -305,6 +406,7 @@ class BulkPayslipService:
         cls._draw_header(
             pdf=pdf,
             period=period,
+            company_profile=company_profile,
             x=inner_x,
             top_y=top_y,
             width=inner_width,
@@ -339,6 +441,7 @@ class BulkPayslipService:
         cls._draw_footer(
             pdf=pdf,
             payroll_record=payroll_record,
+            company_profile=company_profile,
             x=inner_x,
             y=y + 4 * mm,
             width=inner_width,
@@ -351,15 +454,40 @@ class BulkPayslipService:
         cls,
         pdf: Canvas,
         period,
+        company_profile: dict,
         x: float,
         top_y: float,
         width: float,
     ) -> None:
-        """Draw the company name and payroll-period heading."""
+        """Draw the settings-driven company header."""
+
+        company_name = unescape(
+            cls._company_name(
+                company_profile
+            )
+        )
+
+        company_address = unescape(
+            cls._company_address(
+                company_profile
+            )
+        )
+
+        logo_path = (
+            CompanySettingsService.get_logo_file_path()
+        )
 
         centre_x = (
             x + (width / 2)
         )
+
+        if logo_path:
+            cls._draw_logo(
+                pdf=pdf,
+                logo_path=logo_path,
+                x=x,
+                top_y=top_y,
+            )
 
         pdf.setFillColor(
             colors.HexColor("#163A72")
@@ -369,33 +497,63 @@ class BulkPayslipService:
             11,
         )
 
+        fitted_company_name = cls._fit_text(
+            pdf=pdf,
+            value=company_name,
+            font_name="Helvetica-Bold",
+            font_size=11,
+            maximum_width=width - 45 * mm,
+        )
+
         pdf.drawCentredString(
             centre_x,
             top_y,
-            cls.COMPANY_NAME,
+            fitted_company_name,
         )
+
+        current_y = (
+            top_y - 4 * mm
+        )
+
+        if company_address:
+            pdf.setFillColor(colors.black)
+            pdf.setFont(
+                "Helvetica",
+                5.8,
+            )
+
+            fitted_address = cls._fit_text(
+                pdf=pdf,
+                value=company_address,
+                font_name="Helvetica",
+                font_size=5.8,
+                maximum_width=width - 45 * mm,
+            )
+
+            pdf.drawCentredString(
+                centre_x,
+                current_y,
+                fitted_address,
+            )
+
+            current_y -= 4 * mm
 
         pdf.setFillColor(colors.black)
-        pdf.setFont(
-            "Helvetica",
-            5.8,
-        )
-
-        pdf.drawCentredString(
-            centre_x,
-            top_y - 4 * mm,
-            cls.COMPANY_ADDRESS,
-        )
-
         pdf.setFont(
             "Helvetica-Bold",
             6.5,
         )
 
+        period_name = unescape(
+            PayslipService._safe_text(
+                period.period_name
+            )
+        )
+
         pdf.drawCentredString(
             centre_x,
-            top_y - 8 * mm,
-            f"PAYSLIP — {period.period_name}",
+            current_y,
+            f"PAYSLIP — {period_name}",
         )
 
         pdf.setLineWidth(0.4)
@@ -406,6 +564,69 @@ class BulkPayslipService:
             x + width,
             top_y - 11 * mm,
         )
+
+    @classmethod
+    def _draw_logo(
+        cls,
+        pdf: Canvas,
+        logo_path: Path,
+        x: float,
+        top_y: float,
+    ) -> None:
+        """Draw the configured company logo in the header."""
+
+        try:
+            logo_reader = ImageReader(
+                str(logo_path)
+            )
+
+            original_width, original_height = (
+                logo_reader.getSize()
+            )
+
+            maximum_width = 25 * mm
+            maximum_height = 11 * mm
+
+            width_scale = (
+                maximum_width
+                / original_width
+            )
+
+            height_scale = (
+                maximum_height
+                / original_height
+            )
+
+            scale = min(
+                width_scale,
+                height_scale,
+            )
+
+            logo_width = (
+                original_width
+                * scale
+            )
+
+            logo_height = (
+                original_height
+                * scale
+            )
+
+            pdf.drawImage(
+                logo_reader,
+                x,
+                top_y - logo_height + 2 * mm,
+                width=logo_width,
+                height=logo_height,
+                preserveAspectRatio=True,
+                mask="auto",
+            )
+
+        except (
+            OSError,
+            ValueError,
+        ):
+            return
 
     @classmethod
     def _draw_employee_details(
@@ -427,6 +648,7 @@ class BulkPayslipService:
         right_label_x = (
             x + (width / 2)
         )
+
         right_value_x = (
             right_label_x + 24 * mm
         )
@@ -535,7 +757,7 @@ class BulkPayslipService:
     def _draw_label_value(
         cls,
         pdf: Canvas,
-        label: str,
+        label,
         value,
         label_x: float,
         value_x: float,
@@ -552,12 +774,20 @@ class BulkPayslipService:
         pdf.drawString(
             label_x,
             y,
-            label,
+            str(label),
+        )
+
+        plain_value = unescape(
+            str(
+                value
+                if value is not None
+                else "-"
+            )
         )
 
         fitted_value = cls._fit_text(
             pdf=pdf,
-            value=value,
+            value=plain_value,
             font_name="Helvetica",
             font_size=5.8,
             maximum_width=max_value_width,
@@ -588,7 +818,9 @@ class BulkPayslipService:
         half_width = (
             width / 2
         )
+
         amount_width = 24 * mm
+
         label_width = (
             half_width - amount_width
         )
@@ -634,9 +866,11 @@ class BulkPayslipService:
         ]
 
         table_rows = 6
+
         table_height = (
             table_rows * row_height
         )
+
         table_bottom = (
             top_y - table_height
         )
@@ -800,7 +1034,7 @@ class BulkPayslipService:
         half_width: float,
         amount_width: float,
     ) -> None:
-        """Draw the earnings and deductions table headings."""
+        """Draw earnings and deductions table headings."""
 
         header_y = (
             top_y
@@ -864,7 +1098,9 @@ class BulkPayslipService:
         pdf.drawString(
             label_x,
             y,
-            label,
+            unescape(
+                str(label or "")
+            ),
         )
 
         amount_text = ""
@@ -885,11 +1121,24 @@ class BulkPayslipService:
         cls,
         pdf: Canvas,
         payroll_record: PayrollRecord,
+        company_profile: dict,
         x: float,
         y: float,
         width: float,
     ) -> None:
-        """Draw net pay and employer/employee signature lines."""
+        """Draw net pay, signatures, and configured footer."""
+
+        currency_label = unescape(
+            cls._currency_label(
+                company_profile
+            )
+        )
+
+        payslip_footer = unescape(
+            cls._payslip_footer(
+                company_profile
+            )
+        )
 
         pdf.setFont(
             "Helvetica-Bold",
@@ -900,7 +1149,7 @@ class BulkPayslipService:
             x + width,
             y + 11 * mm,
             (
-                f"Net Pay: {cls.CURRENCY_LABEL} "
+                f"Net Pay: {currency_label} "
                 f"{PayslipService._money(
                     payroll_record.net_pay
                 )}"
@@ -910,11 +1159,13 @@ class BulkPayslipService:
         signature_y = (
             y + 4.5 * mm
         )
+
         signature_width = 55 * mm
 
         left_signature_start = (
             x + 10 * mm
         )
+
         left_signature_end = (
             left_signature_start
             + signature_width
@@ -923,6 +1174,7 @@ class BulkPayslipService:
         right_signature_end = (
             x + width - 10 * mm
         )
+
         right_signature_start = (
             right_signature_end
             - signature_width
@@ -967,20 +1219,46 @@ class BulkPayslipService:
             "Employee's Signature",
         )
 
+        if payslip_footer:
+            fitted_footer = cls._fit_text(
+                pdf=pdf,
+                value=payslip_footer,
+                font_name="Helvetica",
+                font_size=4.6,
+                maximum_width=width,
+            )
+
+            pdf.setFillColor(
+                colors.HexColor("#666666")
+            )
+
+            pdf.setFont(
+                "Helvetica",
+                4.6,
+            )
+
+            pdf.drawCentredString(
+                x + (width / 2),
+                y + 0.5 * mm,
+                fitted_footer,
+            )
+
+            pdf.setFillColor(colors.black)
+
     @classmethod
     def _bank_summary(
         cls,
         employee,
     ) -> str:
-        """Return a compact bank and account description."""
+        """Return a compact plain-text bank and account description."""
 
-        bank_name = (
+        bank_name = unescape(
             PayslipService._bank_name(
                 employee
             )
         )
 
-        account_number = (
+        account_number = unescape(
             PayslipService._bank_account(
                 employee
             )
@@ -1010,10 +1288,12 @@ class BulkPayslipService:
         font_size: float,
         maximum_width: float,
     ) -> str:
-        """Shorten a value only when it exceeds its available width."""
+        """Shorten a value only when it exceeds available width."""
 
         text = (
-            str(value).strip()
+            unescape(
+                str(value).strip()
+            )
             if value is not None
             else "-"
         )

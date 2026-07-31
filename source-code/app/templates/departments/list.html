@@ -10,36 +10,291 @@ Departments
 
 {% block content %}
 
-<div class="d-flex justify-content-between align-items-center mb-4">
+<!-- Page Header -->
+
+<div
+    class="
+        d-flex
+        flex-wrap
+        justify-content-between
+        align-items-center
+        gap-3
+        mb-4
+    "
+>
     <div>
+
         <h2 class="h3 mb-1">
             Department Management
         </h2>
 
         <p class="text-muted mb-0">
-            Create and manage organisational departments.
+            Search and review organisational departments.
         </p>
+
     </div>
 
-    <a
-        href="{{ url_for('departments.add_department') }}"
-        class="btn btn-primary"
-    >
-        <i class="bi bi-building-add me-2"></i>
-        Add Department
-    </a>
+    {% if current_user.role == "Admin" %}
+
+        <a
+            href="{{ url_for(
+                'departments.add_department'
+            ) }}"
+            class="btn btn-primary"
+        >
+            <i class="bi bi-building-add me-2"></i>
+            Add Department
+        </a>
+
+    {% endif %}
+
 </div>
 
+<!-- Search and Filters -->
+
+<div class="app-card mb-4">
+
+    <div class="card-body p-3">
+
+        <form method="GET">
+
+            <div class="row g-2">
+
+                <div class="col-lg-8">
+
+                    <label
+                        for="department-search"
+                        class="form-label small text-muted"
+                    >
+                        Search
+                    </label>
+
+                    <input
+                        id="department-search"
+                        type="search"
+                        name="q"
+                        value="{{ search_term }}"
+                        class="form-control"
+                        placeholder="Search by department name or description"
+                    >
+
+                </div>
+
+                <div class="col-lg-2">
+
+                    <label
+                        for="status-filter"
+                        class="form-label small text-muted"
+                    >
+                        Status
+                    </label>
+
+                    <select
+                        id="status-filter"
+                        name="status"
+                        class="form-select"
+                    >
+
+                        <option
+                            value="all"
+                            {% if status_filter == "all" %}
+                                selected
+                            {% endif %}
+                        >
+                            All Statuses
+                        </option>
+
+                        <option
+                            value="active"
+                            {% if status_filter == "active" %}
+                                selected
+                            {% endif %}
+                        >
+                            Active
+                        </option>
+
+                        <option
+                            value="inactive"
+                            {% if status_filter == "inactive" %}
+                                selected
+                            {% endif %}
+                        >
+                            Inactive
+                        </option>
+
+                    </select>
+
+                </div>
+
+                <div class="col-lg-2 d-grid">
+
+                    <label class="form-label small text-muted">
+                        &nbsp;
+                    </label>
+
+                    <button
+                        type="submit"
+                        class="btn btn-outline-primary"
+                    >
+                        <i class="bi bi-search me-2"></i>
+                        Search
+                    </button>
+
+                </div>
+
+            </div>
+
+            {% if search_term or status_filter != "all" %}
+
+                <div
+                    class="
+                        d-flex
+                        flex-wrap
+                        align-items-center
+                        gap-2
+                        mt-3
+                    "
+                >
+
+                    <span class="small text-muted">
+                        Active filters:
+                    </span>
+
+                    {% if search_term %}
+
+                        <span
+                            class="
+                                badge
+                                rounded-pill
+                                text-bg-light
+                                border
+                            "
+                        >
+                            Search: {{ search_term }}
+                        </span>
+
+                    {% endif %}
+
+                    {% if status_filter != "all" %}
+
+                        <span
+                            class="
+                                badge
+                                rounded-pill
+                                text-bg-light
+                                border
+                            "
+                        >
+                            Status:
+                            {{ status_filter|capitalize }}
+                        </span>
+
+                    {% endif %}
+
+                    <a
+                        href="{{ url_for(
+                            'departments.list_departments'
+                        ) }}"
+                        class="
+                            btn
+                            btn-sm
+                            btn-outline-secondary
+                        "
+                    >
+                        <i class="bi bi-x-circle me-1"></i>
+                        Clear Filters
+                    </a>
+
+                </div>
+
+            {% endif %}
+
+        </form>
+
+    </div>
+
+</div>
+
+<!-- Results Summary -->
+
+{% if pagination.total %}
+
+    <div
+        class="
+            d-flex
+            flex-wrap
+            justify-content-between
+            align-items-center
+            gap-2
+            mb-3
+        "
+    >
+
+        <p class="text-muted mb-0">
+
+            Showing
+
+            <strong>
+                {{
+                    ((pagination.page - 1)
+                    * pagination.per_page) + 1
+                }}
+            </strong>
+
+            to
+
+            <strong>
+                {{
+                    [
+                        pagination.page
+                        * pagination.per_page,
+                        pagination.total
+                    ] | min
+                }}
+            </strong>
+
+            of
+
+            <strong>
+                {{ pagination.total }}
+            </strong>
+
+            department{% if pagination.total != 1 %}s{% endif %}
+
+        </p>
+
+        <span class="badge text-bg-light border">
+            Page {{ pagination.page }}
+            of {{ pagination.pages }}
+        </span>
+
+    </div>
+
+{% endif %}
+
+<!-- Department Table -->
+
 <div class="app-card">
+
     <div class="card-body p-0">
 
         {% if departments %}
 
             <div class="table-responsive">
-                <table class="table table-hover align-middle mb-0">
+
+                <table
+                    class="
+                        table
+                        table-hover
+                        align-middle
+                        mb-0
+                    "
+                >
 
                     <thead class="table-light">
+
                         <tr>
+
                             <th class="px-4 py-3">
                                 Department
                             </th>
@@ -55,68 +310,524 @@ Departments
                             <th class="py-3">
                                 Status
                             </th>
+
+                            <th class="text-end px-4 py-3">
+                                Actions
+                            </th>
+
                         </tr>
+
                     </thead>
 
                     <tbody>
+
                         {% for department in departments %}
 
+                            {% set active_employee_count =
+                                department.employees
+                                | selectattr(
+                                    "is_active",
+                                    "equalto",
+                                    true
+                                )
+                                | list
+                                | length
+                            %}
+
                             <tr>
-                                <td class="px-4 fw-semibold">
-                                    {{ department.name }}
+
+                                <td class="px-4">
+
+                                    <div class="fw-semibold">
+                                        {{ department.name }}
+                                    </div>
+
+                                    <small class="text-muted">
+
+                                        {% if department.created_at %}
+
+                                            Created
+                                            {{
+                                                department.created_at.strftime(
+                                                    "%d %b %Y"
+                                                )
+                                            }}
+
+                                        {% else %}
+
+                                            Creation date unavailable
+
+                                        {% endif %}
+
+                                    </small>
+
                                 </td>
 
                                 <td>
-                                    {{ department.description or "No description" }}
+
+                                    {% if department.description %}
+
+                                        {{ department.description }}
+
+                                    {% else %}
+
+                                        <span class="text-muted">
+                                            No description
+                                        </span>
+
+                                    {% endif %}
+
                                 </td>
 
                                 <td>
-                                    {{ department.employees | length }}
+
+                                    <span
+                                        class="
+                                            badge
+                                            text-bg-light
+                                            border
+                                        "
+                                    >
+                                        <i class="bi bi-people me-1"></i>
+
+                                        {{ department.employees|length }}
+
+                                        employee{% if
+                                            department.employees|length
+                                            != 1
+                                        %}s{% endif %}
+                                    </span>
+
+                                    {% if active_employee_count > 0 %}
+
+                                        <small
+                                            class="
+                                                text-success
+                                                d-block
+                                                mt-1
+                                            "
+                                        >
+                                            {{ active_employee_count }}
+                                            active
+                                        </small>
+
+                                    {% endif %}
+
                                 </td>
 
                                 <td>
+
                                     {% if department.is_active %}
-                                        <span class="badge text-bg-success">
+
+                                        <span
+                                            class="
+                                                badge
+                                                text-bg-success
+                                            "
+                                        >
+                                            <i
+                                                class="
+                                                    bi
+                                                    bi-check-circle
+                                                    me-1
+                                                "
+                                            ></i>
+
                                             Active
                                         </span>
+
                                     {% else %}
-                                        <span class="badge text-bg-secondary">
+
+                                        <span
+                                            class="
+                                                badge
+                                                text-bg-secondary
+                                            "
+                                        >
+                                            <i
+                                                class="
+                                                    bi
+                                                    bi-building-dash
+                                                    me-1
+                                                "
+                                            ></i>
+
                                             Inactive
                                         </span>
+
                                     {% endif %}
+
                                 </td>
+
+                                <td class="text-end px-4">
+
+                                    <div
+                                        class="
+                                            d-inline-flex
+                                            align-items-center
+                                            justify-content-end
+                                            gap-2
+                                        "
+                                    >
+
+                                        <a
+                                            href="{{ url_for(
+                                                'employees.list_employees',
+                                                department_id=department.id
+                                            ) }}"
+                                            class="
+                                                btn
+                                                btn-sm
+                                                btn-outline-primary
+                                            "
+                                            title="View department employees"
+                                        >
+                                            <i class="bi bi-people me-1"></i>
+                                            View Employees
+                                        </a>
+
+                                        {% if current_user.role == "Admin" %}
+
+                                            <div class="dropdown">
+
+                                                <button
+                                                    class="
+                                                        btn
+                                                        btn-sm
+                                                        btn-outline-secondary
+                                                        dropdown-toggle
+                                                    "
+                                                    type="button"
+                                                    data-bs-toggle="dropdown"
+                                                    aria-expanded="false"
+                                                >
+                                                    <i
+                                                        class="
+                                                            bi
+                                                            bi-three-dots-vertical
+                                                        "
+                                                    ></i>
+                                                </button>
+
+                                                <ul
+                                                    class="
+                                                        dropdown-menu
+                                                        dropdown-menu-end
+                                                        shadow-sm
+                                                    "
+                                                >
+
+                                                    <li>
+
+                                                        <a
+                                                            href="{{ url_for(
+                                                                'departments.edit_department',
+                                                                department_id=department.id
+                                                            ) }}"
+                                                            class="dropdown-item"
+                                                        >
+                                                            <i
+                                                                class="
+                                                                    bi
+                                                                    bi-pencil-square
+                                                                    me-2
+                                                                "
+                                                            ></i>
+
+                                                            Edit Department
+                                                        </a>
+
+                                                    </li>
+
+                                                    <li>
+                                                        <hr
+                                                            class="
+                                                                dropdown-divider
+                                                            "
+                                                        >
+                                                    </li>
+
+                                                    <li>
+
+                                                        <form
+                                                            method="POST"
+                                                            action="{{ url_for(
+                                                                'departments.toggle_department_status',
+                                                                department_id=department.id
+                                                            ) }}"
+                                                            onsubmit="
+                                                                return confirm(
+                                                                    'Are you sure you want to change this department status?'
+                                                                );
+                                                            "
+                                                        >
+
+                                                            <button
+                                                                type="submit"
+                                                                class="
+                                                                    dropdown-item
+                                                                    {% if department.is_active %}
+                                                                        text-danger
+                                                                    {% else %}
+                                                                        text-success
+                                                                    {% endif %}
+                                                                "
+                                                            >
+
+                                                                {% if department.is_active %}
+
+                                                                    <i
+                                                                        class="
+                                                                            bi
+                                                                            bi-building-dash
+                                                                            me-2
+                                                                        "
+                                                                    ></i>
+
+                                                                    Deactivate
+                                                                    Department
+
+                                                                {% else %}
+
+                                                                    <i
+                                                                        class="
+                                                                            bi
+                                                                            bi-building-check
+                                                                            me-2
+                                                                        "
+                                                                    ></i>
+
+                                                                    Reactivate
+                                                                    Department
+
+                                                                {% endif %}
+
+                                                            </button>
+
+                                                        </form>
+
+                                                    </li>
+
+                                                </ul>
+
+                                            </div>
+
+                                        {% endif %}
+
+                                    </div>
+
+                                </td>
+
                             </tr>
 
                         {% endfor %}
+
                     </tbody>
 
                 </table>
+
             </div>
 
         {% else %}
 
-            <div class="text-center py-5">
-                <i class="bi bi-building fs-1 text-muted"></i>
+            <div class="text-center py-5 px-3">
+
+                <i
+                    class="
+                        bi
+                        bi-building
+                        fs-1
+                        text-muted
+                    "
+                ></i>
 
                 <h3 class="h5 mt-3">
                     No departments found
                 </h3>
 
-                <p class="text-muted">
-                    Add a department before creating employees.
-                </p>
+                {% if search_term or status_filter != "all" %}
 
-                <a
-                    href="{{ url_for('departments.add_department') }}"
-                    class="btn btn-primary"
-                >
-                    Add Department
-                </a>
+                    <p class="text-muted">
+                        No departments matched the selected
+                        search criteria.
+                    </p>
+
+                    <a
+                        href="{{ url_for(
+                            'departments.list_departments'
+                        ) }}"
+                        class="btn btn-outline-secondary"
+                    >
+                        <i class="bi bi-x-circle me-2"></i>
+                        Clear Filters
+                    </a>
+
+                {% else %}
+
+                    <p class="text-muted">
+                        No departments have been created yet.
+                    </p>
+
+                    {% if current_user.role == "Admin" %}
+
+                        <a
+                            href="{{ url_for(
+                                'departments.add_department'
+                            ) }}"
+                            class="btn btn-primary"
+                        >
+                            <i class="bi bi-building-add me-2"></i>
+                            Add Department
+                        </a>
+
+                    {% endif %}
+
+                {% endif %}
+
             </div>
 
         {% endif %}
 
     </div>
+
 </div>
+
+<!-- Pagination -->
+
+{% if pagination.pages > 1 %}
+
+    <nav
+        class="mt-4"
+        aria-label="Department pagination"
+    >
+
+        <ul
+            class="
+                pagination
+                justify-content-center
+                flex-wrap
+            "
+        >
+
+            <li
+                class="
+                    page-item
+                    {% if not pagination.has_prev %}
+                        disabled
+                    {% endif %}
+                "
+            >
+
+                {% if pagination.has_prev %}
+
+                    <a
+                        class="page-link"
+                        href="{{ url_for(
+                            'departments.list_departments',
+                            page=pagination.prev_num,
+                            q=search_term,
+                            status=status_filter
+                        ) }}"
+                    >
+                        <i class="bi bi-chevron-left me-1"></i>
+                        Previous
+                    </a>
+
+                {% else %}
+
+                    <span class="page-link">
+                        <i class="bi bi-chevron-left me-1"></i>
+                        Previous
+                    </span>
+
+                {% endif %}
+
+            </li>
+
+            {% for page_number in pagination.iter_pages(
+                left_edge=1,
+                right_edge=1,
+                left_current=2,
+                right_current=2
+            ) %}
+
+                {% if page_number %}
+
+                    <li
+                        class="
+                            page-item
+                            {% if page_number
+                                == pagination.page %}
+                                active
+                            {% endif %}
+                        "
+                    >
+
+                        <a
+                            class="page-link"
+                            href="{{ url_for(
+                                'departments.list_departments',
+                                page=page_number,
+                                q=search_term,
+                                status=status_filter
+                            ) }}"
+                        >
+                            {{ page_number }}
+                        </a>
+
+                    </li>
+
+                {% else %}
+
+                    <li class="page-item disabled">
+                        <span class="page-link">
+                            …
+                        </span>
+                    </li>
+
+                {% endif %}
+
+            {% endfor %}
+
+            <li
+                class="
+                    page-item
+                    {% if not pagination.has_next %}
+                        disabled
+                    {% endif %}
+                "
+            >
+
+                {% if pagination.has_next %}
+
+                    <a
+                        class="page-link"
+                        href="{{ url_for(
+                            'departments.list_departments',
+                            page=pagination.next_num,
+                            q=search_term,
+                            status=status_filter
+                        ) }}"
+                    >
+                        Next
+                        <i class="bi bi-chevron-right ms-1"></i>
+                    </a>
+
+                {% else %}
+
+                    <span class="page-link">
+                        Next
+                        <i class="bi bi-chevron-right ms-1"></i>
+                    </span>
+
+                {% endif %}
+
+            </li>
+
+        </ul>
+
+    </nav>
+
+{% endif %}
 
 {% endblock %}

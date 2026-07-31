@@ -1,0 +1,3 @@
+# Company logo uploads
+app/static/uploads/company/*
+!app/static/uploads/company/.gitkeep

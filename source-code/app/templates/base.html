@@ -10,7 +10,9 @@
     >
 
     <title>
-        {% block title %}BUYOH Payroll System{% endblock %}
+        {% block title %}
+            {{ company_settings.display_name }}
+        {% endblock %}
     </title>
 
     <link
@@ -35,13 +37,52 @@
 
         .brand {
             color: white;
-            font-size: 1.4rem;
+            font-size: 1.1rem;
             font-weight: 600;
             text-decoration: none;
         }
 
         .brand:hover {
             color: white;
+        }
+
+        .brand-logo {
+            width: 44px;
+            height: 44px;
+            flex: 0 0 44px;
+            object-fit: contain;
+            border-radius: 0.5rem;
+            background: white;
+            padding: 0.2rem;
+        }
+
+        .brand-placeholder {
+            width: 44px;
+            height: 44px;
+            flex: 0 0 44px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 0.5rem;
+            background: #343a40;
+            color: white;
+            font-size: 1.2rem;
+            font-weight: 700;
+        }
+
+        .brand-name {
+            display: block;
+            max-width: 145px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .brand-subtitle {
+            display: block;
+            color: #adb5bd;
+            font-size: 0.72rem;
+            font-weight: 400;
         }
 
         .sidebar .nav-link {
@@ -69,9 +110,14 @@
             background: white;
             border: none;
             border-radius: 0.75rem;
-            box-shadow: 0 0.15rem 0.5rem rgba(0, 0, 0, 0.08);
+            box-shadow:
+                0 0.15rem 0.5rem
+                rgba(0, 0, 0, 0.08);
         }
     </style>
+
+    {% block styles %}
+    {% endblock %}
 </head>
 
 <body>
@@ -80,135 +126,329 @@
 
     <div class="row">
 
-        <!-- Sidebar -->
-
-        <aside class="col-md-3 col-lg-2 px-0 sidebar">
+        <aside
+            class="
+                col-md-3
+                col-lg-2
+                px-0
+                sidebar
+            "
+        >
 
             <div class="p-4">
 
                 <a
                     href="{{ url_for('home') }}"
-                    class="brand"
+                    class="
+                        brand
+                        d-flex
+                        align-items-center
+                        gap-3
+                    "
                 >
-                    BUYOH Payroll
+                    {% if company_settings.company_logo_url %}
+                        <img
+                            src="{{ company_settings.company_logo_url }}"
+                            alt="{{ company_settings.display_name }} logo"
+                            class="brand-logo"
+                        >
+                    {% else %}
+                        <span class="brand-placeholder">
+                            {{
+                                company_settings.display_name[:1]
+                                | upper
+                            }}
+                        </span>
+                    {% endif %}
+
+                    <span>
+                        <span class="brand-name">
+                            {{ company_settings.display_name }}
+                        </span>
+
+                        <span class="brand-subtitle">
+                            Payroll System
+                        </span>
+                    </span>
                 </a>
 
             </div>
 
             <nav class="px-3">
 
-                <!-- Dashboard -->
-
                 <a
                     href="{{ url_for('home') }}"
-                    class="nav-link {% if request.endpoint == 'home' %}active{% endif %}"
+                    class="
+                        nav-link
+                        {% if request.endpoint == 'home' %}
+                            active
+                        {% endif %}
+                    "
                 >
-                    <i class="bi bi-speedometer2 me-2"></i>
+                    <i
+                        class="
+                            bi
+                            bi-speedometer2
+                            me-2
+                        "
+                    ></i>
+
                     Dashboard
                 </a>
 
-                <!-- Employees -->
-
                 <a
-                    href="{{ url_for('employees.list_employees') }}"
-                    class="nav-link {% if request.blueprint == 'employees' %}active{% endif %}"
+                    href="{{ url_for(
+                        'employees.list_employees'
+                    ) }}"
+                    class="
+                        nav-link
+                        {% if request.blueprint == 'employees' %}
+                            active
+                        {% endif %}
+                    "
                 >
-                    <i class="bi bi-people me-2"></i>
+                    <i
+                        class="
+                            bi
+                            bi-people
+                            me-2
+                        "
+                    ></i>
+
                     Employees
                 </a>
 
-                <!-- Departments -->
-
                 <a
-                    href="{{ url_for('departments.list_departments') }}"
-                    class="nav-link {% if request.blueprint == 'departments' %}active{% endif %}"
+                    href="{{ url_for(
+                        'departments.list_departments'
+                    ) }}"
+                    class="
+                        nav-link
+                        {% if request.blueprint == 'departments' %}
+                            active
+                        {% endif %}
+                    "
                 >
-                    <i class="bi bi-building me-2"></i>
+                    <i
+                        class="
+                            bi
+                            bi-building
+                            me-2
+                        "
+                    ></i>
+
                     Departments
                 </a>
 
-                <!-- Payroll Periods -->
-
                 <a
-                    href="{{ url_for('payroll_periods.list_periods') }}"
-                    class="nav-link {% if request.blueprint == 'payroll_periods' %}active{% endif %}"
+                    href="{{ url_for(
+                        'payroll_periods.list_periods'
+                    ) }}"
+                    class="
+                        nav-link
+                        {% if request.blueprint
+                            == 'payroll_periods' %}
+                            active
+                        {% endif %}
+                    "
                 >
-                    <i class="bi bi-calendar3 me-2"></i>
+                    <i
+                        class="
+                            bi
+                            bi-calendar3
+                            me-2
+                        "
+                    ></i>
+
                     Payroll Periods
                 </a>
 
-                <!-- Payroll -->
-
                 <a
                     href="{{ url_for('payroll.index') }}"
-                    class="nav-link {% if request.blueprint == 'payroll' %}active{% endif %}"
+                    class="
+                        nav-link
+                        {% if request.blueprint == 'payroll' %}
+                            active
+                        {% endif %}
+                    "
                 >
-                    <i class="bi bi-cash-stack me-2"></i>
+                    <i
+                        class="
+                            bi
+                            bi-cash-stack
+                            me-2
+                        "
+                    ></i>
+
                     Payroll
                 </a>
 
-                <!-- Payslips -->
-
                 <a
                     href="{{ url_for('payslips.index') }}"
-                    class="nav-link {% if request.blueprint == 'payslips' %}active{% endif %}"
+                    class="
+                        nav-link
+                        {% if request.blueprint == 'payslips' %}
+                            active
+                        {% endif %}
+                    "
                 >
-                    <i class="bi bi-file-earmark-text me-2"></i>
+                    <i
+                        class="
+                            bi
+                            bi-file-earmark-text
+                            me-2
+                        "
+                    ></i>
+
                     Payslips
                 </a>
 
-                <!-- Reports -->
+                <a
+                    href="{{ url_for(
+                        'email_deliveries.index'
+                    ) }}"
+                    class="
+                        nav-link
+                        {% if request.blueprint
+                            == 'email_deliveries' %}
+                            active
+                        {% endif %}
+                    "
+                >
+                    <i
+                        class="
+                            bi
+                            bi-envelope-check
+                            me-2
+                        "
+                    ></i>
+
+                    Email Delivery
+                </a>
 
                 <a
                     href="{{ url_for('reports.index') }}"
-                    class="nav-link {% if request.blueprint == 'reports' %}active{% endif %}"
+                    class="
+                        nav-link
+                        {% if request.blueprint == 'reports' %}
+                            active
+                        {% endif %}
+                    "
                 >
-                    <i class="bi bi-bar-chart me-2"></i>
+                    <i
+                        class="
+                            bi
+                            bi-bar-chart
+                            me-2
+                        "
+                    ></i>
+
                     Reports
                 </a>
 
-                <!-- Audit Logs -->
-
-<a
-    href="{{ url_for('audit_logs.index') }}"
-    class="nav-link
-           {% if request.blueprint == 'audit_logs' %}
-               active
-           {% endif %}"
->
-    <i class="bi bi-shield-check me-2"></i>
-    Audit Logs
-</a>                
-
-                <!-- Settings -->
-
                 <a
-                    href="#"
-                    class="nav-link"
+                    href="{{ url_for('audit_logs.index') }}"
+                    class="
+                        nav-link
+                        {% if request.blueprint == 'audit_logs' %}
+                            active
+                        {% endif %}
+                    "
                 >
-                    <i class="bi bi-gear me-2"></i>
-                    Settings
+                    <i
+                        class="
+                            bi
+                            bi-shield-check
+                            me-2
+                        "
+                    ></i>
+
+                    Audit Logs
                 </a>
+
+                {% if current_user.role == "Admin" %}
+
+                    <a
+                        href="{{ url_for('users.index') }}"
+                        class="
+                            nav-link
+                            {% if request.blueprint == 'users' %}
+                                active
+                            {% endif %}
+                        "
+                    >
+                        <i
+                            class="
+                                bi
+                                bi-person-gear
+                                me-2
+                            "
+                        ></i>
+
+                        User Management
+                    </a>
+
+                    <a
+                        href="{{ url_for('settings.index') }}"
+                        class="
+                            nav-link
+                            {% if request.blueprint == 'settings' %}
+                                active
+                            {% endif %}
+                        "
+                    >
+                        <i
+                            class="
+                                bi
+                                bi-gear
+                                me-2
+                            "
+                        ></i>
+
+                        Company Settings
+                    </a>
+
+                {% endif %}
 
             </nav>
 
         </aside>
 
-        <!-- Main Content -->
-
-        <div class="col-md-9 col-lg-10 px-0 main-content">
+        <div
+            class="
+                col-md-9
+                col-lg-10
+                px-0
+                main-content
+            "
+        >
 
             <header class="topbar px-4 py-3">
 
-                <div class="d-flex justify-content-between align-items-center">
+                <div
+                    class="
+                        d-flex
+                        justify-content-between
+                        align-items-center
+                        gap-3
+                    "
+                >
 
                     <h1 class="h4 mb-0">
+
                         {% block page_title %}
                             Dashboard
                         {% endblock %}
+
                     </h1>
 
-                    <div class="d-flex align-items-center gap-3">
+                    <div
+                        class="
+                            d-flex
+                            align-items-center
+                            gap-3
+                        "
+                    >
 
                         <div class="text-end">
 
@@ -224,14 +464,27 @@
 
                         <form
                             method="POST"
-                            action="{{ url_for('auth.logout') }}"
+                            action="{{ url_for(
+                                'auth.logout'
+                            ) }}"
                         >
 
                             <button
                                 type="submit"
-                                class="btn btn-outline-danger btn-sm"
+                                class="
+                                    btn
+                                    btn-outline-danger
+                                    btn-sm
+                                "
                             >
-                                <i class="bi bi-box-arrow-right me-1"></i>
+                                <i
+                                    class="
+                                        bi
+                                        bi-box-arrow-right
+                                        me-1
+                                    "
+                                ></i>
+
                                 Log out
                             </button>
 
@@ -245,14 +498,24 @@
 
             <main class="p-4">
 
-                {% with messages = get_flashed_messages(with_categories=true) %}
+                {% with messages =
+                    get_flashed_messages(
+                        with_categories=true
+                    )
+                %}
 
                     {% if messages %}
 
                         {% for category, message in messages %}
 
                             <div
-                                class="alert alert-{{ category }} alert-dismissible fade show"
+                                class="
+                                    alert
+                                    alert-{{ category }}
+                                    alert-dismissible
+                                    fade
+                                    show
+                                "
                                 role="alert"
                             >
                                 {{ message }}
@@ -263,6 +526,7 @@
                                     data-bs-dismiss="alert"
                                     aria-label="Close"
                                 ></button>
+
                             </div>
 
                         {% endfor %}

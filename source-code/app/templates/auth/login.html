@@ -1,91 +1,252 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-    <title>Login | BUYOH Payroll System</title>
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>
+        Login | {{ company_settings.display_name }}
+    </title>
 
     <link
         href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
         rel="stylesheet"
     >
+
+    <style>
+        body {
+            background:
+                linear-gradient(
+                    135deg,
+                    rgba(13, 110, 253, 0.08),
+                    rgba(248, 249, 250, 0.95)
+                );
+        }
+
+        .login-card {
+            border: 0;
+            border-radius: 1rem;
+            box-shadow:
+                0 1rem 3rem
+                rgba(33, 37, 41, 0.12);
+        }
+
+        .company-logo {
+            display: block;
+            max-width: 170px;
+            max-height: 90px;
+            object-fit: contain;
+            margin: 0 auto 1.25rem;
+        }
+
+        .company-placeholder {
+            width: 72px;
+            height: 72px;
+            margin: 0 auto 1.25rem;
+            border-radius: 1rem;
+            background: rgba(13, 110, 253, 0.1);
+            color: #0d6efd;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2rem;
+            font-weight: 700;
+        }
+
+        .login-heading {
+            font-weight: 700;
+            color: #212529;
+        }
+    </style>
 </head>
 
-<body class="bg-light">
+<body>
 
-    <div class="container">
-        <div class="row justify-content-center align-items-center min-vh-100">
-            <div class="col-md-5 col-lg-4">
+<div class="container">
 
-                <div class="card shadow-sm">
-                    <div class="card-body p-4">
+    <div
+        class="
+            row
+            justify-content-center
+            align-items-center
+            min-vh-100
+        "
+    >
 
-                        <h2 class="text-center mb-2">
-                            BUYOH Payroll
-                        </h2>
+        <div class="col-md-6 col-lg-4">
 
-                        <p class="text-center text-muted mb-4">
-                            Sign in to continue
-                        </p>
+            <div class="card login-card">
 
-                        {% with messages = get_flashed_messages(with_categories=true) %}
-                            {% for category, message in messages %}
-                                <div class="alert alert-{{ category }}">
-                                    {{ message }}
+                <div class="card-body p-4 p-lg-5">
+
+                    {% if company_settings.company_logo_url %}
+
+                        <img
+                            src="{{ company_settings.company_logo_url }}"
+                            alt="{{ company_settings.display_name }} logo"
+                            class="company-logo"
+                        >
+
+                    {% else %}
+
+                        <div class="company-placeholder">
+                            {{
+                                company_settings.display_name[:1]
+                                | upper
+                            }}
+                        </div>
+
+                    {% endif %}
+
+                    <h2
+                        class="
+                            login-heading
+                            text-center
+                            mb-2
+                        "
+                    >
+                        {{ company_settings.display_name }}
+                    </h2>
+
+                    <p class="text-center text-muted mb-4">
+                        Payroll Management System
+                    </p>
+
+                    {% with messages =
+                        get_flashed_messages(
+                            with_categories=true
+                        )
+                    %}
+
+                        {% for category, message in messages %}
+
+                            <div
+                                class="
+                                    alert
+                                    alert-{{ category }}
+                                "
+                            >
+                                {{ message }}
+                            </div>
+
+                        {% endfor %}
+
+                    {% endwith %}
+
+                    <form method="POST">
+
+                        {{ form.hidden_tag() }}
+
+                        <div class="mb-3">
+
+                            {{
+                                form.username.label(
+                                    class="form-label"
+                                )
+                            }}
+
+                            {{
+                                form.username(
+                                    class="form-control",
+                                    placeholder="Enter username",
+                                    autocomplete="username"
+                                )
+                            }}
+
+                            {% for error in
+                                form.username.errors
+                            %}
+                                <div class="text-danger small">
+                                    {{ error }}
                                 </div>
                             {% endfor %}
-                        {% endwith %}
 
-                        <form method="POST">
-                            {{ form.hidden_tag() }}
+                        </div>
 
-                            <div class="mb-3">
-                                {{ form.username.label(class="form-label") }}
+                        <div class="mb-3">
 
-                                {{ form.username(
+                            {{
+                                form.password.label(
+                                    class="form-label"
+                                )
+                            }}
+
+                            {{
+                                form.password(
                                     class="form-control",
-                                    placeholder="Enter username"
-                                ) }}
+                                    placeholder="Enter password",
+                                    autocomplete="current-password"
+                                )
+                            }}
 
-                                {% for error in form.username.errors %}
-                                    <div class="text-danger small">
-                                        {{ error }}
-                                    </div>
-                                {% endfor %}
-                            </div>
+                            {% for error in
+                                form.password.errors
+                            %}
+                                <div class="text-danger small">
+                                    {{ error }}
+                                </div>
+                            {% endfor %}
 
-                            <div class="mb-3">
-                                {{ form.password.label(class="form-label") }}
+                        </div>
 
-                                {{ form.password(
-                                    class="form-control",
-                                    placeholder="Enter password"
-                                ) }}
+                        <div class="form-check mb-4">
 
-                                {% for error in form.password.errors %}
-                                    <div class="text-danger small">
-                                        {{ error }}
-                                    </div>
-                                {% endfor %}
-                            </div>
+                            {{
+                                form.remember_me(
+                                    class="form-check-input"
+                                )
+                            }}
 
-                            <div class="form-check mb-3">
-                                {{ form.remember_me(class="form-check-input") }}
-                                {{ form.remember_me.label(class="form-check-label") }}
-                            </div>
+                            {{
+                                form.remember_me.label(
+                                    class="form-check-label"
+                                )
+                            }}
 
-                            <div class="d-grid">
-                                {{ form.submit(class="btn btn-primary") }}
-                            </div>
-                        </form>
+                        </div>
 
-                    </div>
+                        <div class="d-grid">
+
+                            {{
+                                form.submit(
+                                    class="btn btn-primary btn-lg"
+                                )
+                            }}
+
+                        </div>
+
+                    </form>
+
                 </div>
 
             </div>
+
+            <p
+                class="
+                    text-center
+                    text-muted
+                    small
+                    mt-4
+                "
+            >
+                Secure payroll administration
+
+                {% if company_settings.company_name %}
+                    for {{ company_settings.company_name }}
+                {% endif %}
+            </p>
+
         </div>
+
     </div>
 
+</div>
+
 </body>
+
 </html>

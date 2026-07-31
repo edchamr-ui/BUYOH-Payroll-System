@@ -1,25 +1,49 @@
+"""Application configuration for the BUYOH Payroll System."""
+
 import os
+
 from dotenv import load_dotenv
 
-# Load environment variables from .env
+
+# Load environment variables from the project .env file.
 load_dotenv()
 
 
 class Config:
     """Base configuration for the BUYOH Payroll System."""
 
-    SECRET_KEY = os.getenv("SECRET_KEY")
+    # ==========================================
+    # Flask Security
+    # ==========================================
 
-    SQLALCHEMY_DATABASE_URI = (
-        f"postgresql://{os.getenv('DATABASE_USER')}:"
-        f"{os.getenv('DATABASE_PASSWORD')}@"
-        f"{os.getenv('DATABASE_HOST')}:"
-        f"{os.getenv('DATABASE_PORT')}/"
-        f"{os.getenv('DATABASE_NAME')}"
+    SECRET_KEY = os.getenv(
+        "SECRET_KEY",
+        "development-secret-key-change-in-production",
+    )
+
+    # ==========================================
+    # PostgreSQL Database
+    # ==========================================
+
+    SQLALCHEMY_DATABASE_URI = os.getenv(
+        "DATABASE_URL",
+        (
+            f"postgresql://{os.getenv('DATABASE_USER')}:"
+            f"{os.getenv('DATABASE_PASSWORD')}@"
+            f"{os.getenv('DATABASE_HOST', 'localhost')}:"
+            f"{os.getenv('DATABASE_PORT', '5432')}/"
+            f"{os.getenv('DATABASE_NAME')}"
+        ),
     )
 
     SQLALCHEMY_TRACK_MODIFICATIONS = False
 
+    # ==========================================
+    # File Uploads
+    # ==========================================
+
+    # Maximum request/upload size: 5 MB.
+    MAX_CONTENT_LENGTH = 5 * 1024 * 1024
 
     # ==========================================
     # Email (SMTP)
@@ -32,7 +56,7 @@ class Config:
     MAIL_PORT = int(
         os.getenv(
             "MAIL_PORT",
-            587,
+            "587",
         )
     )
 
@@ -40,14 +64,16 @@ class Config:
         os.getenv(
             "MAIL_USE_TLS",
             "True",
-        ).lower() == "true"
+        ).strip().lower()
+        == "true"
     )
 
     MAIL_USE_SSL = (
         os.getenv(
             "MAIL_USE_SSL",
             "False",
-        ).lower() == "true"
+        ).strip().lower()
+        == "true"
     )
 
     MAIL_USERNAME = os.getenv(

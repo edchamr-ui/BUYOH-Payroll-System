@@ -3,12 +3,19 @@
 from datetime import datetime
 from decimal import Decimal
 from pathlib import Path
+from xml.sax.saxutils import escape
 
 from reportlab.lib import colors
-from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
+from reportlab.lib.enums import (
+    TA_CENTER,
+    TA_LEFT,
+    TA_RIGHT,
+)
 from reportlab.lib.styles import ParagraphStyle
 from reportlab.lib.units import mm
+from reportlab.lib.utils import ImageReader
 from reportlab.platypus import (
+    Image,
     Paragraph,
     SimpleDocTemplate,
     Spacer,
@@ -19,6 +26,9 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from app.extensions import db
 from app.models import Payslip, PayrollRecord
+from app.services.company_settings_service import (
+    CompanySettingsService,
+)
 
 
 ZERO = Decimal("0.00")
@@ -44,10 +54,6 @@ class PayslipGenerationError(PayslipServiceError):
 class PayslipService:
     """Generate and persist employee payslip PDFs."""
 
-    COMPANY_NAME = "BUYOH (Pvt) Ltd"
-    COMPANY_ADDRESS = "Harare, Zimbabwe"
-    CURRENCY_LABEL = "USD"
-
     @staticmethod
     def _money(value):
         """Return a monetary value formatted to two decimal places."""
@@ -58,8 +64,28 @@ class PayslipService:
         return f"{Decimal(str(value)):,.2f}"
 
     @staticmethod
-    def _safe_text(value, fallback="-"):
-        """Return readable text for optional values."""
+    def _safe_text(
+        value,
+        fallback="-",
+    ):
+        """Return readable XML-safe text for ReportLab paragraphs."""
+
+        if value is None:
+            return fallback
+
+        text = str(value).strip()
+
+        if not text:
+            return fallback
+
+        return escape(text)
+
+    @staticmethod
+    def _plain_text(
+        value,
+        fallback="",
+    ):
+        """Return plain text for direct canvas drawing."""
 
         if value is None:
             return fallback
@@ -72,10 +98,14 @@ class PayslipService:
     def _employee_name(cls, employee):
         """Return the employee's full display name."""
 
-        full_name = getattr(employee, "full_name", None)
+        full_name = getattr(
+            employee,
+            "full_name",
+            None,
+        )
 
         if full_name:
-            return str(full_name)
+            return cls._safe_text(full_name)
 
         first_name = getattr(
             employee,
@@ -89,9 +119,9 @@ class PayslipService:
             "",
         )
 
-        return (
-            f"{first_name} {last_name}".strip()
-            or "Unknown Employee"
+        return cls._safe_text(
+            f"{first_name} {last_name}".strip(),
+            "Unknown Employee",
         )
 
     @classmethod
@@ -127,8 +157,8 @@ class PayslipService:
             )
         )
 
-    @staticmethod
-    def _job_title(employee):
+    @classmethod
+    def _job_title(cls, employee):
         """Return an available designation or job title."""
 
         possible_fields = (
@@ -145,7 +175,7 @@ class PayslipService:
             )
 
             if value:
-                return str(value)
+                return cls._safe_text(value)
 
         return "-"
 
@@ -173,9 +203,9 @@ class PayslipService:
 
         return "-"
 
-    @staticmethod
-    def _bank_name(employee):
-        """Return employee bank details when available."""
+    @classmethod
+    def _bank_name(cls, employee):
+        """Return employee bank name when available."""
 
         possible_fields = (
             "bank_name",
@@ -190,12 +220,12 @@ class PayslipService:
             )
 
             if value:
-                return str(value)
+                return cls._safe_text(value)
 
         return "-"
 
-    @staticmethod
-    def _bank_account(employee):
+    @classmethod
+    def _bank_account(cls, employee):
         """Return the employee bank account when available."""
 
         possible_fields = (
@@ -212,7 +242,7 @@ class PayslipService:
             )
 
             if value:
-                return str(value)
+                return cls._safe_text(value)
 
         return "-"
 
@@ -237,7 +267,7 @@ class PayslipService:
         cls,
         payroll_record,
     ):
-        """Create the output directory and PDF file path."""
+        """Create the output directory and readable PDF filename."""
 
         employee = payroll_record.employee
         period = payroll_record.payroll_period
@@ -255,18 +285,157 @@ class PayslipService:
         )
 
         employee_number = (
-            cls._employee_number(employee)
+            cls._plain_text(
+                getattr(
+                    employee,
+                    "employee_number",
+                    None,
+                ),
+                "employee",
+            )
             .replace(" ", "_")
             .replace("/", "_")
             .replace("\\", "_")
         )
 
+        period_label = datetime(
+            period.year,
+            period.month,
+            1,
+        ).strftime("%B-%Y")
+
         filename = (
-            f"payslip_{employee_number}_"
-            f"{period.year}_{period.month:02d}.pdf"
+            f"Payslip_{employee_number}_"
+            f"{period_label}.pdf"
         )
 
         return base_directory / filename
+
+    @staticmethod
+    def _company_name(company_profile):
+        """Return the configured registered or display name."""
+
+        company_name = str(
+            company_profile.get(
+                "company_name",
+                "",
+            )
+            or ""
+        ).strip()
+
+        display_name = str(
+            company_profile.get(
+                "display_name",
+                "",
+            )
+            or ""
+        ).strip()
+
+        return (
+            company_name
+            or display_name
+            or "Company"
+        )
+
+    @staticmethod
+    def _company_address(company_profile):
+        """Return the preferred configured company address."""
+
+        physical_address = str(
+            company_profile.get(
+                "physical_address",
+                "",
+            )
+            or ""
+        ).strip()
+
+        postal_address = str(
+            company_profile.get(
+                "postal_address",
+                "",
+            )
+            or ""
+        ).strip()
+
+        return (
+            physical_address
+            or postal_address
+            or ""
+        )
+
+    @staticmethod
+    def _currency_label(company_profile):
+        """Return the configured payroll currency."""
+
+        return str(
+            company_profile.get(
+                "currency",
+                "",
+            )
+            or "USD"
+        ).strip()
+
+    @staticmethod
+    def _payslip_footer(company_profile):
+        """Return the configured payslip footer."""
+
+        return str(
+            company_profile.get(
+                "payslip_footer",
+                "",
+            )
+            or ""
+        ).strip()
+
+    @classmethod
+    def _build_logo(
+        cls,
+        logo_path,
+    ):
+        """Create a proportionally scaled ReportLab logo."""
+
+        if not logo_path:
+            return None
+
+        try:
+            image_reader = ImageReader(
+                str(logo_path)
+            )
+
+            original_width, original_height = (
+                image_reader.getSize()
+            )
+
+            if (
+                original_width <= 0
+                or original_height <= 0
+            ):
+                return None
+
+            maximum_width = 27 * mm
+            maximum_height = 17 * mm
+
+            scale = min(
+                maximum_width / original_width,
+                maximum_height / original_height,
+            )
+
+            logo = Image(
+                str(logo_path),
+                width=original_width * scale,
+                height=original_height * scale,
+            )
+
+            logo.hAlign = "LEFT"
+
+            return logo
+
+        except (
+            OSError,
+            TypeError,
+            ValueError,
+        ):
+            return None
 
     @classmethod
     def generate_payslip(
@@ -327,6 +496,7 @@ class PayslipService:
         except (
             OSError,
             SQLAlchemyError,
+            TypeError,
             ValueError,
         ) as error:
             db.session.rollback()
@@ -336,6 +506,119 @@ class PayslipService:
             ) from error
 
         return payslip
+
+    @classmethod
+    def _draw_page_footer(
+        cls,
+        canvas,
+        _document,
+        footer_text,
+    ):
+        """Draw the configured footer at the bottom of the page."""
+
+        footer_text = cls._plain_text(
+            footer_text,
+            "",
+        )
+
+        if not footer_text:
+            return
+
+        canvas.saveState()
+
+        page_width, _page_height = PAYSLIP_PAGE_SIZE
+
+        footer_y = 2.2 * mm
+        line_y = footer_y + 3.5 * mm
+
+        canvas.setStrokeColor(
+            colors.HexColor("#D6D9DD")
+        )
+        canvas.setLineWidth(0.35)
+
+        canvas.line(
+            8 * mm,
+            line_y,
+            page_width - 8 * mm,
+            line_y,
+        )
+
+        canvas.setFillColor(
+            colors.HexColor("#777777")
+        )
+        canvas.setFont(
+            "Helvetica",
+            5.2,
+        )
+
+        maximum_width = (
+            page_width
+            - (20 * mm)
+        )
+
+        fitted_footer = cls._fit_canvas_text(
+            canvas=canvas,
+            value=footer_text,
+            font_name="Helvetica",
+            font_size=5.2,
+            maximum_width=maximum_width,
+        )
+
+        canvas.drawCentredString(
+            page_width / 2,
+            footer_y,
+            fitted_footer,
+        )
+
+        canvas.restoreState()
+
+    @staticmethod
+    def _fit_canvas_text(
+        canvas,
+        value,
+        font_name,
+        font_size,
+        maximum_width,
+    ):
+        """Shorten canvas text when it exceeds available width."""
+
+        text = str(
+            value or ""
+        ).strip()
+
+        if not text:
+            return ""
+
+        if (
+            canvas.stringWidth(
+                text,
+                font_name,
+                font_size,
+            )
+            <= maximum_width
+        ):
+            return text
+
+        suffix = "..."
+
+        while text:
+            candidate = (
+                text + suffix
+            )
+
+            if (
+                canvas.stringWidth(
+                    candidate,
+                    font_name,
+                    font_size,
+                )
+                <= maximum_width
+            ):
+                return candidate
+
+            text = text[:-1]
+
+        return suffix
 
     @classmethod
     def _create_pdf(
@@ -348,13 +631,41 @@ class PayslipService:
         employee = payroll_record.employee
         period = payroll_record.payroll_period
 
+        company = (
+            CompanySettingsService.get_company_profile()
+        )
+
+        company_name = cls._company_name(
+            company
+        )
+
+        company_address = cls._company_address(
+            company
+        )
+
+        currency_label = cls._currency_label(
+            company
+        )
+
+        payslip_footer = cls._payslip_footer(
+            company
+        )
+
+        logo_file_path = (
+            CompanySettingsService.get_logo_file_path()
+        )
+
+        logo = cls._build_logo(
+            logo_file_path
+        )
+
         document = SimpleDocTemplate(
             str(output_path),
             pagesize=PAYSLIP_PAGE_SIZE,
             rightMargin=5 * mm,
             leftMargin=5 * mm,
             topMargin=4 * mm,
-            bottomMargin=4 * mm,
+            bottomMargin=8 * mm,
         )
 
         normal_style = ParagraphStyle(
@@ -411,73 +722,154 @@ class PayslipService:
             alignment=TA_CENTER,
         )
 
+        net_pay_label_style = ParagraphStyle(
+            name="NetPayLabel",
+            fontName="Helvetica-Bold",
+            fontSize=7.5,
+            leading=9,
+            alignment=TA_LEFT,
+            textColor=colors.HexColor("#163A72"),
+        )
+
+        net_pay_amount_style = ParagraphStyle(
+            name="NetPayAmount",
+            fontName="Helvetica-Bold",
+            fontSize=9,
+            leading=11,
+            alignment=TA_RIGHT,
+            textColor=colors.HexColor("#163A72"),
+        )
+
         story = []
 
-        heading = Table(
-            [
-                [
-                    Paragraph(
-                        cls.COMPANY_NAME,
-                        title_style,
-                    )
-                ],
-                [
-                    Paragraph(
-                        cls.COMPANY_ADDRESS,
-                        centered_style,
-                    )
-                ],
-                [
-                    Paragraph(
-                        (
-                            "Payslip for the period of "
-                            f"{period.period_name}"
-                        ),
-                        subtitle_style,
-                    )
-                ],
-            ],
-            colWidths=[
-                200 * mm,
-            ],
+        heading_text = [
+            Paragraph(
+                cls._safe_text(
+                    company_name,
+                    "Company",
+                ),
+                title_style,
+            )
+        ]
+
+        if company_address:
+            heading_text.append(
+                Paragraph(
+                    cls._safe_text(
+                        company_address,
+                        "",
+                    ),
+                    centered_style,
+                )
+            )
+
+        heading_text.append(
+            Paragraph(
+                (
+                    "Payslip for the period of "
+                    f"{cls._safe_text(period.period_name)}"
+                ),
+                subtitle_style,
+            )
         )
+
+        if logo:
+            heading = Table(
+                [
+                    [
+                        logo,
+                        heading_text,
+                        "",
+                    ]
+                ],
+                colWidths=[
+                    34 * mm,
+                    132 * mm,
+                    34 * mm,
+                ],
+            )
+
+        else:
+            heading = Table(
+                [
+                    [
+                        heading_text,
+                    ]
+                ],
+                colWidths=[
+                    200 * mm,
+                ],
+            )
+
+        heading_style_rules = [
+            (
+                "ALIGN",
+                (0, 0),
+                (-1, -1),
+                "CENTER",
+            ),
+            (
+                "VALIGN",
+                (0, 0),
+                (-1, -1),
+                "MIDDLE",
+            ),
+            (
+                "LEFTPADDING",
+                (0, 0),
+                (-1, -1),
+                0,
+            ),
+            (
+                "RIGHTPADDING",
+                (0, 0),
+                (-1, -1),
+                0,
+            ),
+            (
+                "TOPPADDING",
+                (0, 0),
+                (-1, -1),
+                0,
+            ),
+            (
+                "BOTTOMPADDING",
+                (0, 0),
+                (-1, -1),
+                1,
+            ),
+        ]
+
+        if logo:
+            heading_style_rules.extend(
+                [
+                    (
+                        "LEFTPADDING",
+                        (0, 0),
+                        (0, 0),
+                        5 * mm,
+                    ),
+                    (
+                        "RIGHTPADDING",
+                        (0, 0),
+                        (0, 0),
+                        2 * mm,
+                    ),
+                ]
+            )
 
         heading.setStyle(
             TableStyle(
-                [
-                    (
-                        "ALIGN",
-                        (0, 0),
-                        (-1, -1),
-                        "CENTER",
-                    ),
-                    (
-                        "VALIGN",
-                        (0, 0),
-                        (-1, -1),
-                        "MIDDLE",
-                    ),
-                    (
-                        "TOPPADDING",
-                        (0, 0),
-                        (-1, -1),
-                        0,
-                    ),
-                    (
-                        "BOTTOMPADDING",
-                        (0, 0),
-                        (-1, -1),
-                        1,
-                    ),
-                ]
+                heading_style_rules
             )
         )
 
         story.append(heading)
+
         story.append(
             Spacer(
                 1,
-                2 * mm,
+                1.5 * mm,
             )
         )
 
@@ -633,10 +1025,11 @@ class PayslipService:
         )
 
         story.append(detail_table)
+
         story.append(
             Spacer(
                 1,
-                2 * mm,
+                1.5 * mm,
             )
         )
 
@@ -787,13 +1180,11 @@ class PayslipService:
                         amount_bold_style,
                     ),
                     Paragraph(
-                        "Net Pay",
+                        "",
                         bold_style,
                     ),
                     Paragraph(
-                        cls._money(
-                            payroll_record.net_pay
-                        ),
+                        "",
                         amount_bold_style,
                     ),
                 ],
@@ -862,26 +1253,109 @@ class PayslipService:
         )
 
         story.append(financial_table)
+
         story.append(
             Spacer(
                 1,
-                1.5 * mm,
+                1.3 * mm,
+            )
+        )
+
+        net_pay_table = Table(
+            [
+                [
+                    Paragraph(
+                        "NET PAY",
+                        net_pay_label_style,
+                    ),
+                    Paragraph(
+                        (
+                            f"{cls._safe_text(currency_label)} "
+                            f"{cls._money(payroll_record.net_pay)}"
+                        ),
+                        net_pay_amount_style,
+                    ),
+                ]
+            ],
+            colWidths=[
+                100 * mm,
+                100 * mm,
+            ],
+        )
+
+        net_pay_table.setStyle(
+            TableStyle(
+                [
+                    (
+                        "BACKGROUND",
+                        (0, 0),
+                        (-1, -1),
+                        colors.HexColor("#EAF3FF"),
+                    ),
+                    (
+                        "BOX",
+                        (0, 0),
+                        (-1, -1),
+                        0.8,
+                        colors.HexColor("#163A72"),
+                    ),
+                    (
+                        "VALIGN",
+                        (0, 0),
+                        (-1, -1),
+                        "MIDDLE",
+                    ),
+                    (
+                        "LEFTPADDING",
+                        (0, 0),
+                        (-1, -1),
+                        6,
+                    ),
+                    (
+                        "RIGHTPADDING",
+                        (0, 0),
+                        (-1, -1),
+                        6,
+                    ),
+                    (
+                        "TOPPADDING",
+                        (0, 0),
+                        (-1, -1),
+                        3,
+                    ),
+                    (
+                        "BOTTOMPADDING",
+                        (0, 0),
+                        (-1, -1),
+                        3,
+                    ),
+                ]
+            )
+        )
+
+        story.append(net_pay_table)
+
+        story.append(
+            Spacer(
+                1,
+                1 * mm,
             )
         )
 
         currency_note = Paragraph(
             (
                 "(All figures in "
-                f"{cls.CURRENCY_LABEL})"
+                f"{cls._safe_text(currency_label)})"
             ),
             centered_bold_style,
         )
 
         story.append(currency_note)
+
         story.append(
             Spacer(
                 1,
-                4 * mm,
+                2.3 * mm,
             )
         )
 
@@ -956,4 +1430,20 @@ class PayslipService:
 
         story.append(signature_table)
 
-        document.build(story)
+        document.build(
+            story,
+            onFirstPage=lambda canvas, doc: (
+                cls._draw_page_footer(
+                    canvas,
+                    doc,
+                    payslip_footer,
+                )
+            ),
+            onLaterPages=lambda canvas, doc: (
+                cls._draw_page_footer(
+                    canvas,
+                    doc,
+                    payslip_footer,
+                )
+            ),
+        )

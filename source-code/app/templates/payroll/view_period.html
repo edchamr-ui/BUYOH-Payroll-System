@@ -1,7 +1,8 @@
 {% extends "base.html" %}
 
 {% block title %}
-{{ period.period_name }} Payroll | BUYOH Payroll
+{{ period.period_name }} Payroll |
+{{ company_settings.display_name }}
 {% endblock %}
 
 {% block page_title %}
@@ -10,9 +11,20 @@ Payroll Register
 
 {% block content %}
 
+{% set currency =
+    company_settings.currency
+    or "USD"
+%}
+
 <div
-    class="d-flex flex-wrap justify-content-between
-           align-items-center gap-3 mb-4"
+    class="
+        d-flex
+        flex-wrap
+        justify-content-between
+        align-items-center
+        gap-3
+        mb-4
+    "
 >
 
     <div>
@@ -22,13 +34,90 @@ Payroll Register
 
         <p class="text-muted mb-0">
             Payment date:
-            {{ period.payment_date.strftime("%d %B %Y") }}
+            {{
+                period.payment_date.strftime(
+                    "%d %B %Y"
+                )
+            }}
         </p>
     </div>
 
     <div class="d-flex flex-wrap gap-2">
 
         {% if records %}
+
+            {% if period.status in [
+                "Processed",
+                "Approved",
+                "Paid",
+                "Locked"
+            ] %}
+
+                {% if missing_payslip_count > 0 %}
+
+                    <form
+                        method="POST"
+                        action="{{ url_for(
+                            'payroll.generate_missing_payslips',
+                            period_id=period.id
+                        ) }}"
+                        onsubmit="return confirm(
+                            'Generate '
+                            + '{{ missing_payslip_count }}'
+                            + ' missing individual payslip(s) '
+                            + 'for {{ period.period_name }}?'
+                        );"
+                    >
+                        {{ form.hidden_tag() }}
+
+                        <button
+                            type="submit"
+                            class="btn btn-primary"
+                        >
+                            <i
+                                class="
+                                    bi
+                                    bi-file-earmark-plus
+                                    me-2
+                                "
+                            ></i>
+
+                            Generate Missing Payslips
+
+                            <span
+                                class="
+                                    badge
+                                    text-bg-light
+                                    text-primary
+                                    ms-1
+                                "
+                            >
+                                {{ missing_payslip_count }}
+                            </span>
+                        </button>
+                    </form>
+
+                {% else %}
+
+                    <button
+                        type="button"
+                        class="btn btn-outline-success"
+                        disabled
+                    >
+                        <i
+                            class="
+                                bi
+                                bi-check-circle
+                                me-2
+                            "
+                        ></i>
+
+                        All Payslips Generated
+                    </button>
+
+                {% endif %}
+
+            {% endif %}
 
             <a
                 href="{{ url_for(
@@ -38,7 +127,7 @@ Payroll Register
                 class="btn btn-outline-primary"
             >
                 <i class="bi bi-files me-2"></i>
-                Download All Payslips
+                Download Printable Book
             </a>
 
             <form
@@ -48,8 +137,9 @@ Payroll Register
                     period_id=period.id
                 ) }}"
                 onsubmit="return confirm(
-                    'Email all generated payslips to employees '
-                    + 'with valid email addresses?'
+                    'Email all generated payslips to '
+                    + 'employees with valid email '
+                    + 'addresses?'
                 );"
             >
                 {{ form.hidden_tag() }}
@@ -57,6 +147,9 @@ Payroll Register
                 <button
                     type="submit"
                     class="btn btn-outline-success"
+                    {% if generated_payslip_count == 0 %}
+                        disabled
+                    {% endif %}
                 >
                     <i class="bi bi-envelope-at me-2"></i>
                     Email All Payslips
@@ -74,7 +167,8 @@ Payroll Register
                     period_id=period.id
                 ) }}"
                 onsubmit="return confirm(
-                    'Process payroll for all active employees?'
+                    'Process payroll for all '
+                    + 'active employees?'
                 );"
             >
                 {{ form.hidden_tag() }}
@@ -210,6 +304,15 @@ Payroll Register
         Payroll has been approved and is ready to be locked.
     </div>
 
+{% elif period.status == "Paid" %}
+
+    <div class="alert alert-success">
+        <strong>Status:</strong>
+        Paid
+        <br>
+        Payroll has been marked as paid.
+    </div>
+
 {% elif period.status == "Locked" %}
 
     <div class="alert alert-danger">
@@ -221,10 +324,59 @@ Payroll Register
 
 {% endif %}
 
+{% if records %}
+
+    <div
+        class="
+            alert
+            {% if missing_payslip_count == 0 %}
+                alert-success
+            {% else %}
+                alert-light
+                border
+            {% endif %}
+            d-flex
+            flex-wrap
+            justify-content-between
+            align-items-center
+            gap-3
+        "
+    >
+        <div>
+            <div class="fw-semibold">
+                Individual Payslip Generation
+            </div>
+
+            <div class="small">
+                {{ generated_payslip_count }}
+                of {{ records|length }}
+                individual payslip(s) generated.
+            </div>
+        </div>
+
+        {% if missing_payslip_count > 0 %}
+
+            <span class="badge text-bg-warning">
+                {{ missing_payslip_count }} missing
+            </span>
+
+        {% else %}
+
+            <span class="badge text-bg-success">
+                Complete
+            </span>
+
+        {% endif %}
+    </div>
+
+{% endif %}
+
 <div class="row g-3 mb-4">
 
     <div class="col-sm-6 col-xl-3">
+
         <div class="app-card h-100">
+
             <div class="card-body p-4">
 
                 <div class="text-muted small">
@@ -236,11 +388,15 @@ Payroll Register
                 </div>
 
             </div>
+
         </div>
+
     </div>
 
     <div class="col-sm-6 col-xl-3">
+
         <div class="app-card h-100">
+
             <div class="card-body p-4">
 
                 <div class="text-muted small">
@@ -248,17 +404,24 @@ Payroll Register
                 </div>
 
                 <div class="h3 mb-0">
-                    ${{ "{:,.2f}".format(
-                        total_basic_salary
-                    ) }}
+                    {{ currency }}
+                    {{
+                        "{:,.2f}".format(
+                            total_basic_salary
+                        )
+                    }}
                 </div>
 
             </div>
+
         </div>
+
     </div>
 
     <div class="col-sm-6 col-xl-3">
+
         <div class="app-card h-100">
+
             <div class="card-body p-4">
 
                 <div class="text-muted small">
@@ -266,17 +429,24 @@ Payroll Register
                 </div>
 
                 <div class="h3 mb-0">
-                    ${{ "{:,.2f}".format(
-                        total_deductions
-                    ) }}
+                    {{ currency }}
+                    {{
+                        "{:,.2f}".format(
+                            total_deductions
+                        )
+                    }}
                 </div>
 
             </div>
+
         </div>
+
     </div>
 
     <div class="col-sm-6 col-xl-3">
+
         <div class="app-card h-100">
+
             <div class="card-body p-4">
 
                 <div class="text-muted small">
@@ -284,13 +454,18 @@ Payroll Register
                 </div>
 
                 <div class="h3 mb-0">
-                    ${{ "{:,.2f}".format(
-                        total_net_pay
-                    ) }}
+                    {{ currency }}
+                    {{
+                        "{:,.2f}".format(
+                            total_net_pay
+                        )
+                    }}
                 </div>
 
             </div>
+
         </div>
+
     </div>
 
 </div>
@@ -304,13 +479,18 @@ Payroll Register
             <div class="table-responsive">
 
                 <table
-                    class="table table-hover
-                           align-middle mb-0"
+                    class="
+                        table
+                        table-hover
+                        align-middle
+                        mb-0
+                    "
                 >
 
                     <thead class="table-light">
 
                         <tr>
+
                             <th class="px-4 py-3">
                                 Employee
                             </th>
@@ -338,6 +518,7 @@ Payroll Register
                             <th class="px-4 py-3 text-end">
                                 Payslip
                             </th>
+
                         </tr>
 
                     </thead>
@@ -384,35 +565,50 @@ Payroll Register
                                 </td>
 
                                 <td class="text-end">
-                                    ${{ "{:,.2f}".format(
-                                        record.basic_salary
-                                    ) }}
+                                    {{ currency }}
+                                    {{
+                                        "{:,.2f}".format(
+                                            record.basic_salary
+                                        )
+                                    }}
                                 </td>
 
                                 <td class="text-end">
-                                    ${{ "{:,.2f}".format(
-                                        record.gross_pay
-                                    ) }}
+                                    {{ currency }}
+                                    {{
+                                        "{:,.2f}".format(
+                                            record.gross_pay
+                                        )
+                                    }}
                                 </td>
 
                                 <td class="text-end">
-                                    ${{ "{:,.2f}".format(
-                                        record.total_deductions
-                                    ) }}
+                                    {{ currency }}
+                                    {{
+                                        "{:,.2f}".format(
+                                            record.total_deductions
+                                        )
+                                    }}
                                 </td>
 
                                 <td class="text-end fw-semibold">
-                                    ${{ "{:,.2f}".format(
-                                        record.net_pay
-                                    ) }}
+                                    {{ currency }}
+                                    {{
+                                        "{:,.2f}".format(
+                                            record.net_pay
+                                        )
+                                    }}
                                 </td>
 
                                 <td class="px-4">
 
                                     <div
-                                        class="d-flex flex-wrap
-                                               justify-content-end
-                                               gap-2"
+                                        class="
+                                            d-flex
+                                            flex-wrap
+                                            justify-content-end
+                                            gap-2
+                                        "
                                     >
 
                                         {% if record.payslip %}
@@ -420,21 +616,24 @@ Payroll Register
                                             <a
                                                 href="{{ url_for(
                                                     'payroll.download_payslip',
-                                                    payslip_id=(
-                                                        record.payslip.id
-                                                    )
+                                                    payslip_id=record.payslip.id
                                                 ) }}"
-                                                class="btn btn-sm
-                                                       btn-success"
+                                                class="
+                                                    btn
+                                                    btn-sm
+                                                    btn-success
+                                                "
                                             >
                                                 <i
-                                                    class="bi
-                                                           bi-download
-                                                           me-1"
+                                                    class="
+                                                        bi
+                                                        bi-download
+                                                        me-1
+                                                    "
                                                 ></i>
+
                                                 Download
                                             </a>
-
 
                                             {% if period.status != "Locked" %}
 
@@ -451,29 +650,37 @@ Payroll Register
                                                         + 'will be replaced.'
                                                     );"
                                                 >
-
                                                     {{ form.hidden_tag() }}
 
                                                     <button
                                                         type="submit"
-                                                        class="btn btn-sm
-                                                               btn-outline-primary"
+                                                        class="
+                                                            btn
+                                                            btn-sm
+                                                            btn-outline-primary
+                                                        "
                                                     >
                                                         <i
-                                                            class="bi
-                                                                   bi-arrow-clockwise
-                                                                   me-1"
+                                                            class="
+                                                                bi
+                                                                bi-arrow-clockwise
+                                                                me-1
+                                                            "
                                                         ></i>
+
                                                         Regenerate
                                                     </button>
-
                                                 </form>
 
                                             {% endif %}
 
                                         {% else %}
 
-                                            {% if period.status != "Locked" %}
+                                            {% if period.status in [
+                                                "Processed",
+                                                "Approved",
+                                                "Paid"
+                                            ] %}
 
                                                 <form
                                                     method="POST"
@@ -482,30 +689,48 @@ Payroll Register
                                                         record_id=record.id
                                                     ) }}"
                                                 >
-
                                                     {{ form.hidden_tag() }}
 
                                                     <button
                                                         type="submit"
-                                                        class="btn btn-sm
-                                                               btn-primary"
+                                                        class="
+                                                            btn
+                                                            btn-sm
+                                                            btn-primary
+                                                        "
                                                     >
                                                         <i
-                                                            class="bi
-                                                                   bi-file-earmark-pdf
-                                                                   me-1"
+                                                            class="
+                                                                bi
+                                                                bi-file-earmark-pdf
+                                                                me-1
+                                                            "
                                                         ></i>
+
                                                         Generate
                                                     </button>
-
                                                 </form>
+
+                                            {% elif period.status == "Locked" %}
+
+                                                <span
+                                                    class="
+                                                        badge
+                                                        text-bg-warning
+                                                    "
+                                                >
+                                                    Missing
+                                                </span>
 
                                             {% else %}
 
                                                 <span
-                                                    class="text-muted small"
+                                                    class="
+                                                        text-muted
+                                                        small
+                                                    "
                                                 >
-                                                    Not generated
+                                                    Awaiting processing
                                                 </span>
 
                                             {% endif %}
@@ -535,27 +760,39 @@ Payroll Register
                             </td>
 
                             <td class="text-end">
-                                ${{ "{:,.2f}".format(
-                                    total_basic_salary
-                                ) }}
+                                {{ currency }}
+                                {{
+                                    "{:,.2f}".format(
+                                        total_basic_salary
+                                    )
+                                }}
                             </td>
 
                             <td class="text-end">
-                                ${{ "{:,.2f}".format(
-                                    total_gross_pay
-                                ) }}
+                                {{ currency }}
+                                {{
+                                    "{:,.2f}".format(
+                                        total_gross_pay
+                                    )
+                                }}
                             </td>
 
                             <td class="text-end">
-                                ${{ "{:,.2f}".format(
-                                    total_deductions
-                                ) }}
+                                {{ currency }}
+                                {{
+                                    "{:,.2f}".format(
+                                        total_deductions
+                                    )
+                                }}
                             </td>
 
                             <td class="text-end">
-                                ${{ "{:,.2f}".format(
-                                    total_net_pay
-                                ) }}
+                                {{ currency }}
+                                {{
+                                    "{:,.2f}".format(
+                                        total_net_pay
+                                    )
+                                }}
                             </td>
 
                             <td></td>
@@ -573,8 +810,12 @@ Payroll Register
             <div class="text-center py-5">
 
                 <i
-                    class="bi bi-receipt
-                           fs-1 text-muted"
+                    class="
+                        bi
+                        bi-receipt
+                        fs-1
+                        text-muted
+                    "
                 ></i>
 
                 <h3 class="h5 mt-3">
@@ -591,8 +832,8 @@ Payroll Register
                 {% elif period.status == "Processed" %}
 
                     <p class="text-muted mb-0">
-                        Payroll is marked as processed, but no
-                        payroll records are available.
+                        Payroll is marked as processed,
+                        but no payroll records are available.
                     </p>
 
                 {% elif period.status == "Approved" %}
@@ -605,8 +846,15 @@ Payroll Register
                 {% elif period.status == "Locked" %}
 
                     <p class="text-muted mb-0">
-                        This locked payroll period contains no
-                        payroll records.
+                        This locked payroll period contains
+                        no payroll records.
+                    </p>
+
+                {% else %}
+
+                    <p class="text-muted mb-0">
+                        No payroll records are available
+                        for this period.
                     </p>
 
                 {% endif %}

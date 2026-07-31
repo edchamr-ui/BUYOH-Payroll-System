@@ -3,6 +3,7 @@
 import mimetypes
 import smtplib
 from email.message import EmailMessage
+from html import escape
 from pathlib import Path
 
 from email_validator import (
@@ -11,7 +12,12 @@ from email_validator import (
 )
 from flask import current_app
 
+from app.extensions import db
+from app.models.email_delivery import EmailDelivery
 from app.services.audit_log_service import AuditLogService
+from app.services.company_settings_service import (
+    CompanySettingsService,
+)
 
 
 class EmailServiceError(Exception):
@@ -35,11 +41,11 @@ class EmailConfigurationError(EmailServiceError):
 
 
 class EmailDeliveryError(EmailServiceError):
-    """Raised when the SMTP server cannot deliver an email."""
+    """Raised when an email cannot be delivered."""
 
 
 class EmailService:
-    """Send generated payslip PDFs to employees through SMTP."""
+    """Send generated payslip PDFs and persist delivery history."""
 
     @staticmethod
     def _get_required_config(config_name):
@@ -52,10 +58,7 @@ class EmailService:
                 f"{config_name} has not been configured."
             )
 
-        if (
-            isinstance(value, str)
-            and not value.strip()
-        ):
+        if isinstance(value, str) and not value.strip():
             raise EmailConfigurationError(
                 f"{config_name} has not been configured."
             )
@@ -121,29 +124,30 @@ class EmailService:
         }
 
     @staticmethod
-    def _validate_recipient_email(employee):
-        """Return a normalised employee email address."""
+    def _raw_recipient_email(employee):
+        """Return the employee's raw email value."""
 
         email_address = getattr(
             employee,
             "email",
-            None,
+            "",
+        )
+
+        return str(
+            email_address or ""
+        ).strip()
+
+    @staticmethod
+    def _validate_recipient_email(employee):
+        """Return a normalised employee email address."""
+
+        email_address = EmailService._raw_recipient_email(
+            employee
         )
 
         if not email_address:
             raise MissingEmployeeEmailError(
-                "This employee does not have an email "
-                "address."
-            )
-
-        email_address = str(
-            email_address
-        ).strip()
-
-        if not email_address:
-            raise MissingEmployeeEmailError(
-                "This employee does not have an email "
-                "address."
+                "This employee does not have an email address."
             )
 
         try:
@@ -161,7 +165,7 @@ class EmailService:
 
     @staticmethod
     def _validate_payslip_file(payslip):
-        """Return a verified generated payslip file path."""
+        """Return a verified generated payslip PDF path."""
 
         file_path_value = getattr(
             payslip,
@@ -178,10 +182,7 @@ class EmailService:
             file_path_value
         ).resolve()
 
-        if (
-            not file_path.exists()
-            or not file_path.is_file()
-        ):
+        if not file_path.exists() or not file_path.is_file():
             raise PayslipFileNotFoundError(
                 "The generated payslip PDF could not be "
                 "found. Please regenerate the payslip."
@@ -198,6 +199,15 @@ class EmailService:
     def _employee_name(employee):
         """Return the employee's full display name."""
 
+        full_name = getattr(
+            employee,
+            "full_name",
+            None,
+        )
+
+        if full_name:
+            return str(full_name).strip()
+
         first_name = getattr(
             employee,
             "first_name",
@@ -210,11 +220,11 @@ class EmailService:
             "",
         )
 
-        full_name = (
+        combined_name = (
             f"{first_name} {last_name}"
         ).strip()
 
-        return full_name or "Employee"
+        return combined_name or "Employee"
 
     @staticmethod
     def _period_name(payslip):
@@ -244,7 +254,196 @@ class EmailService:
             None,
         )
 
-        return period_name or "Payroll Period"
+        return (
+            str(period_name).strip()
+            if period_name
+            else "Payroll Period"
+        )
+
+    @staticmethod
+    def _payroll_period_id(payslip):
+        """Return the payslip payroll-period ID."""
+
+        payroll_record = getattr(
+            payslip,
+            "payroll_record",
+            None,
+        )
+
+        if payroll_record is None:
+            raise EmailDeliveryError(
+                "The payslip is not connected to a payroll record."
+            )
+
+        payroll_period_id = getattr(
+            payroll_record,
+            "payroll_period_id",
+            None,
+        )
+
+        if payroll_period_id is None:
+            raise EmailDeliveryError(
+                "The payslip is not connected to a payroll period."
+            )
+
+        return payroll_period_id
+
+    @staticmethod
+    def _company_profile():
+        """Return the configured company profile."""
+
+        return (
+            CompanySettingsService.get_company_profile()
+        )
+
+    @staticmethod
+    def _company_display_name(company_profile):
+        """Return the configured company display name."""
+
+        return str(
+            company_profile.get(
+                "display_name",
+                "",
+            )
+            or company_profile.get(
+                "company_name",
+                "",
+            )
+            or "Company"
+        ).strip()
+
+    @staticmethod
+    def _company_contact_line(company_profile):
+        """Return a compact contact line for the email footer."""
+
+        contact_parts = []
+
+        company_email = str(
+            company_profile.get(
+                "email",
+                "",
+            )
+            or ""
+        ).strip()
+
+        phone = str(
+            company_profile.get(
+                "phone",
+                "",
+            )
+            or ""
+        ).strip()
+
+        website = str(
+            company_profile.get(
+                "website",
+                "",
+            )
+            or ""
+        ).strip()
+
+        if company_email:
+            contact_parts.append(
+                company_email
+            )
+
+        if phone:
+            contact_parts.append(
+                phone
+            )
+
+        if website:
+            contact_parts.append(
+                website
+            )
+
+        return " | ".join(
+            contact_parts
+        )
+
+    @classmethod
+    def _create_delivery_attempt(
+        cls,
+        *,
+        payslip,
+        sent_by_user_id,
+    ):
+        """Create and commit a pending delivery record."""
+
+        employee = payslip.employee
+
+        raw_email = cls._raw_recipient_email(
+            employee
+        )
+
+        delivery = EmailDelivery.create_pending(
+            employee_id=employee.id,
+            payslip_id=payslip.id,
+            payroll_period_id=cls._payroll_period_id(
+                payslip
+            ),
+            recipient_email=raw_email,
+            sent_by_id=sent_by_user_id,
+        )
+
+        try:
+            db.session.add(delivery)
+            db.session.commit()
+
+        except Exception as error:
+            db.session.rollback()
+
+            current_app.logger.exception(
+                "Could not create the email delivery record."
+            )
+
+            raise EmailDeliveryError(
+                "The email attempt could not be recorded."
+            ) from error
+
+        return delivery
+
+    @staticmethod
+    def _save_delivery_result(delivery):
+        """Commit a completed delivery result."""
+
+        try:
+            db.session.add(delivery)
+            db.session.commit()
+
+        except Exception as error:
+            db.session.rollback()
+
+            current_app.logger.exception(
+                "Could not update the email delivery record."
+            )
+
+            raise EmailDeliveryError(
+                "The email delivery result could not be saved."
+            ) from error
+
+    @classmethod
+    def _mark_delivery_failed(
+        cls,
+        *,
+        delivery,
+        error,
+    ):
+        """Persist a failed delivery result."""
+
+        delivery.mark_failed(
+            str(error)
+        )
+
+        try:
+            cls._save_delivery_result(
+                delivery
+            )
+
+        except EmailDeliveryError:
+            current_app.logger.exception(
+                "The failed email result could not be persisted."
+            )
 
     @classmethod
     def _build_message(
@@ -254,7 +453,7 @@ class EmailService:
         recipient_email,
         sender_email,
     ):
-        """Create the payslip email and PDF attachment."""
+        """Create the settings-driven payslip email."""
 
         employee = payslip.employee
 
@@ -270,27 +469,125 @@ class EmailService:
             payslip
         )
 
-        message = EmailMessage()
+        company_profile = cls._company_profile()
 
-        message["Subject"] = (
-            f"BUYOH Payslip — {period_name}"
+        company_name = cls._company_display_name(
+            company_profile
         )
 
+        company_logo_url = str(
+            company_profile.get(
+                "company_logo_url",
+                "",
+            )
+            or ""
+        ).strip()
+
+        company_contact_line = cls._company_contact_line(
+            company_profile
+        )
+
+        subject = (
+            CompanySettingsService.format_email_subject(
+                employee_name=employee_name,
+                period_name=period_name,
+            )
+        )
+
+        plain_text_body = (
+            CompanySettingsService.format_email_message(
+                employee_name=employee_name,
+                period_name=period_name,
+            )
+        )
+
+        if not subject.strip():
+            subject = (
+                f"Payslip for {period_name}"
+            )
+
+        if not plain_text_body.strip():
+            plain_text_body = (
+                f"Dear {employee_name},\n\n"
+                f"Please find attached your payslip for "
+                f"{period_name}.\n\n"
+                f"Regards,\n"
+                f"{company_name}"
+            )
+
+        message = EmailMessage()
+
+        message["Subject"] = subject
         message["From"] = sender_email
         message["To"] = recipient_email
 
-        plain_text_body = (
-            f"Dear {employee_name},\n\n"
-            f"Please find attached your payslip for "
-            f"{period_name}.\n\n"
-            f"Please keep this document confidential.\n\n"
-            f"Regards,\n"
-            f"BUYOH Payroll"
+        message.set_content(
+            plain_text_body
         )
+
+        escaped_employee_name = escape(
+            employee_name
+        )
+
+        escaped_period_name = escape(
+            period_name
+        )
+
+        escaped_company_name = escape(
+            company_name
+        )
+
+        escaped_contact_line = escape(
+            company_contact_line
+        )
+
+        html_message_body = cls._plain_text_to_html(
+            plain_text_body
+        )
+
+        logo_html = ""
+
+        if company_logo_url:
+            logo_html = f"""
+                <img
+                    src="{escape(company_logo_url)}"
+                    alt="{escaped_company_name} logo"
+                    style="
+                        display: block;
+                        max-width: 150px;
+                        max-height: 70px;
+                        object-fit: contain;
+                        margin-bottom: 14px;
+                    "
+                >
+            """
+
+        contact_html = ""
+
+        if company_contact_line:
+            contact_html = f"""
+                <div
+                    style="
+                        margin-top: 8px;
+                        color: #6c757d;
+                        font-size: 12px;
+                    "
+                >
+                    {escaped_contact_line}
+                </div>
+            """
 
         html_body = f"""
         <!DOCTYPE html>
         <html lang="en">
+        <head>
+            <meta charset="UTF-8">
+            <meta
+                name="viewport"
+                content="width=device-width, initial-scale=1.0"
+            >
+        </head>
+
         <body
             style="
                 margin: 0;
@@ -306,66 +603,104 @@ class EmailService:
                     margin: 0 auto;
                     background-color: #ffffff;
                     border: 1px solid #dee2e6;
-                    border-radius: 8px;
+                    border-radius: 10px;
                     overflow: hidden;
+                    box-shadow: 0 8px 24px rgba(33, 37, 41, 0.08);
                 "
             >
                 <div
                     style="
-                        background-color: #0d6efd;
+                        background-color: #163A72;
                         color: #ffffff;
-                        padding: 20px 24px;
+                        padding: 22px 26px;
                     "
                 >
+                    {logo_html}
+
                     <h1
                         style="
                             margin: 0;
                             font-size: 22px;
+                            line-height: 1.3;
                         "
                     >
-                        BUYOH Payroll
+                        {escaped_company_name}
                     </h1>
+
+                    <div
+                        style="
+                            margin-top: 4px;
+                            font-size: 13px;
+                            opacity: 0.9;
+                        "
+                    >
+                        Payroll Management System
+                    </div>
                 </div>
 
-                <div style="padding: 24px;">
-                    <p>
-                        Dear {employee_name},
-                    </p>
+                <div style="padding: 26px;">
+                    <div
+                        style="
+                            font-size: 15px;
+                            line-height: 1.7;
+                        "
+                    >
+                        {html_message_body}
+                    </div>
 
-                    <p>
-                        Please find attached your payslip for
-                        <strong>{period_name}</strong>.
-                    </p>
+                    <div
+                        style="
+                            margin-top: 26px;
+                            padding: 14px 16px;
+                            background-color: #f8f9fa;
+                            border-left: 4px solid #163A72;
+                            border-radius: 4px;
+                            font-size: 13px;
+                            color: #495057;
+                        "
+                    >
+                        Attached document:
+                        <strong>
+                            Payslip for {escaped_period_name}
+                        </strong>
+                    </div>
 
-                    <p>
-                        Please keep this document confidential.
-                    </p>
-
-                    <p style="margin-top: 28px;">
-                        Regards,<br>
-                        <strong>BUYOH Payroll</strong>
-                    </p>
+                    <div
+                        style="
+                            margin-top: 20px;
+                            font-size: 12px;
+                            color: #6c757d;
+                        "
+                    >
+                        This document contains confidential payroll
+                        information. Please store it securely.
+                    </div>
                 </div>
 
                 <div
                     style="
-                        padding: 14px 24px;
+                        padding: 16px 26px;
                         background-color: #f8f9fa;
+                        border-top: 1px solid #e9ecef;
                         color: #6c757d;
                         font-size: 12px;
                     "
                 >
-                    This email was generated automatically by
-                    the BUYOH Payroll System.
+                    <strong>
+                        {escaped_company_name}
+                    </strong>
+
+                    {contact_html}
+
+                    <div style="margin-top: 10px;">
+                        This email was generated automatically by the
+                        payroll system.
+                    </div>
                 </div>
             </div>
         </body>
         </html>
         """
-
-        message.set_content(
-            plain_text_body
-        )
 
         message.add_alternative(
             html_body,
@@ -397,12 +732,43 @@ class EmailService:
         return message
 
     @staticmethod
+    def _plain_text_to_html(text):
+        """Convert plain text into safe email HTML."""
+
+        escaped_text = escape(
+            str(text or "")
+        )
+
+        paragraphs = escaped_text.split(
+            "\n\n"
+        )
+
+        html_paragraphs = []
+
+        for paragraph in paragraphs:
+            paragraph = paragraph.replace(
+                "\n",
+                "<br>",
+            )
+
+            if paragraph.strip():
+                html_paragraphs.append(
+                    f'<p style="margin: 0 0 16px;">'
+                    f"{paragraph}"
+                    f"</p>"
+                )
+
+        return "".join(
+            html_paragraphs
+        )
+
+    @staticmethod
     def _send_message(
         *,
         message,
         smtp_config,
     ):
-        """Send a prepared email through the configured SMTP server."""
+        """Send a prepared email through SMTP."""
 
         smtp_connection = None
 
@@ -469,22 +835,15 @@ class EmailService:
         """
         Email one generated payslip to its employee.
 
-        Returns the normalised recipient email address after
-        successful delivery.
+        A new EmailDelivery record is created for every call.
+        Returns the completed EmailDelivery record.
         """
 
         employee = payslip.employee
 
-        recipient_email = cls._validate_recipient_email(
-            employee
-        )
-
-        smtp_config = cls._load_smtp_config()
-
-        message = cls._build_message(
+        delivery = cls._create_delivery_attempt(
             payslip=payslip,
-            recipient_email=recipient_email,
-            sender_email=smtp_config["sender"],
+            sent_by_user_id=sent_by_user_id,
         )
 
         employee_name = cls._employee_name(
@@ -496,17 +855,41 @@ class EmailService:
         )
 
         try:
+            recipient_email = cls._validate_recipient_email(
+                employee
+            )
+
+            delivery.recipient_email = (
+                recipient_email
+            )
+
+            smtp_config = cls._load_smtp_config()
+
+            message = cls._build_message(
+                payslip=payslip,
+                recipient_email=recipient_email,
+                sender_email=smtp_config["sender"],
+            )
+
             cls._send_message(
                 message=message,
                 smtp_config=smtp_config,
             )
 
         except EmailServiceError as error:
+            cls._mark_delivery_failed(
+                delivery=delivery,
+                error=error,
+            )
+
             cls._log_failure(
                 payslip=payslip,
                 user_id=sent_by_user_id,
                 ip_address=ip_address,
-                recipient_email=recipient_email,
+                recipient_email=(
+                    delivery.recipient_email
+                    or "No email address"
+                ),
                 employee_name=employee_name,
                 period_name=period_name,
                 error_message=str(error),
@@ -514,20 +897,33 @@ class EmailService:
 
             raise
 
-        AuditLogService.log(
-            action="PAYSLIP_EMAIL_SENT",
-            user_id=sent_by_user_id,
-            entity_type="Payslip",
-            entity_id=payslip.id,
-            description=(
-                f"Payslip for {employee_name} "
-                f"for {period_name} was emailed to "
-                f"{recipient_email}."
-            ),
-            ip_address=ip_address,
+        delivery.mark_delivered()
+
+        cls._save_delivery_result(
+            delivery
         )
 
-        return recipient_email
+        try:
+            AuditLogService.log(
+                action="PAYSLIP_EMAIL_SENT",
+                user_id=sent_by_user_id,
+                entity_type="Payslip",
+                entity_id=payslip.id,
+                description=(
+                    f"Payslip for {employee_name} "
+                    f"for {period_name} was emailed to "
+                    f"{recipient_email}."
+                ),
+                ip_address=ip_address,
+            )
+
+        except Exception:
+            current_app.logger.exception(
+                "The successful payslip email could not be "
+                "written to the audit log."
+            )
+
+        return delivery
 
     @staticmethod
     def _log_failure(

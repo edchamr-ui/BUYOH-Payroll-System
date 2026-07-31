@@ -1,0 +1,176 @@
+"""Forms for company and payroll settings."""
+
+from flask_wtf import FlaskForm
+from wtforms import (
+    IntegerField,
+    SelectField,
+    StringField,
+    SubmitField,
+    TextAreaField,
+)
+from wtforms.validators import (
+    DataRequired,
+    Email,
+    Length,
+    NumberRange,
+    Optional,
+    URL,
+)
+
+
+class CompanySettingsForm(FlaskForm):
+    """Manage company identity and payroll defaults."""
+
+    company_name = StringField(
+        "Registered Company Name",
+        validators=[
+            DataRequired(),
+            Length(max=150),
+        ],
+    )
+
+    trading_name = StringField(
+        "Trading Name",
+        validators=[
+            Optional(),
+            Length(max=150),
+        ],
+    )
+
+    registration_number = StringField(
+        "Company Registration Number",
+        validators=[
+            Optional(),
+            Length(max=100),
+        ],
+    )
+
+    tax_number = StringField(
+        "Tax Identification Number",
+        validators=[
+            Optional(),
+            Length(max=100),
+        ],
+    )
+
+    nssa_employer_number = StringField(
+        "NSSA Employer Number",
+        validators=[
+            Optional(),
+            Length(max=100),
+        ],
+    )
+
+    physical_address = TextAreaField(
+        "Physical Address",
+        validators=[
+            Optional(),
+            Length(max=500),
+        ],
+    )
+
+    postal_address = TextAreaField(
+        "Postal Address",
+        validators=[
+            Optional(),
+            Length(max=500),
+        ],
+    )
+
+    phone = StringField(
+        "Telephone Number",
+        validators=[
+            Optional(),
+            Length(max=50),
+        ],
+    )
+
+    email = StringField(
+        "Company Email",
+        validators=[
+            Optional(),
+            Email(),
+            Length(max=150),
+        ],
+    )
+
+    website = StringField(
+        "Website",
+        validators=[
+            Optional(),
+            URL(),
+            Length(max=200),
+        ],
+    )
+
+    currency = SelectField(
+        "Default Currency",
+        choices=[
+            ("USD", "USD — United States Dollar"),
+            ("ZWG", "ZWG — Zimbabwe Gold"),
+            ("ZAR", "ZAR — South African Rand"),
+        ],
+        validators=[
+            DataRequired(),
+        ],
+    )
+
+    payroll_country = SelectField(
+        "Payroll Country",
+        choices=[
+            ("Zimbabwe", "Zimbabwe"),
+        ],
+        validators=[
+            DataRequired(),
+        ],
+    )
+
+    default_payment_day = IntegerField(
+        "Default Payroll Payment Day",
+        validators=[
+            DataRequired(),
+            NumberRange(
+                min=1,
+                max=31,
+                message=(
+                    "Payment day must be between 1 and 31."
+                ),
+            ),
+        ],
+    )
+
+    company_logo_path = StringField(
+        "Company Logo Path",
+        validators=[
+            Optional(),
+            Length(max=255),
+        ],
+    )
+
+    payslip_footer = TextAreaField(
+        "Payslip Footer",
+        validators=[
+            Optional(),
+            Length(max=1000),
+        ],
+    )
+
+    payslip_email_subject = StringField(
+        "Default Payslip Email Subject",
+        validators=[
+            DataRequired(),
+            Length(max=255),
+        ],
+    )
+
+    payslip_email_message = TextAreaField(
+        "Default Payslip Email Message",
+        validators=[
+            DataRequired(),
+            Length(max=3000),
+        ],
+    )
+
+    submit = SubmitField(
+        "Save Company Settings",
+    )

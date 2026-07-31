@@ -1,3 +1,5 @@
+"""Application user model."""
+
 from datetime import datetime
 
 from flask_login import UserMixin
@@ -91,6 +93,13 @@ class User(UserMixin, db.Model):
         "Payslip",
         back_populates="generator",
         lazy="select",
+    )
+
+    sent_email_deliveries = db.relationship(
+        "EmailDelivery",
+        back_populates="sender",
+        lazy="dynamic",
+        foreign_keys="EmailDelivery.sent_by_id",
     )
 
     audit_logs = db.relationship(

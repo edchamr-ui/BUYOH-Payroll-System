@@ -5,6 +5,7 @@ from flask import (
     request,
     url_for,
 )
+from sqlalchemy.orm import joinedload, selectinload
 from flask_login import login_required
 from sqlalchemy import or_
 from sqlalchemy.exc import IntegrityError
@@ -12,8 +13,12 @@ from sqlalchemy.exc import IntegrityError
 from app.employees import employees_bp
 from app.employees.forms import EmployeeForm
 from app.extensions import db
-from app.models import Department, Employee
-
+from app.models import (
+    Department,
+    EmailDelivery,
+    Employee,
+    PayrollRecord,
+)
 
 def load_department_choices(form):
     """Populate the department dropdown from active departments."""
@@ -125,14 +130,35 @@ def apply_employee_form(employee, form):
 @employees_bp.route("/")
 @login_required
 def list_employees():
-    """Display employees with optional search filtering."""
+    """Display searchable, filtered and paginated employees."""
 
     search_term = request.args.get(
         "q",
         "",
     ).strip()
 
-    query = Employee.query
+    department_id = request.args.get(
+        "department_id",
+        type=int,
+    )
+
+    status_filter = request.args.get(
+        "status",
+        "all",
+    ).strip().lower()
+
+    page = request.args.get(
+        "page",
+        1,
+        type=int,
+    )
+
+    per_page = 20
+
+    query = (
+        Employee.query
+        .outerjoin(Department)
+    )
 
     if search_term:
         search_pattern = f"%{search_term}%"
@@ -169,24 +195,55 @@ def list_employees():
                 Employee.account_number.ilike(
                     search_pattern
                 ),
+                Department.name.ilike(
+                    search_pattern
+                ),
             )
         )
 
-    employees = (
+    if department_id:
+        query = query.filter(
+            Employee.department_id == department_id
+        )
+
+    if status_filter == "active":
+        query = query.filter(
+            Employee.is_active.is_(True)
+        )
+
+    elif status_filter == "inactive":
+        query = query.filter(
+            Employee.is_active.is_(False)
+        )
+
+    pagination = (
         query
         .order_by(
             Employee.first_name.asc(),
             Employee.last_name.asc(),
         )
+        .paginate(
+            page=page,
+            per_page=per_page,
+            error_out=False,
+        )
+    )
+
+    departments = (
+        Department.query
+        .order_by(Department.name.asc())
         .all()
     )
 
     return render_template(
         "employees/list.html",
-        employees=employees,
+        employees=pagination.items,
+        pagination=pagination,
+        departments=departments,
         search_term=search_term,
+        selected_department_id=department_id,
+        status_filter=status_filter,
     )
-
 
 @employees_bp.route(
     "/add",
@@ -249,17 +306,85 @@ def add_employee():
 @employees_bp.route("/<int:employee_id>")
 @login_required
 def view_employee(employee_id):
-    """Display a single employee record."""
+    """Display the employee workspace and payroll history."""
 
-    employee = Employee.query.get_or_404(
-        employee_id
+    employee = (
+        Employee.query
+        .options(
+            joinedload(Employee.department),
+            selectinload(Employee.payroll_records)
+            .joinedload(PayrollRecord.payroll_period),
+            selectinload(Employee.payroll_records)
+            .joinedload(PayrollRecord.payslip),
+            selectinload(Employee.allowances),
+            selectinload(Employee.deductions),
+            selectinload(Employee.payslips),
+        )
+        .filter(Employee.id == employee_id)
+        .first_or_404()
+    )
+
+    payroll_records = sorted(
+        employee.payroll_records,
+        key=lambda record: (
+            record.payroll_period.year,
+            record.payroll_period.month,
+            record.id,
+        ),
+        reverse=True,
+    )
+
+    latest_payroll_record = (
+        payroll_records[0]
+        if payroll_records
+        else None
+    )
+
+    latest_allowances = []
+    latest_deductions = []
+
+    if latest_payroll_record:
+        latest_allowances = sorted(
+            latest_payroll_record.allowances,
+            key=lambda allowance: allowance.amount,
+            reverse=True,
+        )
+
+        latest_deductions = sorted(
+            latest_payroll_record.deductions,
+            key=lambda deduction: deduction.amount,
+            reverse=True,
+        )
+
+    email_deliveries = (
+        employee.email_deliveries
+        .order_by(
+            EmailDelivery.created_at.desc(),
+            EmailDelivery.id.desc(),
+        )
+        .limit(10)
+        .all()
+    )
+
+    total_payroll_periods = len(payroll_records)
+
+    generated_payslip_count = sum(
+        1
+        for record in payroll_records
+        if record.payslip is not None
     )
 
     return render_template(
         "employees/view.html",
         employee=employee,
+        payroll_records=payroll_records,
+        latest_payroll_record=latest_payroll_record,
+        latest_allowances=latest_allowances,
+        latest_deductions=latest_deductions,
+        email_deliveries=email_deliveries,
+        total_payroll_periods=total_payroll_periods,
+        generated_payslip_count=generated_payslip_count,
     )
-
 
 @employees_bp.route(
     "/<int:employee_id>/edit",

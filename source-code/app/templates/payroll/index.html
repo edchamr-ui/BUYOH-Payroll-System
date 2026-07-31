@@ -10,58 +10,414 @@ Payroll
 
 {% block content %}
 
-<div class="mb-4">
-    <h2 class="h3 mb-1">
-        Payroll Processing
-    </h2>
+<!-- Page Header -->
 
-    <p class="text-muted mb-0">
-        Select a payroll period to view or process its payroll register.
-    </p>
+<div
+    class="
+        d-flex
+        flex-wrap
+        justify-content-between
+        align-items-center
+        gap-3
+        mb-4
+    "
+>
+    <div>
+
+        <h2 class="h3 mb-1">
+            Payroll Processing
+        </h2>
+
+        <p class="text-muted mb-0">
+            Search, review and manage payroll periods.
+        </p>
+
+    </div>
+
+    <a
+        href="{{ url_for(
+            'payroll_periods.add_period'
+        ) }}"
+        class="btn btn-primary"
+    >
+        <i class="bi bi-calendar-plus me-2"></i>
+        Create Payroll Period
+    </a>
+
 </div>
 
+<!-- Search and Filters -->
+
+<div class="app-card mb-4">
+
+    <div class="card-body p-3">
+
+        <form method="GET">
+
+            <div class="row g-2">
+
+                <div class="col-lg-5">
+
+                    <label
+                        for="payroll-search"
+                        class="form-label small text-muted"
+                    >
+                        Search
+                    </label>
+
+                    <input
+                        id="payroll-search"
+                        type="search"
+                        name="q"
+                        value="{{ search_term }}"
+                        class="form-control"
+                        placeholder="Search by month or year"
+                    >
+
+                </div>
+
+                <div class="col-md-4 col-lg-2">
+
+                    <label
+                        for="year-filter"
+                        class="form-label small text-muted"
+                    >
+                        Year
+                    </label>
+
+                    <select
+                        id="year-filter"
+                        name="year"
+                        class="form-select"
+                    >
+
+                        <option value="">
+                            All Years
+                        </option>
+
+                        {% for year in available_years %}
+
+                            <option
+                                value="{{ year }}"
+                                {% if year_filter|string
+                                    == year|string %}
+                                    selected
+                                {% endif %}
+                            >
+                                {{ year }}
+                            </option>
+
+                        {% endfor %}
+
+                    </select>
+
+                </div>
+
+                <div class="col-md-4 col-lg-3">
+
+                    <label
+                        for="status-filter"
+                        class="form-label small text-muted"
+                    >
+                        Status
+                    </label>
+
+                    <select
+                        id="status-filter"
+                        name="status"
+                        class="form-select"
+                    >
+
+                        <option
+                            value="all"
+                            {% if status_filter == "all" %}
+                                selected
+                            {% endif %}
+                        >
+                            All Statuses
+                        </option>
+
+                        {% for status in available_statuses %}
+
+                            <option
+                                value="{{ status }}"
+                                {% if status_filter == status %}
+                                    selected
+                                {% endif %}
+                            >
+                                {{ status }}
+                            </option>
+
+                        {% endfor %}
+
+                    </select>
+
+                </div>
+
+                <div class="col-md-4 col-lg-2 d-grid">
+
+                    <label class="form-label small text-muted">
+                        &nbsp;
+                    </label>
+
+                    <button
+                        type="submit"
+                        class="btn btn-outline-primary"
+                    >
+                        <i class="bi bi-search me-2"></i>
+                        Search
+                    </button>
+
+                </div>
+
+            </div>
+
+            {% if search_term
+                or year_filter
+                or status_filter != "all" %}
+
+                <div
+                    class="
+                        d-flex
+                        flex-wrap
+                        align-items-center
+                        gap-2
+                        mt-3
+                    "
+                >
+
+                    <span class="small text-muted">
+                        Active filters:
+                    </span>
+
+                    {% if search_term %}
+
+                        <span
+                            class="
+                                badge
+                                rounded-pill
+                                text-bg-light
+                                border
+                            "
+                        >
+                            Search: {{ search_term }}
+                        </span>
+
+                    {% endif %}
+
+                    {% if year_filter %}
+
+                        <span
+                            class="
+                                badge
+                                rounded-pill
+                                text-bg-light
+                                border
+                            "
+                        >
+                            Year: {{ year_filter }}
+                        </span>
+
+                    {% endif %}
+
+                    {% if status_filter != "all" %}
+
+                        <span
+                            class="
+                                badge
+                                rounded-pill
+                                text-bg-light
+                                border
+                            "
+                        >
+                            Status: {{ status_filter }}
+                        </span>
+
+                    {% endif %}
+
+                    <a
+                        href="{{ url_for(
+                            'payroll.index'
+                        ) }}"
+                        class="
+                            btn
+                            btn-sm
+                            btn-outline-secondary
+                        "
+                    >
+                        <i class="bi bi-x-circle me-1"></i>
+                        Clear Filters
+                    </a>
+
+                </div>
+
+            {% endif %}
+
+        </form>
+
+    </div>
+
+</div>
+
+<!-- Results Summary -->
+
+{% if pagination.total %}
+
+    <div
+        class="
+            d-flex
+            flex-wrap
+            justify-content-between
+            align-items-center
+            gap-2
+            mb-3
+        "
+    >
+
+        <p class="text-muted mb-0">
+
+            Showing
+
+            <strong>
+                {{
+                    ((pagination.page - 1)
+                    * pagination.per_page) + 1
+                }}
+            </strong>
+
+            to
+
+            <strong>
+                {{
+                    [
+                        pagination.page
+                        * pagination.per_page,
+                        pagination.total
+                    ] | min
+                }}
+            </strong>
+
+            of
+
+            <strong>
+                {{ pagination.total }}
+            </strong>
+
+            payroll period{% if pagination.total != 1 %}s{% endif %}
+
+        </p>
+
+        <span class="badge text-bg-light border">
+            Page {{ pagination.page }}
+            of {{ pagination.pages }}
+        </span>
+
+    </div>
+
+{% endif %}
+
+<!-- Payroll Period Table -->
+
 <div class="app-card">
+
     <div class="card-body p-0">
 
         {% if periods %}
 
             <div class="table-responsive">
 
-                <table class="table table-hover align-middle mb-0">
+                <table
+                    class="
+                        table
+                        table-hover
+                        align-middle
+                        mb-0
+                    "
+                >
 
                     <thead class="table-light">
+
                         <tr>
-                            <th class="px-4 py-3">Period</th>
-                            <th class="py-3">Payment Date</th>
-                            <th class="py-3">Status</th>
-                            <th class="text-end px-4 py-3">Action</th>
+
+                            <th class="px-4 py-3">
+                                Payroll Period
+                            </th>
+
+                            <th class="py-3">
+                                Payment Date
+                            </th>
+
+                            <th class="py-3">
+                                Status
+                            </th>
+
+                            <th class="text-end px-4 py-3">
+                                Actions
+                            </th>
+
                         </tr>
+
                     </thead>
 
                     <tbody>
 
                         {% for period in periods %}
 
+                            {% set badge = {
+                                "Draft": "secondary",
+                                "Processing": "warning",
+                                "Processed": "primary",
+                                "Approved": "success",
+                                "Paid": "success",
+                                "Locked": "dark"
+                            } %}
+
+                            {% set status_icon = {
+                                "Draft": "pencil",
+                                "Processing": "hourglass-split",
+                                "Processed": "check2-circle",
+                                "Approved": "patch-check",
+                                "Paid": "cash-coin",
+                                "Locked": "lock-fill"
+                            } %}
+
                             <tr>
 
-                                <td class="px-4 fw-semibold">
-                                    {{ period.period_name }}
+                                <td class="px-4">
+
+                                    <div class="fw-semibold">
+                                        {{ period.period_name }}
+                                    </div>
+
+                                    <small class="text-muted">
+                                        Payroll period
+                                        {{ "%02d"|format(period.month) }}
+                                        /{{ period.year }}
+                                    </small>
+
                                 </td>
 
                                 <td>
-                                    {{ period.payment_date.strftime(
-                                        "%d %b %Y"
-                                    ) }}
+
+                                    <div class="fw-semibold">
+                                        {{
+                                            period.payment_date.strftime(
+                                                "%d %b %Y"
+                                            )
+                                        }}
+                                    </div>
+
+                                    <small class="text-muted">
+                                        {{
+                                            period.payment_date.strftime(
+                                                "%A"
+                                            )
+                                        }}
+                                    </small>
+
                                 </td>
 
                                 <td>
-                                    {% set badge = {
-                                        "Draft": "secondary",
-                                        "Processing": "warning",
-                                        "Approved": "primary",
-                                        "Paid": "success",
-                                        "Locked": "dark"
-                                    } %}
 
                                     <span
                                         class="badge text-bg-{{ badge.get(
@@ -69,22 +425,168 @@ Payroll
                                             'secondary'
                                         ) }}"
                                     >
+                                        <i
+                                            class="bi bi-{{ status_icon.get(
+                                                period.status,
+                                                'circle'
+                                            ) }} me-1"
+                                        ></i>
+
                                         {{ period.status }}
                                     </span>
+
                                 </td>
 
                                 <td class="text-end px-4">
 
-                                    <a
-                                        href="{{ url_for(
-                                            'payroll.view_period_payroll',
-                                            period_id=period.id
-                                        ) }}"
-                                        class="btn btn-sm btn-outline-primary"
+                                    <div
+                                        class="
+                                            d-inline-flex
+                                            align-items-center
+                                            justify-content-end
+                                            gap-2
+                                        "
                                     >
-                                        <i class="bi bi-cash-stack me-1"></i>
-                                        Open Payroll
-                                    </a>
+
+                                        <a
+                                            href="{{ url_for(
+                                                'payroll.view_period_payroll',
+                                                period_id=period.id
+                                            ) }}"
+                                            class="
+                                                btn
+                                                btn-sm
+                                                btn-outline-primary
+                                            "
+                                        >
+                                            <i
+                                                class="
+                                                    bi
+                                                    bi-cash-stack
+                                                    me-1
+                                                "
+                                            ></i>
+
+                                            Open Payroll
+                                        </a>
+
+                                        <div class="dropdown">
+
+                                            <button
+                                                type="button"
+                                                class="
+                                                    btn
+                                                    btn-sm
+                                                    btn-outline-secondary
+                                                    dropdown-toggle
+                                                "
+                                                data-bs-toggle="dropdown"
+                                                aria-expanded="false"
+                                            >
+                                                <i
+                                                    class="
+                                                        bi
+                                                        bi-three-dots-vertical
+                                                    "
+                                                ></i>
+                                            </button>
+
+                                            <ul
+                                                class="
+                                                    dropdown-menu
+                                                    dropdown-menu-end
+                                                    shadow-sm
+                                                "
+                                            >
+
+                                                <li>
+
+                                                    <a
+                                                        href="{{ url_for(
+                                                            'payroll.view_period_payroll',
+                                                            period_id=period.id
+                                                        ) }}"
+                                                        class="dropdown-item"
+                                                    >
+                                                        <i
+                                                            class="
+                                                                bi
+                                                                bi-eye
+                                                                me-2
+                                                            "
+                                                        ></i>
+
+                                                        View Payroll Register
+                                                    </a>
+
+                                                </li>
+
+                                                <li>
+
+                                                    <a
+                                                        href="{{ url_for(
+                                                            'reports.payroll_summary',
+                                                            period_id=period.id
+                                                        ) }}"
+                                                        class="dropdown-item"
+                                                    >
+                                                        <i
+                                                            class="
+                                                                bi
+                                                                bi-file-earmark-bar-graph
+                                                                me-2
+                                                            "
+                                                        ></i>
+
+                                                        Payroll Summary Report
+                                                    </a>
+
+                                                </li>
+
+                                                {% if period.status
+                                                    in [
+                                                        "Approved",
+                                                        "Paid",
+                                                        "Locked"
+                                                    ] %}
+
+                                                    <li>
+                                                        <hr
+                                                            class="
+                                                                dropdown-divider
+                                                            "
+                                                        >
+                                                    </li>
+
+                                                    <li>
+
+                                                        <a
+                                                            href="{{ url_for(
+                                                                'payroll.download_bulk_payslips',
+                                                                period_id=period.id
+                                                            ) }}"
+                                                            class="dropdown-item"
+                                                        >
+                                                            <i
+                                                                class="
+                                                                    bi
+                                                                    bi-file-earmark-pdf
+                                                                    me-2
+                                                                "
+                                                            ></i>
+
+                                                            Download All Payslips
+                                                        </a>
+
+                                                    </li>
+
+                                                {% endif %}
+
+                                            </ul>
+
+                                        </div>
+
+                                    </div>
 
                                 </td>
 
@@ -100,32 +602,206 @@ Payroll
 
         {% else %}
 
-            <div class="text-center py-5">
+            <div class="text-center py-5 px-3">
 
-                <i class="bi bi-cash-stack fs-1 text-muted"></i>
+                <i
+                    class="
+                        bi
+                        bi-cash-stack
+                        fs-1
+                        text-muted
+                    "
+                ></i>
 
                 <h3 class="h5 mt-3">
                     No payroll periods found
                 </h3>
 
-                <p class="text-muted">
-                    Create a payroll period before processing payroll.
-                </p>
+                {% if search_term
+                    or year_filter
+                    or status_filter != "all" %}
 
-                <a
-                    href="{{ url_for(
-                        'payroll_periods.add_period'
-                    ) }}"
-                    class="btn btn-primary"
-                >
-                    Create Payroll Period
-                </a>
+                    <p class="text-muted">
+                        No payroll periods matched the selected
+                        search criteria.
+                    </p>
+
+                    <a
+                        href="{{ url_for(
+                            'payroll.index'
+                        ) }}"
+                        class="btn btn-outline-secondary"
+                    >
+                        <i class="bi bi-x-circle me-2"></i>
+                        Clear Filters
+                    </a>
+
+                {% else %}
+
+                    <p class="text-muted">
+                        Create a payroll period before
+                        processing payroll.
+                    </p>
+
+                    <a
+                        href="{{ url_for(
+                            'payroll_periods.add_period'
+                        ) }}"
+                        class="btn btn-primary"
+                    >
+                        <i class="bi bi-calendar-plus me-2"></i>
+                        Create Payroll Period
+                    </a>
+
+                {% endif %}
 
             </div>
 
         {% endif %}
 
     </div>
+
 </div>
+
+<!-- Pagination -->
+
+{% if pagination.pages > 1 %}
+
+    <nav
+        class="mt-4"
+        aria-label="Payroll period pagination"
+    >
+
+        <ul
+            class="
+                pagination
+                justify-content-center
+                flex-wrap
+            "
+        >
+
+            <li
+                class="
+                    page-item
+                    {% if not pagination.has_prev %}
+                        disabled
+                    {% endif %}
+                "
+            >
+
+                {% if pagination.has_prev %}
+
+                    <a
+                        class="page-link"
+                        href="{{ url_for(
+                            'payroll.index',
+                            page=pagination.prev_num,
+                            q=search_term,
+                            year=year_filter,
+                            status=status_filter
+                        ) }}"
+                    >
+                        <i class="bi bi-chevron-left me-1"></i>
+                        Previous
+                    </a>
+
+                {% else %}
+
+                    <span class="page-link">
+                        <i class="bi bi-chevron-left me-1"></i>
+                        Previous
+                    </span>
+
+                {% endif %}
+
+            </li>
+
+            {% for page_number in pagination.iter_pages(
+                left_edge=1,
+                right_edge=1,
+                left_current=2,
+                right_current=2
+            ) %}
+
+                {% if page_number %}
+
+                    <li
+                        class="
+                            page-item
+                            {% if page_number
+                                == pagination.page %}
+                                active
+                            {% endif %}
+                        "
+                    >
+
+                        <a
+                            class="page-link"
+                            href="{{ url_for(
+                                'payroll.index',
+                                page=page_number,
+                                q=search_term,
+                                year=year_filter,
+                                status=status_filter
+                            ) }}"
+                        >
+                            {{ page_number }}
+                        </a>
+
+                    </li>
+
+                {% else %}
+
+                    <li class="page-item disabled">
+                        <span class="page-link">
+                            …
+                        </span>
+                    </li>
+
+                {% endif %}
+
+            {% endfor %}
+
+            <li
+                class="
+                    page-item
+                    {% if not pagination.has_next %}
+                        disabled
+                    {% endif %}
+                "
+            >
+
+                {% if pagination.has_next %}
+
+                    <a
+                        class="page-link"
+                        href="{{ url_for(
+                            'payroll.index',
+                            page=pagination.next_num,
+                            q=search_term,
+                            year=year_filter,
+                            status=status_filter
+                        ) }}"
+                    >
+                        Next
+                        <i class="bi bi-chevron-right ms-1"></i>
+                    </a>
+
+                {% else %}
+
+                    <span class="page-link">
+                        Next
+                        <i class="bi bi-chevron-right ms-1"></i>
+                    </span>
+
+                {% endif %}
+
+            </li>
+
+        </ul>
+
+    </nav>
+
+{% endif %}
 
 {% endblock %}

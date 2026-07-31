@@ -1,14 +1,19 @@
+"""Employee database model."""
+
 from datetime import datetime
 
 from app.extensions import db
 
 
 class Employee(db.Model):
-    """Stores employee master records used during payroll processing."""
+    """Store employee master information."""
 
     __tablename__ = "employees"
 
-    id = db.Column(db.Integer, primary_key=True)
+    id = db.Column(
+        db.Integer,
+        primary_key=True,
+    )
 
     department_id = db.Column(
         db.Integer,
@@ -35,12 +40,11 @@ class Employee(db.Model):
     )
 
     email = db.Column(
-    db.String(255),
-    unique=True,
-    nullable=True,
-    index=True,
+        db.String(255),
+        unique=True,
+        nullable=True,
+        index=True,
     )
-
 
     national_id = db.Column(
         db.String(50),
@@ -75,10 +79,6 @@ class Employee(db.Model):
         server_default="Cash",
     )
 
-    # --------------------------------------------------
-    # Banking Information
-    # --------------------------------------------------
-
     bank_name = db.Column(
         db.String(100),
         nullable=True,
@@ -109,18 +109,19 @@ class Employee(db.Model):
         nullable=True,
     )
 
-    # --------------------------------------------------
-
     employment_status = db.Column(
         db.String(30),
         nullable=False,
         default="Active",
+        server_default="Active",
     )
 
     is_active = db.Column(
         db.Boolean,
         nullable=False,
         default=True,
+        server_default=db.true(),
+        index=True,
     )
 
     created_at = db.Column(
@@ -165,8 +166,30 @@ class Employee(db.Model):
         lazy="select",
     )
 
+    recurring_allowances = db.relationship(
+        "EmployeeAllowance",
+        back_populates="employee",
+        lazy="select",
+        cascade="all, delete-orphan",
+    )
+
+    recurring_deductions = db.relationship(
+        "EmployeeDeduction",
+        back_populates="employee",
+        lazy="select",
+        cascade="all, delete-orphan",
+    )
+
+    @property
+    def full_name(self):
+        """Return the employee's full display name."""
+
+        return (
+            f"{self.first_name} {self.last_name}"
+        ).strip()
+
     def __repr__(self):
         return (
             f"<Employee {self.employee_number}: "
-            f"{self.first_name} {self.last_name}>"
+            f"{self.full_name}>"
         )
