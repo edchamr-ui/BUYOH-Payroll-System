@@ -111,29 +111,12 @@ def _company_filename_name():
 @payroll_bp.route("/")
 @login_required
 def index():
-    """Display searchable, filtered and paginated payroll periods."""
+    """Display searchable payroll periods with operational summaries."""
 
-    search_term = request.args.get(
-        "q",
-        "",
-    ).strip()
-
-    year_filter = request.args.get(
-        "year",
-        "",
-    ).strip()
-
-    status_filter = request.args.get(
-        "status",
-        "all",
-    ).strip()
-
-    page = request.args.get(
-        "page",
-        1,
-        type=int,
-    )
-
+    search_term = request.args.get("q", "").strip()
+    year_filter = request.args.get("year", "").strip()
+    status_filter = request.args.get("status", "all").strip()
+    page = request.args.get("page", 1, type=int)
     per_page = 12
 
     query = PayrollPeriod.query
@@ -142,84 +125,56 @@ def index():
         search_conditions = []
 
         if search_term.isdigit():
-            numeric_value = int(
-                search_term
-            )
-
+            numeric_value = int(search_term)
             search_conditions.append(
-                PayrollPeriod.year
-                == numeric_value
+                PayrollPeriod.year == numeric_value
             )
 
             if 1 <= numeric_value <= 12:
                 search_conditions.append(
-                    PayrollPeriod.month
-                    == numeric_value
+                    PayrollPeriod.month == numeric_value
                 )
 
         matching_months = [
             month_number
-            for month_number in range(
-                1,
-                13,
-            )
+            for month_number in range(1, 13)
             if search_term.lower()
-            in calendar.month_name[
-                month_number
-            ].lower()
+            in calendar.month_name[month_number].lower()
         ]
 
         if matching_months:
             search_conditions.append(
-                PayrollPeriod.month.in_(
-                    matching_months
-                )
+                PayrollPeriod.month.in_(matching_months)
             )
 
         if search_conditions:
-            query = query.filter(
-                or_(
-                    *search_conditions
-                )
-            )
-
+            query = query.filter(or_(*search_conditions))
         else:
-            query = query.filter(
-                PayrollPeriod.id == -1
-            )
+            query = query.filter(PayrollPeriod.id == -1)
 
     if year_filter:
         try:
-            selected_year = int(
-                year_filter
-            )
-
+            selected_year = int(year_filter)
         except ValueError:
             selected_year = None
 
         if selected_year is not None:
             query = query.filter(
-                PayrollPeriod.year
-                == selected_year
+                PayrollPeriod.year == selected_year
             )
 
     if status_filter != "all":
         query = query.filter(
-            PayrollPeriod.status
-            == status_filter
+            PayrollPeriod.status == status_filter
         )
 
     available_years = [
         year
         for (year,) in (
             PayrollPeriod.query
-            .with_entities(
-                PayrollPeriod.year
-            )
+            .with_entities(PayrollPeriod.year)
             .distinct()
-            .order_by(
-                PayrollPeriod.year.desc()
-            )
+            .order_by(PayrollPeriod.year.desc())
             .all()
         )
     ]
@@ -228,13 +183,9 @@ def index():
         status
         for (status,) in (
             PayrollPeriod.query
-            .with_entities(
-                PayrollPeriod.status
-            )
+            .with_entities(PayrollPeriod.status)
             .distinct()
-            .order_by(
-                PayrollPeriod.status.asc()
-            )
+            .order_by(PayrollPeriod.status.asc())
             .all()
         )
         if status
@@ -253,15 +204,48 @@ def index():
         )
     )
 
+    period_rows = []
+
+    for period in pagination.items:
+        records = PayrollService.get_period_records(period)
+        summary = PayrollService.calculate_register_summary(
+            records
+        )
+
+        period_rows.append(
+            {
+                "period": period,
+                "employee_count": summary.employee_count,
+                "gross_payroll": summary.total_gross_pay,
+                "net_payroll": summary.total_net_pay,
+                "payslip_count": sum(
+                    1
+                    for record in records
+                    if record.payslip is not None
+                ),
+            }
+        )
+
+    company_profile = (
+        CompanySettingsService.get_company_profile()
+    )
+
+    currency_code = (
+        company_profile.get("currency_code")
+        or company_profile.get("currency")
+        or ""
+    )
+
     return render_template(
         "payroll/index.html",
-        periods=pagination.items,
+        period_rows=period_rows,
         pagination=pagination,
         search_term=search_term,
         year_filter=year_filter,
         status_filter=status_filter,
         available_years=available_years,
         available_statuses=available_statuses,
+        currency_code=currency_code,
     )
 
 

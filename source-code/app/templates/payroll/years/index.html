@@ -1,0 +1,124 @@
+{% extends "base.html" %}
+
+{% block title %}
+Payroll Years |
+{{ company_settings.display_name or "Payroll" }}
+{% endblock %}
+
+{% block page_title %}
+Payroll Years
+{% endblock %}
+
+{% block content %}
+
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+    <div>
+        <h2 class="h3 mb-1">Payroll Years</h2>
+        <p class="text-muted mb-0">
+            Manage annual payroll calendars within the Payroll module.
+        </p>
+    </div>
+
+    <div class="d-flex gap-2">
+        <a
+            href="{{ url_for('payroll.index') }}"
+            class="btn btn-outline-secondary"
+        >
+            <i class="bi bi-arrow-left me-1"></i>
+            Payroll
+        </a>
+
+        <a
+            href="{{ url_for('payroll.create_payroll_year') }}"
+            class="btn btn-primary"
+        >
+            <i class="bi bi-calendar-plus me-2"></i>
+            Create Payroll Year
+        </a>
+    </div>
+</div>
+
+<div class="app-card overflow-hidden">
+    {% if payroll_years %}
+        <div class="table-responsive">
+            <table class="table align-middle mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>Year</th>
+                        <th>Status</th>
+                        <th>Periods</th>
+                        <th>Locked</th>
+                        <th>Opened</th>
+                        <th class="text-end">Action</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+                    {% for payroll_year in payroll_years %}
+                        <tr>
+                            <td class="fw-semibold">
+                                {{ payroll_year.year }}
+                            </td>
+
+                            <td>
+                                {% if payroll_year.is_open %}
+                                    <span class="badge text-bg-success">
+                                        Open
+                                    </span>
+                                {% elif payroll_year.is_closing %}
+                                    <span class="badge text-bg-warning">
+                                        Closing
+                                    </span>
+                                {% else %}
+                                    <span class="badge text-bg-secondary">
+                                        Closed
+                                    </span>
+                                {% endif %}
+                            </td>
+
+                            <td>{{ payroll_year.period_count }}/12</td>
+                            <td>{{ payroll_year.locked_period_count }}/12</td>
+
+                            <td>
+                                {{ payroll_year.opened_at.strftime("%d %b %Y") }}
+                            </td>
+
+                            <td class="text-end">
+                                <a
+                                    href="{{ url_for(
+                                        'payroll.view_payroll_year',
+                                        payroll_year_id=payroll_year.id
+                                    ) }}"
+                                    class="btn btn-sm btn-outline-primary"
+                                >
+                                    View Year
+                                </a>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% else %}
+        <div class="text-center py-5 px-4">
+            <i class="bi bi-calendar3 fs-1 text-muted"></i>
+
+            <h3 class="h6 mt-3">
+                No payroll years yet
+            </h3>
+
+            <p class="text-muted mb-3">
+                Create your first annual payroll calendar.
+            </p>
+
+            <a
+                href="{{ url_for('payroll.create_payroll_year') }}"
+                class="btn btn-primary"
+            >
+                Create Payroll Year
+            </a>
+        </div>
+    {% endif %}
+</div>
+
+{% endblock %}

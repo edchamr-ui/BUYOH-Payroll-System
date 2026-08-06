@@ -11,6 +11,7 @@ Payroll Periods
 {% block content %}
 
 <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+
     <div>
         <h2 class="h3 mb-1">
             Payroll Period Management
@@ -21,24 +22,40 @@ Payroll Periods
         </p>
     </div>
 
-    <a
-        href="{{ url_for('payroll_periods.add_period') }}"
-        class="btn btn-primary"
-    >
-        <i class="bi bi-calendar-plus me-2"></i>
-        Add Payroll Period
-    </a>
+    <div class="d-flex flex-wrap gap-2">
+
+        <a
+            href="{{ url_for('payroll.payroll_years') }}"
+            class="btn btn-primary"
+        >
+            <i class="bi bi-calendar3 me-2"></i>
+            Payroll Years
+        </a>
+
+        <a
+            href="{{ url_for('payroll_periods.add_period') }}"
+            class="btn btn-outline-primary"
+        >
+            <i class="bi bi-calendar-plus me-2"></i>
+            Add Individual Period
+        </a>
+
+    </div>
+
 </div>
 
 <div class="app-card">
+
     <div class="card-body p-0">
 
         {% if periods %}
 
             <div class="table-responsive">
+
                 <table class="table table-hover align-middle mb-0">
 
                     <thead class="table-light">
+
                         <tr>
                             <th class="px-4 py-3">Period</th>
                             <th class="py-3">Dates</th>
@@ -46,100 +63,128 @@ Payroll Periods
                             <th class="py-3">Status</th>
                             <th class="text-end px-4 py-3">Actions</th>
                         </tr>
+
                     </thead>
 
                     <tbody>
+
                         {% for period in periods %}
 
-                            <tr>
-                                <td class="px-4 fw-semibold">
-                                    {{ month_name[period.month] }}
-                                    {{ period.year }}
-                                </td>
+                        <tr>
 
-                                <td>
-                                    {{ period.start_date.strftime("%d %b %Y") }}
-                                    –
-                                    {{ period.end_date.strftime("%d %b %Y") }}
-                                </td>
+                            <td class="px-4 fw-semibold">
+                                {{ month_name[period.month] }}
+                                {{ period.year }}
+                            </td>
 
-                                <td>
-                                    {{ period.payment_date.strftime("%d %b %Y") }}
-                                </td>
+                            <td>
+                                {{ period.start_date.strftime("%d %b %Y") }}
+                                –
+                                {{ period.end_date.strftime("%d %b %Y") }}
+                            </td>
 
-                                <td>
-                                    {% set badge = {
-                                        "Draft": "secondary",
-                                        "Processing": "warning",
-                                        "Approved": "primary",
-                                        "Paid": "success",
-                                        "Locked": "dark"
-                                    } %}
+                            <td>
+                                {{ period.payment_date.strftime("%d %b %Y") }}
+                            </td>
 
-                                    <span class="badge text-bg-{{ badge.get(period.status, 'secondary') }}">
-                                        {{ period.status }}
-                                    </span>
-                                </td>
+                            <td>
 
-                                <td class="text-end px-4">
-                                    <div class="d-inline-flex gap-2">
+                                {% set badge = {
+                                    "Draft": "secondary",
+                                    "Processing": "warning",
+                                    "Approved": "primary",
+                                    "Paid": "success",
+                                    "Locked": "dark"
+                                } %}
 
-                                        <a
-                                            href="{{ url_for(
-                                                'payroll_periods.view_period',
-                                                period_id=period.id
-                                            ) }}"
-                                            class="btn btn-sm btn-outline-primary"
-                                        >
-                                            View
-                                        </a>
+                                <span class="badge text-bg-{{ badge.get(period.status, 'secondary') }}">
+                                    {{ period.status }}
+                                </span>
 
-                                        {% if period.status != "Locked" %}
-                                            <a
-                                                href="{{ url_for(
-                                                    'payroll_periods.edit_period',
-                                                    period_id=period.id
-                                                ) }}"
-                                                class="btn btn-sm btn-outline-secondary"
-                                            >
-                                                Edit
-                                            </a>
-                                        {% endif %}
+                            </td>
 
-                                    </div>
-                                </td>
-                            </tr>
+                            <td class="text-end px-4">
+
+                                <div class="d-inline-flex gap-2">
+
+                                    <a
+                                        href="{{ url_for(
+                                            'payroll_periods.view_period',
+                                            period_id=period.id
+                                        ) }}"
+                                        class="btn btn-sm btn-outline-primary"
+                                    >
+                                        View
+                                    </a>
+
+                                    {% if period.status != "Locked" %}
+
+                                    <a
+                                        href="{{ url_for(
+                                            'payroll_periods.edit_period',
+                                            period_id=period.id
+                                        ) }}"
+                                        class="btn btn-sm btn-outline-secondary"
+                                    >
+                                        Edit
+                                    </a>
+
+                                    {% endif %}
+
+                                </div>
+
+                            </td>
+
+                        </tr>
 
                         {% endfor %}
+
                     </tbody>
 
                 </table>
+
             </div>
 
         {% else %}
 
             <div class="text-center py-5">
+
                 <i class="bi bi-calendar3 fs-1 text-muted"></i>
 
                 <h3 class="h5 mt-3">
                     No payroll periods found
                 </h3>
 
-                <p class="text-muted">
-                    Create your first payroll period to begin processing payroll.
+                <p class="text-muted mb-4">
+                    Create your payroll year first to automatically generate all twelve payroll periods.
                 </p>
 
-                <a
-                    href="{{ url_for('payroll_periods.add_period') }}"
-                    class="btn btn-primary"
-                >
-                    Add Payroll Period
-                </a>
+                <div class="d-flex justify-content-center gap-2">
+
+                    <a
+                        href="{{ url_for('payroll.payroll_years') }}"
+                        class="btn btn-primary"
+                    >
+                        <i class="bi bi-calendar3 me-2"></i>
+                        Payroll Years
+                    </a>
+
+                    <a
+                        href="{{ url_for('payroll_periods.add_period') }}"
+                        class="btn btn-outline-primary"
+                    >
+                        <i class="bi bi-calendar-plus me-2"></i>
+                        Add Individual Period
+                    </a>
+
+                </div>
+
             </div>
 
         {% endif %}
 
     </div>
+
 </div>
 
 {% endblock %}

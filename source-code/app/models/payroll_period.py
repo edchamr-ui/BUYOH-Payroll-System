@@ -10,35 +10,20 @@ class PayrollPeriod(db.Model):
 
     __tablename__ = "payroll_periods"
 
-    id = db.Column(
+    id = db.Column(db.Integer, primary_key=True)
+
+    payroll_year_id = db.Column(
         db.Integer,
-        primary_key=True,
+        db.ForeignKey("payroll_years.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
 
-    month = db.Column(
-        db.Integer,
-        nullable=False,
-    )
-
-    year = db.Column(
-        db.Integer,
-        nullable=False,
-    )
-
-    start_date = db.Column(
-        db.Date,
-        nullable=False,
-    )
-
-    end_date = db.Column(
-        db.Date,
-        nullable=False,
-    )
-
-    payment_date = db.Column(
-        db.Date,
-        nullable=False,
-    )
+    month = db.Column(db.Integer, nullable=False)
+    year = db.Column(db.Integer, nullable=False)
+    start_date = db.Column(db.Date, nullable=False)
+    end_date = db.Column(db.Date, nullable=False)
+    payment_date = db.Column(db.Date, nullable=False)
 
     status = db.Column(
         db.String(30),
@@ -78,14 +63,13 @@ class PayrollPeriod(db.Model):
         onupdate=datetime.utcnow,
     )
 
-    approved_at = db.Column(
-        db.DateTime,
-        nullable=True,
-    )
+    approved_at = db.Column(db.DateTime, nullable=True)
+    locked_at = db.Column(db.DateTime, nullable=True)
 
-    locked_at = db.Column(
-        db.DateTime,
-        nullable=True,
+    payroll_year = db.relationship(
+        "PayrollYear",
+        back_populates="payroll_periods",
+        lazy="select",
     )
 
     creator = db.relationship(
@@ -117,6 +101,11 @@ class PayrollPeriod(db.Model):
             "year",
             name="uq_payroll_period_month_year",
         ),
+        db.UniqueConstraint(
+            "payroll_year_id",
+            "month",
+            name="uq_payroll_period_year_month",
+        ),
         db.CheckConstraint(
             "month >= 1 AND month <= 12",
             name="ck_payroll_period_valid_month",
@@ -129,71 +118,61 @@ class PayrollPeriod(db.Model):
 
     @property
     def period_name(self):
-        """Return the payroll period's human-readable name."""
-
         from calendar import month_name
-
-        return (
-            f"{month_name[self.month]} "
-            f"{self.year}"
-        )
+        return f"{month_name[self.month]} {self.year}"
 
     @property
     def is_draft(self):
-        """Return whether the payroll period is a draft."""
-
         return self.status == "Draft"
 
     @property
     def is_processed(self):
-        """Return whether payroll has been processed."""
-
         return self.status == "Processed"
 
     @property
     def is_approved(self):
-        """Return whether payroll has been approved."""
-
         return self.status == "Approved"
 
     @property
     def is_locked(self):
-        """Return whether the payroll period is locked."""
-
         return self.status == "Locked"
 
     @property
     def can_be_processed(self):
-        """Return whether payroll processing is permitted."""
-
-        return self.status in {
-            "Draft",
-            "Processed",
-        }
+        return (
+            self.status in {"Draft", "Processed"}
+            and self.payroll_year is not None
+            and self.payroll_year.is_open
+        )
 
     @property
     def can_be_approved(self):
-        """Return whether the period can be approved."""
-
-        return self.status == "Processed"
+        return (
+            self.status == "Processed"
+            and self.payroll_year is not None
+            and self.payroll_year.is_open
+        )
 
     @property
     def can_be_locked(self):
-        """Return whether the period can be locked."""
-
-        return self.status == "Approved"
+        return (
+            self.status == "Approved"
+            and self.payroll_year is not None
+            and self.payroll_year.is_open
+        )
 
     @property
     def can_be_reopened(self):
-        """Return whether the period can be reopened."""
-
-        return self.status == "Locked"
+        return (
+            self.status == "Locked"
+            and self.payroll_year is not None
+            and self.payroll_year.is_open
+        )
 
     def __repr__(self):
-        """Return a developer-friendly model representation."""
-
         return (
             f"<PayrollPeriod "
             f"{self.month}/{self.year} "
             f"status={self.status}>"
         )
+

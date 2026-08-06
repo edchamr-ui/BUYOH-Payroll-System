@@ -5,7 +5,7 @@ from decimal import Decimal
 from flask import Flask, render_template
 from flask_login import login_required
 from sqlalchemy import func
-
+from app.payroll_years import payroll_years_bp
 from config import Config
 from app.cli import register_cli_commands
 from app.extensions import db, login_manager, migrate
@@ -31,7 +31,9 @@ def create_app():
 
     app = Flask(__name__)
     app.config.from_object(Config)
-
+    app.register_blueprint(
+    payroll_years_bp
+    )
     db.init_app(app)
     login_manager.init_app(app)
     migrate.init_app(app, db)

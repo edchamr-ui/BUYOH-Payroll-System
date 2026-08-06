@@ -8,4 +8,7 @@ payroll_bp = Blueprint(
 )
 
 
+
 from app.payroll import routes
+from app.payroll import year_routes
+from app.payroll import year_end_routes

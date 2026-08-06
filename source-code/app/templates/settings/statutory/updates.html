@@ -1,0 +1,364 @@
+{% extends "base.html" %}
+
+{% block title %}
+Statutory Update Centre |
+{{ company_settings.display_name or "Payroll" }}
+{% endblock %}
+
+{% block page_title %}
+Statutory Update Centre
+{% endblock %}
+
+{% block content %}
+
+<div
+    class="
+        d-flex
+        flex-wrap
+        justify-content-between
+        align-items-center
+        gap-3
+        mb-4
+    "
+>
+    <div>
+        <h2 class="h3 mb-1">
+            Statutory Update Centre
+        </h2>
+
+        <p class="text-muted mb-0">
+            Review installed statutory packages, versions,
+            provenance and available library updates.
+        </p>
+    </div>
+
+    <div class="d-flex flex-wrap gap-2">
+        <a
+            href="{{ url_for(
+                'settings.statutory_library'
+            ) }}"
+            class="btn btn-outline-primary"
+        >
+            <i class="bi bi-database me-2"></i>
+            Open Library
+        </a>
+
+        <a
+            href="{{ url_for(
+                'settings.statutory_index'
+            ) }}"
+            class="btn btn-outline-secondary"
+        >
+            <i class="bi bi-arrow-left me-1"></i>
+            Operational Rules
+        </a>
+    </div>
+</div>
+
+<div class="row g-3 mb-4">
+
+    <div class="col-xl-3 col-md-6">
+        <div class="app-card h-100">
+            <div class="card-body p-4">
+                <div class="text-muted small mb-1">
+                    Library Installed
+                </div>
+
+                <div class="h3 mb-0">
+                    {{ installed_count }}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-xl-3 col-md-6">
+        <div class="app-card h-100">
+            <div class="card-body p-4">
+                <div class="text-muted small mb-1">
+                    Updates Available
+                </div>
+
+                <div class="h3 mb-0">
+                    {{ update_count }}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-xl-3 col-md-6">
+        <div class="app-card h-100">
+            <div class="card-body p-4">
+                <div class="text-muted small mb-1">
+                    Up to Date
+                </div>
+
+                <div class="h3 mb-0">
+                    {{ current_count }}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-xl-3 col-md-6">
+        <div class="app-card h-100">
+            <div class="card-body p-4">
+                <div class="text-muted small mb-1">
+                    Manual Rules
+                </div>
+
+                <div class="h3 mb-0">
+                    {{ manual_count }}
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<div class="app-card overflow-hidden">
+
+    <div class="card-body p-4 border-bottom">
+        <h3 class="h5 mb-1">
+            Installed Rule Inventory
+        </h3>
+
+        <p class="text-muted mb-0">
+            Library imports retain their source preset, version,
+            engine, installation date and installer.
+        </p>
+    </div>
+
+    {% if update_items %}
+
+        <div class="table-responsive">
+            <table class="table align-middle mb-0">
+
+                <thead class="table-light">
+                    <tr>
+                        <th>Rule Set</th>
+                        <th>Source</th>
+                        <th>Installed Version</th>
+                        <th>Latest Version</th>
+                        <th>Installed</th>
+                        <th>Status</th>
+                        <th class="text-end">Action</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+
+                    {% for item in update_items %}
+
+                        {% set rule = item.rule_set %}
+
+                        <tr>
+                            <td>
+                                <div class="fw-semibold">
+                                    {{ rule.name }}
+                                </div>
+
+                                <div class="small text-muted">
+                                    {{ rule.currency }}
+                                    •
+                                    {{
+                                        rule.effective_from.strftime(
+                                            "%d %b %Y"
+                                        )
+                                    }}
+                                </div>
+                            </td>
+
+                            <td>
+                                {% if rule.imported_from_library %}
+                                    <div class="fw-semibold">
+                                        {{
+                                            rule.source_country_code
+                                            or "—"
+                                        }}
+                                        •
+                                        {{
+                                            rule.source_engine_type
+                                            |default("Unknown", true)
+                                            |replace("_", " ")
+                                            |title
+                                        }}
+                                    </div>
+
+                                    <div class="small text-muted">
+                                        {{
+                                            rule.source_preset_key
+                                            or "Unknown preset"
+                                        }}
+                                    </div>
+                                {% else %}
+                                    <span class="text-muted">
+                                        Manual configuration
+                                    </span>
+                                {% endif %}
+                            </td>
+
+                            <td>
+                                {{
+                                    item.installed_version
+                                    or "—"
+                                }}
+                            </td>
+
+                            <td>
+                                {{
+                                    item.latest_version
+                                    or "—"
+                                }}
+                            </td>
+
+                            <td>
+                                {% if rule.imported_at %}
+                                    <div>
+                                        {{
+                                            rule.imported_at.strftime(
+                                                "%d %b %Y"
+                                            )
+                                        }}
+                                    </div>
+
+                                    <div class="small text-muted">
+                                        {% if rule.imported_by_user %}
+                                            {{
+                                                rule.imported_by_user.full_name
+                                                if rule.imported_by_user.full_name
+                                                is defined
+                                                else rule.imported_by_user.username
+                                            }}
+                                        {% else %}
+                                            Unknown user
+                                        {% endif %}
+                                    </div>
+                                {% else %}
+                                    <span class="text-muted">
+                                        —
+                                    </span>
+                                {% endif %}
+                            </td>
+
+                            <td>
+                                {% if item.update_available %}
+                                    <span class="badge text-bg-warning">
+                                        <i class="bi bi-arrow-up-circle me-1"></i>
+                                        Update Available
+                                    </span>
+                                {% elif item.status == "Up to Date" %}
+                                    <span class="badge text-bg-success">
+                                        <i class="bi bi-check-circle me-1"></i>
+                                        Up to Date
+                                    </span>
+                                {% elif item.status == "Manual Rule" %}
+                                    <span class="badge text-bg-secondary">
+                                        Manual Rule
+                                    </span>
+                                {% else %}
+                                    <span class="badge text-bg-danger">
+                                        {{ item.status }}
+                                    </span>
+                                {% endif %}
+                            </td>
+
+                            <td class="text-end">
+
+                            <div class="d-flex justify-content-end gap-2">
+
+    {% if item.update_available %}
+        <a
+            href="{{ url_for(
+                'settings.review_statutory_update',
+                rule_set_id=rule.id
+            ) }}"
+            class="btn btn-sm btn-warning"
+        >
+            <i class="bi bi-arrow-up-circle me-1"></i>
+            Review Update
+        </a>
+
+    {% elif rule.imported_from_library %}
+        <a
+            href="{{ url_for(
+                'settings.manage_tax_bands',
+                rule_set_id=rule.id
+            ) }}"
+            class="btn btn-sm btn-outline-primary"
+        >
+            View Rule
+        </a>
+
+    {% else %}
+        <a
+            href="{{ url_for(
+                'settings.edit_statutory_rule',
+                rule_set_id=rule.id
+            ) }}"
+            class="btn btn-sm btn-outline-secondary"
+        >
+            Edit Rule
+        </a>
+    {% endif %}
+
+    <a
+        href="{{ url_for(
+            'settings.statutory_version_history',
+            rule_set_id=rule.id
+        ) }}"
+        class="btn btn-sm btn-outline-secondary"
+    >
+        <i class="bi bi-clock-history me-1"></i>
+        History
+    </a>
+
+</div>
+
+
+
+
+                            </td>
+                        </tr>
+
+                    {% endfor %}
+
+                </tbody>
+            </table>
+        </div>
+
+    {% else %}
+
+        <div class="text-center py-5 px-4">
+            <i
+                class="
+                    bi
+                    bi-cloud-arrow-down
+                    fs-1
+                    text-muted
+                "
+            ></i>
+
+            <h4 class="h6 mt-3">
+                No operational statutory rules found
+            </h4>
+
+            <p class="text-muted mb-3">
+                Install a supported preset from the Statutory Library
+                or create an operational rule manually.
+            </p>
+
+            <a
+                href="{{ url_for(
+                    'settings.statutory_library'
+                ) }}"
+                class="btn btn-primary"
+            >
+                Open Statutory Library
+            </a>
+        </div>
+
+    {% endif %}
+
+</div>
+
+{% endblock %}

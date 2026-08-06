@@ -1,0 +1,238 @@
+{% extends "base.html" %}
+
+{% block title %}
+Year-End Processing {{ payroll_year.year }} |
+{{ company_settings.display_name or "Payroll" }}
+{% endblock %}
+
+{% block page_title %}
+Year-End Processing
+{% endblock %}
+
+{% block content %}
+
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+    <div>
+        <h2 class="h3 mb-1">
+            Payroll Year-End {{ payroll_year.year }}
+        </h2>
+
+        <p class="text-muted mb-0">
+            Validate and permanently close this payroll year.
+        </p>
+    </div>
+
+    <a
+        href="{{ url_for(
+            'payroll.view_payroll_year',
+            payroll_year_id=payroll_year.id
+        ) }}"
+        class="btn btn-outline-secondary"
+    >
+        <i class="bi bi-arrow-left me-1"></i>
+        Payroll Year
+    </a>
+</div>
+
+<div class="row g-3 mb-4">
+    <div class="col-md-3">
+        <div class="app-card h-100">
+            <div class="card-body p-4">
+                <div class="text-muted small mb-1">Year Status</div>
+                <div class="h4 mb-0">{{ payroll_year.status }}</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-3">
+        <div class="app-card h-100">
+            <div class="card-body p-4">
+                <div class="text-muted small mb-1">Periods</div>
+                <div class="h4 mb-0">
+                    {{ validation.period_count }}/12
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-3">
+        <div class="app-card h-100">
+            <div class="card-body p-4">
+                <div class="text-muted small mb-1">Locked</div>
+                <div class="h4 mb-0">
+                    {{ validation.locked_period_count }}/12
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-3">
+        <div class="app-card h-100">
+            <div class="card-body p-4">
+                <div class="text-muted small mb-1">Payslips</div>
+                <div class="h4 mb-0">
+                    {{ validation.payslip_count }}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="app-card mb-4">
+    <div class="card-body p-4">
+        <h3 class="h5 mb-3">Year-End Validation</h3>
+
+        <div class="list-group list-group-flush">
+            {% for check in validation.checks %}
+                <div
+                    class="
+                        list-group-item
+                        px-0
+                        d-flex
+                        justify-content-between
+                        align-items-start
+                        gap-3
+                    "
+                >
+                    <div>
+                        <div class="fw-semibold">
+                            {{ check.label }}
+                        </div>
+
+                        <div class="small text-muted">
+                            {{ check.detail }}
+                        </div>
+                    </div>
+
+                    {% if check.passed %}
+                        <span class="badge text-bg-success">
+                            Passed
+                        </span>
+                    {% elif check.blocking %}
+                        <span class="badge text-bg-danger">
+                            Blocker
+                        </span>
+                    {% else %}
+                        <span class="badge text-bg-warning">
+                            Warning
+                        </span>
+                    {% endif %}
+                </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+{% if payroll_year.is_closed %}
+
+    <div class="alert alert-success">
+        <div class="fw-semibold">
+            Payroll year {{ payroll_year.year }} is closed.
+        </div>
+
+        {% if payroll_year.closed_at %}
+            Closed on
+            {{ payroll_year.closed_at.strftime("%d %b %Y at %H:%M") }}.
+        {% endif %}
+
+        {% if payroll_year.closing_reason %}
+            <div class="mt-2">
+                <strong>Reason:</strong>
+                {{ payroll_year.closing_reason }}
+            </div>
+        {% endif %}
+    </div>
+
+{% else %}
+
+    <div class="app-card">
+        <div class="card-body p-4">
+            <h3 class="h5 mb-2">Close Payroll Year</h3>
+
+            <p class="text-muted">
+                Closing makes this payroll year read-only. Monthly
+                payroll records, payslips and reports remain available.
+            </p>
+
+            {% if not validation.can_close %}
+                <div class="alert alert-danger">
+                    Resolve every blocking validation item before
+                    closing the payroll year.
+                </div>
+            {% endif %}
+
+            <form
+                method="POST"
+                action="{{ url_for(
+                    'payroll.close_payroll_year',
+                    payroll_year_id=payroll_year.id
+                ) }}"
+            >
+                {{ form.hidden_tag() }}
+
+                <div class="mb-3">
+                    {{ form.closing_reason.label(class="form-label") }}
+                    {{
+                        form.closing_reason(
+                            class="form-control",
+                            rows="4"
+                        )
+                    }}
+                </div>
+
+                <div class="mb-3">
+                    {{ form.confirmation_phrase.label(class="form-label") }}
+
+                    <div class="form-text mb-2">
+                        Type <strong>{{ expected_phrase }}</strong>
+                        exactly.
+                    </div>
+
+                    {{
+                        form.confirmation_phrase(
+                            class="form-control",
+                            autocomplete="off"
+                        )
+                    }}
+                </div>
+
+                <div class="mb-3">
+                    {{ form.current_password.label(class="form-label") }}
+                    {{
+                        form.current_password(
+                            class="form-control",
+                            autocomplete="current-password"
+                        )
+                    }}
+                </div>
+
+                <div class="form-check mb-4">
+                    {{
+                        form.acknowledge(
+                            class="form-check-input"
+                        )
+                    }}
+                    {{
+                        form.acknowledge.label(
+                            class="form-check-label"
+                        )
+                    }}
+                </div>
+
+                <button
+                    type="submit"
+                    class="btn btn-danger"
+                    {% if not validation.can_close %}
+                        disabled
+                    {% endif %}
+                >
+                    <i class="bi bi-lock-fill me-2"></i>
+                    Close Payroll Year
+                </button>
+            </form>
+        </div>
+    </div>
+
+{% endif %}
+
+{% endblock %}

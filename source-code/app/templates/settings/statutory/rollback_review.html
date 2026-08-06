@@ -1,0 +1,227 @@
+{% extends "base.html" %}
+
+{% block title %}
+Review Statutory Rollback |
+{{ company_settings.display_name or "Payroll" }}
+{% endblock %}
+
+{% block page_title %}
+Review Statutory Rollback
+{% endblock %}
+
+{% block content %}
+
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+    <div>
+        <h2 class="h3 mb-1">Review Statutory Rollback</h2>
+        <p class="text-muted mb-0">
+            Compare the current operational rule with the preserved
+            snapshot before restoring it.
+        </p>
+    </div>
+
+    <a
+        href="{{ url_for(
+            'settings.statutory_version_history',
+            rule_set_id=rule_set.id
+        ) }}"
+        class="btn btn-outline-secondary"
+    >
+        <i class="bi bi-arrow-left me-1"></i>
+        Version History
+    </a>
+</div>
+
+<div class="alert alert-danger mb-4">
+    <div class="fw-semibold">Controlled rollback</div>
+    The current statutory configuration will first be preserved as a
+    new snapshot. Historical payroll records and payslips will not be
+    recalculated, deleted, or rewritten.
+</div>
+
+<div class="row g-3 mb-4">
+    <div class="col-md-4">
+        <div class="app-card h-100">
+            <div class="card-body p-4">
+                <div class="text-muted small mb-1">Current Version</div>
+                <div class="h4 mb-0">
+                    {{ rule_set.source_preset_version or "Manual" }}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-4">
+        <div class="app-card h-100">
+            <div class="card-body p-4">
+                <div class="text-muted small mb-1">Restore Version</div>
+                <div class="h4 mb-0">
+                    {{ snapshot.source_preset_version or "Manual" }}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-4">
+        <div class="app-card h-100">
+            <div class="card-body p-4">
+                <div class="text-muted small mb-1">Snapshot Created</div>
+                <div class="fw-semibold">
+                    {{ snapshot.created_at.strftime("%d %b %Y at %H:%M") }}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="app-card mb-4">
+    <div class="card-body p-4">
+        <h3 class="h5 mb-3">Configuration Comparison</h3>
+
+        <div class="table-responsive">
+            <table class="table align-middle mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>Field</th>
+                        <th>Current Rule</th>
+                        <th>Snapshot to Restore</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td class="fw-semibold">Rule Name</td>
+                        <td>{{ rule_set.name }}</td>
+                        <td>{{ snapshot_data.get("name", "—") }}</td>
+                    </tr>
+                    <tr>
+                        <td class="fw-semibold">Currency</td>
+                        <td>{{ rule_set.currency }}</td>
+                        <td>{{ snapshot_data.get("currency", "—") }}</td>
+                    </tr>
+                    <tr>
+                        <td class="fw-semibold">Employee Contribution</td>
+                        <td>{{ rule_set.nssa_employee_rate }}</td>
+                        <td>{{ snapshot_data.get("nssa_employee_rate", "—") }}</td>
+                    </tr>
+                    <tr>
+                        <td class="fw-semibold">Employer Contribution</td>
+                        <td>{{ rule_set.nssa_employer_rate }}</td>
+                        <td>{{ snapshot_data.get("nssa_employer_rate", "—") }}</td>
+                    </tr>
+                    <tr>
+                        <td class="fw-semibold">Contribution Ceiling</td>
+                        <td>{{ rule_set.currency }} {{ rule_set.nssa_monthly_ceiling }}</td>
+                        <td>
+                            {{ snapshot_data.get("currency", rule_set.currency) }}
+                            {{ snapshot_data.get("nssa_monthly_ceiling", "—") }}
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="fw-semibold">Levy Rate</td>
+                        <td>{{ rule_set.aids_levy_rate }}</td>
+                        <td>{{ snapshot_data.get("aids_levy_rate", "—") }}</td>
+                    </tr>
+                    <tr>
+                        <td class="fw-semibold">PAYE Enabled</td>
+                        <td>{% if rule_set.paye_enabled %}Yes{% else %}No{% endif %}</td>
+                        <td>{% if snapshot_data.get("paye_enabled") %}Yes{% else %}No{% endif %}</td>
+                    </tr>
+                    <tr>
+                        <td class="fw-semibold">Tax Bands</td>
+                        <td>{{ rule_set.tax_bands|length }}</td>
+                        <td>{{ snapshot_bands|length }}</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<div class="app-card mb-4">
+    <div class="card-body p-4">
+        <h3 class="h5 mb-3">Snapshot PAYE Bands</h3>
+
+        {% if snapshot_bands %}
+            <div class="table-responsive">
+                <table class="table align-middle mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Band</th>
+                            <th>Lower Limit</th>
+                            <th>Upper Limit</th>
+                            <th>Rate</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for band in snapshot_bands %}
+                            <tr>
+                                <td>{{ band.get("band_order") }}</td>
+                                <td>{{ band.get("lower_limit") }}</td>
+                                <td>
+                                    {{
+                                        band.get("upper_limit")
+                                        if band.get("upper_limit") is not none
+                                        else "Unlimited"
+                                    }}
+                                </td>
+                                <td>{{ band.get("rate") }}</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <div class="alert alert-light border mb-0">
+                The selected snapshot contains no PAYE tax bands.
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+<div class="app-card">
+    <div class="card-body p-4">
+        <h3 class="h5 mb-2">Confirm Rollback</h3>
+
+        <p class="text-muted">
+            Type <strong>ROLLBACK RULE</strong> exactly to restore
+            this snapshot.
+        </p>
+
+        <form
+            method="POST"
+            action="{{ url_for(
+                'settings.apply_statutory_rollback',
+                rule_set_id=rule_set.id,
+                snapshot_id=snapshot.id
+            ) }}"
+        >
+            {{ action_form.hidden_tag() }}
+
+            <div class="row g-3 align-items-end">
+                <div class="col-lg-8">
+                    <label for="confirmation" class="form-label">
+                        Confirmation phrase
+                    </label>
+
+                    <input
+                        id="confirmation"
+                        name="confirmation"
+                        type="text"
+                        class="form-control"
+                        autocomplete="off"
+                        required
+                    >
+                </div>
+
+                <div class="col-lg-4">
+                    <button type="submit" class="btn btn-danger w-100">
+                        <i class="bi bi-arrow-counterclockwise me-2"></i>
+                        Roll Back Statutory Rule
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+{% endblock %}

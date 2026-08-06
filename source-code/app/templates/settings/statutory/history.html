@@ -1,0 +1,650 @@
+{% extends "base.html" %}
+
+{% block title %}
+Statutory Version History |
+{{ company_settings.display_name or "Payroll" }}
+{% endblock %}
+
+{% block page_title %}
+Statutory Version History
+{% endblock %}
+
+{% block content %}
+
+<div
+    class="
+        d-flex
+        flex-wrap
+        justify-content-between
+        align-items-center
+        gap-3
+        mb-4
+    "
+>
+    <div>
+        <h2 class="h3 mb-1">
+            Statutory Version History
+        </h2>
+
+        <p class="text-muted mb-0">
+            Review preserved snapshots for
+            {{ rule_set.name }}.
+        </p>
+    </div>
+
+    <div class="d-flex flex-wrap gap-2">
+
+        <a
+            href="{{ url_for(
+                'settings.manage_tax_bands',
+                rule_set_id=rule_set.id
+            ) }}"
+            class="btn btn-outline-primary"
+        >
+            <i class="bi bi-eye me-1"></i>
+            View Current Rule
+        </a>
+
+        <a
+            href="{{ url_for(
+                'settings.statutory_update_centre'
+            ) }}"
+            class="btn btn-outline-secondary"
+        >
+            <i class="bi bi-arrow-left me-1"></i>
+            Update Centre
+        </a>
+
+    </div>
+</div>
+
+<div class="row g-3 mb-4">
+
+    <div class="col-md-4">
+        <div class="app-card h-100">
+            <div class="card-body p-4">
+
+                <div class="text-muted small mb-1">
+                    Rule Set
+                </div>
+
+                <div class="fw-semibold">
+                    {{ rule_set.name }}
+                </div>
+
+                <div class="small text-muted">
+                    {{ rule_set.currency }}
+                    •
+                    {{
+                        rule_set.effective_from.strftime(
+                            "%d %b %Y"
+                        )
+                    }}
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-4">
+        <div class="app-card h-100">
+            <div class="card-body p-4">
+
+                <div class="text-muted small mb-1">
+                    Current Version
+                </div>
+
+                <div class="h4 mb-0">
+                    {{ current_version or "Manual" }}
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-4">
+        <div class="app-card h-100">
+            <div class="card-body p-4">
+
+                <div class="text-muted small mb-1">
+                    Preserved Snapshots
+                </div>
+
+                <div class="h4 mb-0">
+                    {{ snapshot_count }}
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<div class="alert alert-info mb-4">
+
+    <div class="fw-semibold">
+        Protected version history
+    </div>
+
+    These snapshots were captured before statutory updates.
+    Historical payroll records and payslips are not stored here
+    and are not recalculated during update or rollback operations.
+
+</div>
+
+<div class="app-card overflow-hidden">
+
+    <div class="card-body p-4 border-bottom">
+
+        <h3 class="h5 mb-1">
+            Snapshot Inventory
+        </h3>
+
+        <p class="text-muted mb-0">
+            Each snapshot records the previous operational values,
+            tax bands, source preset and change summary.
+        </p>
+
+    </div>
+
+    {% if history_items %}
+
+        <div class="accordion accordion-flush">
+
+            {% for item in history_items %}
+
+                {% set snapshot = item.snapshot %}
+                {% set data = item.snapshot_data %}
+                {% set changes = item.change_summary %}
+
+                <div class="accordion-item">
+
+                    <h2
+                        class="accordion-header"
+                        id="historyHeading{{ loop.index }}"
+                    >
+                        <button
+                            class="
+                                accordion-button
+                                {% if not loop.first %}
+                                    collapsed
+                                {% endif %}
+                            "
+                            type="button"
+                            data-bs-toggle="collapse"
+                            data-bs-target="#historyCollapse{{ loop.index }}"
+                            aria-expanded="{% if loop.first %}true{% else %}false{% endif %}"
+                            aria-controls="historyCollapse{{ loop.index }}"
+                        >
+                            <div
+                                class="
+                                    d-flex
+                                    flex-wrap
+                                    align-items-center
+                                    gap-3
+                                    w-100
+                                    pe-3
+                                "
+                            >
+
+                                <span class="fw-semibold">
+                                    Version
+                                    {{
+                                        item.installed_version
+                                        or "Manual"
+                                    }}
+                                </span>
+
+                                <span class="text-muted">
+                                    {{
+                                        snapshot.created_at.strftime(
+                                            "%d %b %Y at %H:%M"
+                                        )
+                                    }}
+                                </span>
+
+                                <span class="badge text-bg-light border">
+                                    {{ item.field_change_count }}
+                                    field change(s)
+                                </span>
+
+                                <span class="badge text-bg-light border">
+                                    {{ item.band_change_count }}
+                                    band change(s)
+                                </span>
+
+                            </div>
+                        </button>
+                    </h2>
+
+                    <div
+                        id="historyCollapse{{ loop.index }}"
+                        class="
+                            accordion-collapse
+                            collapse
+                            {% if loop.first %}
+                                show
+                            {% endif %}
+                        "
+                        aria-labelledby="historyHeading{{ loop.index }}"
+                    >
+                        <div class="accordion-body p-4">
+
+                            <div class="row g-3 mb-4">
+
+                                <div class="col-md-4">
+
+                                    <div class="small text-muted">
+                                        Preset Key
+                                    </div>
+
+                                    <div class="fw-semibold">
+                                        {{
+                                            item.source_preset_key
+                                            or "Manual rule"
+                                        }}
+                                    </div>
+
+                                </div>
+
+                                <div class="col-md-4">
+
+                                    <div class="small text-muted">
+                                        Snapshot Created By
+                                    </div>
+
+                                    <div class="fw-semibold">
+                                        {{ item.created_by_name }}
+                                    </div>
+
+                                </div>
+
+                                <div class="col-md-4">
+
+                                    <div class="small text-muted">
+                                        Tax Bands Preserved
+                                    </div>
+
+                                    <div class="fw-semibold">
+                                        {{ item.snapshot_band_count }}
+                                    </div>
+
+                                </div>
+
+                                <div class="col-md-4">
+
+                                    <div class="small text-muted">
+                                        Employee Contribution
+                                    </div>
+
+                                    <div class="fw-semibold">
+                                        {{
+                                            data.get(
+                                                "nssa_employee_rate",
+                                                "—"
+                                            )
+                                        }}
+                                    </div>
+
+                                </div>
+
+                                <div class="col-md-4">
+
+                                    <div class="small text-muted">
+                                        Employer Contribution
+                                    </div>
+
+                                    <div class="fw-semibold">
+                                        {{
+                                            data.get(
+                                                "nssa_employer_rate",
+                                                "—"
+                                            )
+                                        }}
+                                    </div>
+
+                                </div>
+
+                                <div class="col-md-4">
+
+                                    <div class="small text-muted">
+                                        Contribution Ceiling
+                                    </div>
+
+                                    <div class="fw-semibold">
+                                        {{
+                                            data.get(
+                                                "currency",
+                                                rule_set.currency
+                                            )
+                                        }}
+                                        {{
+                                            data.get(
+                                                "nssa_monthly_ceiling",
+                                                "—"
+                                            )
+                                        }}
+                                    </div>
+
+                                </div>
+
+                                <div class="col-md-4">
+
+                                    <div class="small text-muted">
+                                        Levy Rate
+                                    </div>
+
+                                    <div class="fw-semibold">
+                                        {{
+                                            data.get(
+                                                "aids_levy_rate",
+                                                "—"
+                                            )
+                                        }}
+                                    </div>
+
+                                </div>
+
+                                <div class="col-md-4">
+
+                                    <div class="small text-muted">
+                                        PAYE Enabled
+                                    </div>
+
+                                    <div class="fw-semibold">
+                                        {% if data.get("paye_enabled") %}
+                                            Yes
+                                        {% else %}
+                                            No
+                                        {% endif %}
+                                    </div>
+
+                                </div>
+
+                                <div class="col-md-4">
+
+                                    <div class="small text-muted">
+                                        Active
+                                    </div>
+
+                                    <div class="fw-semibold">
+                                        {% if data.get("is_active") %}
+                                            Yes
+                                        {% else %}
+                                            No
+                                        {% endif %}
+                                    </div>
+
+                                </div>
+
+                            </div>
+
+                            <h4 class="h6 mb-3">
+                                Change Summary
+                            </h4>
+
+                            {% set field_changes =
+                                changes.get(
+                                    "field_changes",
+                                    []
+                                )
+                            %}
+
+                            {% set band_changes =
+                                changes.get(
+                                    "band_changes",
+                                    []
+                                )
+                            %}
+
+                            {% if field_changes %}
+
+                                <div class="table-responsive mb-4">
+
+                                    <table
+                                        class="
+                                            table
+                                            table-sm
+                                            align-middle
+                                            mb-0
+                                        "
+                                    >
+
+                                        <thead class="table-light">
+
+                                            <tr>
+                                                <th>Field</th>
+                                                <th>Previous</th>
+                                                <th>New</th>
+                                            </tr>
+
+                                        </thead>
+
+                                        <tbody>
+
+                                            {% for change in field_changes %}
+
+                                                <tr>
+
+                                                    <td class="fw-semibold">
+                                                        {{
+                                                            change.get(
+                                                                "field_name",
+                                                                "Unknown"
+                                                            )
+                                                        }}
+                                                    </td>
+
+                                                    <td>
+                                                        {{
+                                                            change.get(
+                                                                "current_value",
+                                                                "—"
+                                                            )
+                                                        }}
+                                                    </td>
+
+                                                    <td>
+                                                        {{
+                                                            change.get(
+                                                                "new_value",
+                                                                "—"
+                                                            )
+                                                        }}
+                                                    </td>
+
+                                                </tr>
+
+                                            {% endfor %}
+
+                                        </tbody>
+
+                                    </table>
+
+                                </div>
+
+                            {% endif %}
+
+                            {% if band_changes %}
+
+                                <div class="table-responsive">
+
+                                    <table
+                                        class="
+                                            table
+                                            table-sm
+                                            align-middle
+                                            mb-0
+                                        "
+                                    >
+
+                                        <thead class="table-light">
+
+                                            <tr>
+                                                <th>Band</th>
+                                                <th>Change</th>
+                                                <th>Previous Rate</th>
+                                                <th>New Rate</th>
+                                            </tr>
+
+                                        </thead>
+
+                                        <tbody>
+
+                                            {% for change in band_changes %}
+
+                                                <tr>
+
+                                                    <td>
+                                                        {{
+                                                            change.get(
+                                                                "band_order",
+                                                                "—"
+                                                            )
+                                                        }}
+                                                    </td>
+
+                                                    <td>
+
+                                                        <span
+                                                            class="
+                                                                badge
+                                                                text-bg-warning
+                                                            "
+                                                        >
+                                                            {{
+                                                                change.get(
+                                                                    "change_type",
+                                                                    "Changed"
+                                                                )
+                                                            }}
+                                                        </span>
+
+                                                    </td>
+
+                                                    <td>
+                                                        {{
+                                                            change.get(
+                                                                "current_rate",
+                                                                "—"
+                                                            )
+                                                        }}
+                                                    </td>
+
+                                                    <td>
+                                                        {{
+                                                            change.get(
+                                                                "new_rate",
+                                                                "—"
+                                                            )
+                                                        }}
+                                                    </td>
+
+                                                </tr>
+
+                                            {% endfor %}
+
+                                        </tbody>
+
+                                    </table>
+
+                                </div>
+
+                            {% endif %}
+
+                            {% if not field_changes and not band_changes %}
+
+                                <div class="alert alert-light border mb-0">
+
+                                    No change-summary details were recorded
+                                    for this snapshot.
+
+                                </div>
+
+                            {% endif %}
+
+                            <hr class="my-4">
+
+                            <div
+                                class="
+                                    d-flex
+                                    flex-wrap
+                                    justify-content-between
+                                    align-items-center
+                                    gap-3
+                                "
+                            >
+
+                                <div>
+
+                                    <div class="fw-semibold">
+                                        Restore this statutory version
+                                    </div>
+
+                                    <div class="small text-muted">
+                                        The rollback wizard will compare
+                                        the current rule against this
+                                        snapshot before any changes occur.
+                                    </div>
+
+                                </div>
+
+                                <a
+                                    href="{{ url_for(
+                                        'settings.review_statutory_rollback',
+                                        rule_set_id=rule_set.id,
+                                        snapshot_id=snapshot.id
+                                    ) }}"
+                                    class="btn btn-danger"
+                                >
+                                    <i
+                                        class="
+                                            bi
+                                            bi-arrow-counterclockwise
+                                            me-2
+                                        "
+                                    ></i>
+
+                                    Review Rollback
+                                </a>
+
+                            </div>
+
+                        </div>
+                    </div>
+
+                </div>
+
+            {% endfor %}
+
+        </div>
+
+    {% else %}
+
+        <div class="text-center py-5 px-4">
+
+            <i
+                class="
+                    bi
+                    bi-clock-history
+                    fs-1
+                    text-muted
+                "
+            ></i>
+
+            <h4 class="h6 mt-3">
+                No statutory snapshots yet
+            </h4>
+
+            <p class="text-muted mb-0">
+                A snapshot will appear here after the first
+                successful statutory package update.
+            </p>
+
+        </div>
+
+    {% endif %}
+
+</div>
+
+{% endblock %}

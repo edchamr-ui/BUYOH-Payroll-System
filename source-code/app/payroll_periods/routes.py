@@ -16,7 +16,10 @@ from flask_login import (
 from sqlalchemy.exc import IntegrityError
 
 from app.extensions import db
-from app.models import PayrollPeriod
+from app.models import (
+    PayrollPeriod,
+    PayrollYear,
+)
 from app.payroll_periods import payroll_periods_bp
 from app.payroll_periods.forms import PayrollPeriodForm
 
@@ -90,6 +93,19 @@ def validate_period_dates(form):
     return errors
 
 
+def get_open_payroll_year(year):
+    """
+    Return an open PayrollYear parent for the supplied year.
+
+    Individual periods cannot exist without a parent payroll year.
+    """
+
+    return PayrollYear.query.filter_by(
+        year=year,
+        status=PayrollYear.STATUS_OPEN,
+    ).first()
+
+
 @payroll_periods_bp.route("/")
 @login_required
 def list_periods():
@@ -113,7 +129,13 @@ def list_periods():
 )
 @login_required
 def add_period():
-    """Create a new payroll period."""
+    """
+    Create an individual payroll period under an existing open year.
+
+    The normal workflow creates all twelve periods through the
+    Payroll Year generator. This route remains available only for
+    replacing a missing period.
+    """
 
     form = PayrollPeriodForm()
 
@@ -130,27 +152,51 @@ def add_period():
                 page_heading="Add Payroll Period",
             )
 
+        payroll_year = get_open_payroll_year(
+            form.year.data
+        )
+
+        if payroll_year is None:
+            flash(
+                (
+                    f"An open payroll year for {form.year.data} "
+                    "does not exist. Create the payroll year first."
+                ),
+                "warning",
+            )
+
+            return redirect(
+                url_for(
+                    "payroll.create_payroll_year"
+                )
+            )
+
         existing_period = PayrollPeriod.query.filter_by(
+            payroll_year_id=payroll_year.id,
             month=form.month.data,
-            year=form.year.data,
         ).first()
 
         if existing_period:
             flash(
-                "A payroll period already exists for that "
-                "month and year.",
-                "danger",
+                (
+                    f"{month_name[form.month.data]} "
+                    f"{form.year.data} already exists in the "
+                    "payroll calendar."
+                ),
+                "warning",
             )
 
-            return render_template(
-                "payroll_periods/form.html",
-                form=form,
-                page_heading="Add Payroll Period",
+            return redirect(
+                url_for(
+                    "payroll.view_payroll_year",
+                    payroll_year_id=payroll_year.id,
+                )
             )
 
         period = PayrollPeriod(
+            payroll_year_id=payroll_year.id,
             month=form.month.data,
-            year=form.year.data,
+            year=payroll_year.year,
             start_date=form.start_date.data,
             end_date=form.end_date.data,
             payment_date=form.payment_date.data,
@@ -163,13 +209,22 @@ def add_period():
         try:
             db.session.commit()
 
-        except IntegrityError:
+        except IntegrityError as error:
             db.session.rollback()
 
             flash(
-                "The payroll period could not be created "
-                "because it conflicts with an existing record.",
+                (
+                    "The payroll period could not be created. "
+                    "A period for that month may already exist."
+                ),
                 "danger",
+            )
+
+            # During development, this records the real database
+            # exception in the Flask terminal.
+            print(
+                "Payroll period creation IntegrityError:",
+                error,
             )
 
             return render_template(
@@ -184,7 +239,10 @@ def add_period():
         )
 
         return redirect(
-            url_for("payroll_periods.list_periods")
+            url_for(
+                "payroll.view_payroll_year",
+                payroll_year_id=payroll_year.id,
+            )
         )
 
     return render_template(
@@ -235,7 +293,28 @@ def edit_period(period_id):
             )
         )
 
-    form = PayrollPeriodForm(obj=period)
+    if (
+        period.payroll_year is None
+        or not period.payroll_year.is_open
+    ):
+        flash(
+            (
+                "This payroll period cannot be edited because "
+                "its payroll year is not open."
+            ),
+            "warning",
+        )
+
+        return redirect(
+            url_for(
+                "payroll_periods.view_period",
+                period_id=period.id,
+            )
+        )
+
+    form = PayrollPeriodForm(
+        obj=period
+    )
 
     if form.validate_on_submit():
         date_errors = validate_period_dates(form)
@@ -251,16 +330,16 @@ def edit_period(period_id):
                 period=period,
             )
 
-        duplicate_period = PayrollPeriod.query.filter(
-            PayrollPeriod.month == form.month.data,
-            PayrollPeriod.year == form.year.data,
-            PayrollPeriod.id != period.id,
-        ).first()
+        target_payroll_year = get_open_payroll_year(
+            form.year.data
+        )
 
-        if duplicate_period:
+        if target_payroll_year is None:
             flash(
-                "Another payroll period already exists for "
-                "that month and year.",
+                (
+                    f"An open payroll year for {form.year.data} "
+                    "does not exist."
+                ),
                 "danger",
             )
 
@@ -271,8 +350,37 @@ def edit_period(period_id):
                 period=period,
             )
 
+        duplicate_period = PayrollPeriod.query.filter(
+            PayrollPeriod.payroll_year_id
+            == target_payroll_year.id,
+            PayrollPeriod.month
+            == form.month.data,
+            PayrollPeriod.id
+            != period.id,
+        ).first()
+
+        if duplicate_period:
+            flash(
+                (
+                    f"{month_name[form.month.data]} "
+                    f"{form.year.data} already exists in the "
+                    "payroll calendar."
+                ),
+                "danger",
+            )
+
+            return render_template(
+                "payroll_periods/form.html",
+                form=form,
+                page_heading="Edit Payroll Period",
+                period=period,
+            )
+
+        period.payroll_year_id = (
+            target_payroll_year.id
+        )
         period.month = form.month.data
-        period.year = form.year.data
+        period.year = target_payroll_year.year
         period.start_date = form.start_date.data
         period.end_date = form.end_date.data
         period.payment_date = form.payment_date.data
@@ -280,12 +388,20 @@ def edit_period(period_id):
         try:
             db.session.commit()
 
-        except IntegrityError:
+        except IntegrityError as error:
             db.session.rollback()
 
             flash(
-                "The payroll period could not be updated.",
+                (
+                    "The payroll period could not be updated "
+                    "because the resulting month already exists."
+                ),
                 "danger",
+            )
+
+            print(
+                "Payroll period update IntegrityError:",
+                error,
             )
 
             return render_template(

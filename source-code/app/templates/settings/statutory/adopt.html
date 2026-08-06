@@ -1,0 +1,291 @@
+{% extends "base.html" %}
+
+{% block title %}
+Link Legacy Rule |
+{{ company_settings.display_name or "Payroll" }}
+{% endblock %}
+
+{% block page_title %}
+Link Legacy Statutory Rule
+{% endblock %}
+
+{% block content %}
+
+<div
+    class="
+        d-flex
+        flex-wrap
+        justify-content-between
+        align-items-center
+        gap-3
+        mb-4
+    "
+>
+    <div>
+        <h2 class="h3 mb-1">
+            Link Legacy Rule to Library
+        </h2>
+
+        <p class="text-muted mb-0">
+            Add library provenance to an existing operational rule
+            without changing payroll rates or PAYE bands.
+        </p>
+    </div>
+
+    <a
+        href="{{ url_for(
+            'settings.statutory_update_centre'
+        ) }}"
+        class="btn btn-outline-secondary"
+    >
+        <i class="bi bi-arrow-left me-1"></i>
+        Update Centre
+    </a>
+</div>
+
+<div class="alert alert-warning">
+    <div class="fw-semibold">
+        Exact-match protection
+    </div>
+
+    The rule can be linked only when its currency, effective dates,
+    contribution settings, levy, PAYE status and every tax band
+    exactly match the selected library preset.
+</div>
+
+<div class="row g-4">
+
+    <div class="col-xl-5">
+
+        <div class="app-card">
+            <div class="card-body p-4">
+
+                <h3 class="h5 mb-3">
+                    Operational Rule
+                </h3>
+
+                <dl class="row mb-4">
+                    <dt class="col-sm-5">
+                        Name
+                    </dt>
+
+                    <dd class="col-sm-7">
+                        {{ rule_set.name }}
+                    </dd>
+
+                    <dt class="col-sm-5">
+                        Currency
+                    </dt>
+
+                    <dd class="col-sm-7">
+                        {{ rule_set.currency }}
+                    </dd>
+
+                    <dt class="col-sm-5">
+                        Effective
+                    </dt>
+
+                    <dd class="col-sm-7">
+                        {{
+                            rule_set.effective_from.strftime(
+                                "%d %b %Y"
+                            )
+                        }}
+                        –
+                        {% if rule_set.effective_to %}
+                            {{
+                                rule_set.effective_to.strftime(
+                                    "%d %b %Y"
+                                )
+                            }}
+                        {% else %}
+                            No end date
+                        {% endif %}
+                    </dd>
+
+                    <dt class="col-sm-5">
+                        Tax Bands
+                    </dt>
+
+                    <dd class="col-sm-7">
+                        {{ rule_set.tax_bands|length }}
+                    </dd>
+                </dl>
+
+                <form method="GET">
+
+                    <label
+                        for="preset_key"
+                        class="form-label"
+                    >
+                        Matching Library Preset
+                    </label>
+
+                    <select
+                        id="preset_key"
+                        name="preset_key"
+                        class="form-select mb-3"
+                        required
+                    >
+                        <option value="">
+                            Select a preset
+                        </option>
+
+                        {% for preset in presets %}
+                            <option
+                                value="{{ preset.preset_key }}"
+                                {% if selected_key == preset.preset_key %}
+                                    selected
+                                {% endif %}
+                            >
+                                {{ preset.display_name }}
+                                — Version {{ preset.version }}
+                            </option>
+                        {% endfor %}
+                    </select>
+
+                    <button
+                        type="submit"
+                        class="btn btn-primary w-100"
+                    >
+                        Compare Rule
+                    </button>
+
+                </form>
+
+            </div>
+        </div>
+
+    </div>
+
+    <div class="col-xl-7">
+
+        <div class="app-card">
+            <div class="card-body p-4">
+
+                <h3 class="h5 mb-3">
+                    Comparison Result
+                </h3>
+
+                {% if comparison %}
+
+                    {% if comparison.compatible %}
+
+                        <div class="alert alert-success">
+                            <i class="bi bi-check-circle me-2"></i>
+                            The operational rule exactly matches
+                            {{ selected_preset.display_name }}.
+                        </div>
+
+                        <dl class="row mb-4">
+                            <dt class="col-sm-5">
+                                Preset Key
+                            </dt>
+
+                            <dd class="col-sm-7">
+                                {{ selected_preset.preset_key }}
+                            </dd>
+
+                            <dt class="col-sm-5">
+                                Version
+                            </dt>
+
+                            <dd class="col-sm-7">
+                                {{ selected_preset.version }}
+                            </dd>
+
+                            <dt class="col-sm-5">
+                                Engine
+                            </dt>
+
+                            <dd class="col-sm-7">
+                                {{
+                                    selected_preset.engine_type
+                                    |replace("_", " ")
+                                    |title
+                                }}
+                            </dd>
+                        </dl>
+
+                        <form method="POST">
+
+                            {{ action_form.hidden_tag() }}
+
+                            <input
+                                type="hidden"
+                                name="preset_key"
+                                value="{{ selected_preset.preset_key }}"
+                            >
+
+                            <div class="mb-3">
+                                <label
+                                    for="confirmation"
+                                    class="form-label"
+                                >
+                                    Type LINK RULE to confirm
+                                </label>
+
+                                <input
+                                    id="confirmation"
+                                    name="confirmation"
+                                    type="text"
+                                    class="form-control"
+                                    autocomplete="off"
+                                    required
+                                >
+                            </div>
+
+                            <button
+                                type="submit"
+                                class="btn btn-success"
+                            >
+                                <i class="bi bi-link-45deg me-2"></i>
+                                Link Rule to Library
+                            </button>
+
+                        </form>
+
+                    {% else %}
+
+                        <div class="alert alert-danger">
+                            <i class="bi bi-x-circle me-2"></i>
+                            This operational rule does not exactly
+                            match the selected preset.
+                        </div>
+
+                        <ul class="mb-0">
+                            {% for difference in comparison.differences %}
+                                <li>{{ difference }}</li>
+                            {% endfor %}
+                        </ul>
+
+                    {% endif %}
+
+                {% else %}
+
+                    <div class="text-center py-5">
+                        <i
+                            class="
+                                bi
+                                bi-arrow-left-right
+                                fs-1
+                                text-muted
+                            "
+                        ></i>
+
+                        <p class="text-muted mt-3 mb-0">
+                            Select a compatible preset and compare
+                            it with this operational rule.
+                        </p>
+                    </div>
+
+                {% endif %}
+
+            </div>
+        </div>
+
+    </div>
+
+</div>
+
+{% endblock %}

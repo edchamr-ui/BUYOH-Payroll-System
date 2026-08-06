@@ -1,0 +1,856 @@
+{% extends "base.html" %}
+
+{% block title %}
+Payroll Reset | {{ company_settings.display_name or "Payroll" }}
+{% endblock %}
+
+{% block page_title %}
+Payroll Reset
+{% endblock %}
+
+{% block content %}
+
+<div
+    class="
+        d-flex
+        flex-wrap
+        justify-content-between
+        align-items-center
+        gap-3
+        mb-4
+    "
+>
+    <div>
+        <h2 class="h3 mb-1">
+            Administrator Payroll Reset Centre
+        </h2>
+
+        <p class="text-muted mb-0">
+            Permanently clear payroll data while preserving selected
+            master records.
+        </p>
+    </div>
+
+    <a
+        href="{{ url_for('settings.index') }}"
+        class="btn btn-outline-secondary"
+    >
+        <i class="bi bi-arrow-left me-1"></i>
+        Settings
+    </a>
+</div>
+
+<div class="alert alert-danger mb-4">
+    <div class="d-flex align-items-start gap-3">
+        <i class="bi bi-exclamation-triangle-fill fs-3"></i>
+
+        <div>
+            <div class="fw-bold">
+                Destructive administrator operations
+            </div>
+
+            <div>
+                These actions cannot be undone. Create and verify a
+                database backup before resetting production payroll data.
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-4">
+
+    <div class="col-xl-4">
+        <div class="app-card h-100 border border-warning">
+            <div class="card-body p-4 d-flex flex-column">
+
+                <span class="badge text-bg-warning align-self-start mb-3">
+                    Level 1
+                </span>
+
+                <h3 class="h5">
+                    Delete Payroll History
+                </h3>
+
+                <p class="text-muted">
+                    Removes payroll records, payslips, email history and
+                    audit history. Payroll periods and recurring employee
+                    configuration remain.
+                </p>
+
+                <div class="small mb-4">
+                    <div class="d-flex justify-content-between">
+                        <span>Payroll records</span>
+                        <strong>{{ preview.payroll_records }}</strong>
+                    </div>
+
+                    <div class="d-flex justify-content-between">
+                        <span>Payslips</span>
+                        <strong>{{ preview.payslips }}</strong>
+                    </div>
+
+                    <div class="d-flex justify-content-between">
+                        <span>Email history</span>
+                        <strong>{{ preview.email_deliveries }}</strong>
+                    </div>
+
+                    <div class="d-flex justify-content-between">
+                        <span>Audit logs</span>
+                        <strong>{{ preview.audit_logs }}</strong>
+                    </div>
+                </div>
+
+                <button
+                    type="button"
+                    class="btn btn-warning mt-auto"
+                    data-bs-toggle="modal"
+                    data-bs-target="#historyResetModal"
+                >
+                    Review Level 1 Reset
+                </button>
+
+            </div>
+        </div>
+    </div>
+
+    <div class="col-xl-4">
+        <div class="app-card h-100 border border-danger-subtle">
+            <div class="card-body p-4 d-flex flex-column">
+
+                <span class="badge text-bg-danger align-self-start mb-3">
+                    Level 2
+                </span>
+
+                <h3 class="h5">
+                    Delete Payroll Configuration
+                </h3>
+
+                <p class="text-muted">
+                    Removes recurring employee allowances and deductions.
+                    Employees and existing payroll history remain.
+                </p>
+
+                <div class="small mb-4">
+                    <div class="d-flex justify-content-between">
+                        <span>Recurring allowances</span>
+                        <strong>{{ preview.recurring_allowances }}</strong>
+                    </div>
+
+                    <div class="d-flex justify-content-between">
+                        <span>Recurring deductions</span>
+                        <strong>{{ preview.recurring_deductions }}</strong>
+                    </div>
+                </div>
+
+                <button
+                    type="button"
+                    class="btn btn-outline-danger mt-auto"
+                    data-bs-toggle="modal"
+                    data-bs-target="#configurationResetModal"
+                >
+                    Review Level 2 Reset
+                </button>
+
+            </div>
+        </div>
+    </div>
+
+    <div class="col-xl-4">
+        <div class="app-card h-100 border border-danger">
+            <div class="card-body p-4 d-flex flex-column">
+
+                <span class="badge text-bg-dark align-self-start mb-3">
+                    Level 3 — Critical
+                </span>
+
+                <h3 class="h5">
+                    Payroll Factory Reset
+                </h3>
+
+                <p class="text-muted">
+                    Removes the entire payroll domain while preserving
+                    employees, departments, users and company settings.
+                </p>
+
+                <div class="small mb-4">
+                    <div class="d-flex justify-content-between">
+                        <span>Payroll years</span>
+                        <strong>{{ preview.payroll_years }}</strong>
+                    </div>
+
+                    <div class="d-flex justify-content-between">
+                        <span>Payroll periods</span>
+                        <strong>{{ preview.payroll_periods }}</strong>
+                    </div>
+
+                    <div class="d-flex justify-content-between">
+                        <span>Payroll records</span>
+                        <strong>{{ preview.payroll_records }}</strong>
+                    </div>
+
+                    <div class="d-flex justify-content-between">
+                        <span>Payslips</span>
+                        <strong>{{ preview.payslips }}</strong>
+                    </div>
+                </div>
+
+                <button
+                    type="button"
+                    class="btn btn-danger mt-auto"
+                    data-bs-toggle="modal"
+                    data-bs-target="#factoryResetModal"
+                >
+                    Review Critical Reset
+                </button>
+
+            </div>
+        </div>
+    </div>
+
+</div>
+
+
+{% macro reset_modal(
+    modal_id,
+    label_id,
+    title,
+    subtitle,
+    form,
+    action_url,
+    expected_phrase,
+    delete_items,
+    remain_items,
+    button_class
+) %}
+
+<div
+    class="modal fade"
+    id="{{ modal_id }}"
+    tabindex="-1"
+    aria-labelledby="{{ label_id }}"
+    aria-hidden="true"
+>
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+        <div class="modal-content">
+
+            <form
+                method="POST"
+                action="{{ action_url }}"
+                data-reset-form
+                data-expected-phrase="{{ expected_phrase }}"
+            >
+                {{ form.hidden_tag() }}
+
+                <div class="modal-header">
+                    <div>
+                        <h2
+                            class="modal-title h5"
+                            id="{{ label_id }}"
+                        >
+                            {{ title }}
+                        </h2>
+
+                        <small class="text-muted">
+                            {{ subtitle }}
+                        </small>
+                    </div>
+
+                    <button
+                        type="button"
+                        class="btn-close"
+                        data-bs-dismiss="modal"
+                        aria-label="Close"
+                    ></button>
+                </div>
+
+                <div class="modal-body p-4">
+
+                    <div class="row g-4">
+
+                        <div class="col-lg-6">
+                            <div
+                                class="
+                                    border
+                                    border-danger
+                                    rounded
+                                    p-3
+                                    h-100
+                                "
+                            >
+                                <h3 class="h6 text-danger">
+                                    <i class="bi bi-trash me-1"></i>
+                                    Will be permanently deleted
+                                </h3>
+
+                                <ul class="mb-0">
+                                    {% for item in delete_items %}
+                                        <li>{{ item }}</li>
+                                    {% endfor %}
+                                </ul>
+                            </div>
+                        </div>
+
+                        <div class="col-lg-6">
+                            <div
+                                class="
+                                    border
+                                    border-success
+                                    rounded
+                                    p-3
+                                    h-100
+                                "
+                            >
+                                <h3 class="h6 text-success">
+                                    <i class="bi bi-shield-check me-1"></i>
+                                    Will remain
+                                </h3>
+
+                                <ul class="mb-0">
+                                    {% for item in remain_items %}
+                                        <li>{{ item }}</li>
+                                    {% endfor %}
+                                </ul>
+                            </div>
+                        </div>
+
+                    </div>
+
+                    <div class="alert alert-warning mt-4 mb-4">
+                        <div class="fw-semibold mb-2">
+                            To continue, type this exact phrase:
+                        </div>
+
+                        <div
+                            class="
+                                d-flex
+                                flex-wrap
+                                align-items-center
+                                justify-content-between
+                                gap-2
+                            "
+                        >
+                            <code
+                                class="
+                                    fs-6
+                                    fw-bold
+                                    text-dark
+                                    bg-white
+                                    border
+                                    rounded
+                                    px-3
+                                    py-2
+                                "
+                            >
+                                {{ expected_phrase }}
+                            </code>
+
+                            <button
+                                type="button"
+                                class="btn btn-sm btn-outline-dark"
+                                data-copy-phrase="{{ expected_phrase }}"
+                            >
+                                <i class="bi bi-clipboard me-1"></i>
+                                Copy phrase
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label
+                            for="{{ form.confirmation_phrase.id }}"
+                            class="form-label fw-semibold"
+                        >
+                            Type the confirmation phrase here
+                        </label>
+
+                        {{
+                            form.confirmation_phrase(
+                                class="form-control",
+                                placeholder=expected_phrase,
+                                autocomplete="off",
+                                spellcheck="false",
+                                **{
+                                    "data-confirmation-input": ""
+                                }
+                            )
+                        }}
+
+                        <div
+                            class="form-text text-muted"
+                            data-phrase-feedback
+                        >
+                            The phrase must match exactly, including spaces.
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label
+                            for="{{ form.current_password.id }}"
+                            class="form-label fw-semibold"
+                        >
+                            Current Administrator Password
+                        </label>
+
+                        {{
+                            form.current_password(
+                                class="form-control",
+                                placeholder=(
+                                    "Enter your current "
+                                    "administrator password"
+                                ),
+                                autocomplete="current-password",
+                                **{
+                                    "data-password-input": ""
+                                }
+                            )
+                        }}
+                    </div>
+
+                    <div class="form-check">
+                        {{
+                            form.acknowledge(
+                                class="form-check-input",
+                                **{
+                                    "data-acknowledge": ""
+                                }
+                            )
+                        }}
+
+                        {{
+                            form.acknowledge.label(
+                                class="form-check-label"
+                            )
+                        }}
+                    </div>
+
+                </div>
+
+                <div class="modal-footer">
+                    <button
+                        type="button"
+                        class="btn btn-outline-secondary"
+                        data-bs-dismiss="modal"
+                    >
+                        Cancel
+                    </button>
+
+                    {{
+                        form.submit(
+                            class=button_class,
+                            disabled=True,
+                            **{
+                                "data-destructive-submit": ""
+                            }
+                        )
+                    }}
+                </div>
+
+            </form>
+
+        </div>
+    </div>
+</div>
+
+{% endmacro %}
+
+
+{{ reset_modal(
+    "historyResetModal",
+    "historyResetModalLabel",
+    "Level 1 — Delete Payroll History",
+    (
+        "Payroll periods and recurring employee "
+        "configuration will remain."
+    ),
+    history_form,
+    url_for("settings.reset_payroll_history"),
+    "DELETE PAYROLL HISTORY",
+    [
+        preview.payroll_records ~ " payroll record(s)",
+        (
+            preview.historical_allowances
+            ~ " historical allowance line(s)"
+        ),
+        (
+            preview.historical_deductions
+            ~ " historical deduction line(s)"
+        ),
+        (
+            preview.payslips
+            ~ " payslip record(s) and generated PDFs"
+        ),
+        (
+            preview.email_deliveries
+            ~ " email delivery record(s)"
+        ),
+        preview.audit_logs ~ " existing audit log(s)"
+    ],
+    [
+        "Payroll periods",
+        "Employees and banking details",
+        "Departments",
+        "Users and roles",
+        "Company settings and logo",
+        "Allowance and deduction types",
+        "Recurring employee assignments",
+        "Statutory rules and PAYE bands"
+    ],
+    "btn btn-warning"
+) }}
+
+
+{{ reset_modal(
+    "configurationResetModal",
+    "configurationResetModalLabel",
+    "Level 2 — Delete Payroll Configuration",
+    "Existing payroll history will remain.",
+    configuration_form,
+    url_for("settings.reset_payroll_configuration"),
+    "DELETE PAYROLL CONFIGURATION",
+    [
+        (
+            preview.recurring_allowances
+            ~ " recurring employee allowance assignment(s)"
+        ),
+        (
+            preview.recurring_deductions
+            ~ " recurring employee deduction assignment(s)"
+        ),
+        "Assignment amounts, percentages, dates and notes"
+    ],
+    [
+        "Employees and departments",
+        "Users and company settings",
+        "Allowance and deduction type definitions",
+        "Payroll periods and records",
+        "Payslips and email history",
+        "Statutory rules and PAYE bands"
+    ],
+    "btn btn-danger"
+) }}
+
+
+{{ reset_modal(
+    "factoryResetModal",
+    "factoryResetModalLabel",
+    "Level 3 — Payroll Factory Reset",
+    "Critical and irreversible payroll-domain reset.",
+    factory_form,
+    url_for("settings.reset_payroll_factory"),
+    "FACTORY RESET PAYROLL",
+    [
+        preview.payroll_years ~ " payroll year(s)",
+        preview.payroll_periods ~ " payroll period(s)",
+        preview.payroll_records ~ " payroll record(s)",
+        "Historical allowances and deductions",
+        (
+            preview.payslips
+            ~ " payslip record(s) and generated PDFs"
+        ),
+        (
+            preview.email_deliveries
+            ~ " email delivery record(s)"
+        ),
+        "All recurring employee allowances and deductions",
+        preview.audit_logs ~ " existing audit log(s)"
+    ],
+    [
+        "Employees and personal details",
+        "Employee banking information",
+        "Departments",
+        "User accounts, passwords and roles",
+        "Company settings, branding and logo",
+        "Allowance type definitions",
+        "Deduction type definitions",
+        "Statutory rules and PAYE tax bands"
+    ],
+    "btn btn-danger"
+) }}
+
+
+<script>
+document.addEventListener(
+    "DOMContentLoaded",
+    function () {
+
+        document
+            .querySelectorAll(
+                "[data-copy-phrase]"
+            )
+            .forEach(
+                function (button) {
+
+                    button.addEventListener(
+                        "click",
+                        async function () {
+
+                            const phrase = (
+                                button.dataset.copyPhrase
+                                || ""
+                            );
+
+                            try {
+                                await navigator
+                                    .clipboard
+                                    .writeText(
+                                        phrase
+                                    );
+
+                                const originalContent = (
+                                    button.innerHTML
+                                );
+
+                                button.innerHTML = (
+                                    '<i class="bi '
+                                    + 'bi-check2 me-1"></i>'
+                                    + 'Copied'
+                                );
+
+                                setTimeout(
+                                    function () {
+                                        button.innerHTML = (
+                                            originalContent
+                                        );
+                                    },
+                                    1500
+                                );
+
+                            } catch (error) {
+                                window.prompt(
+                                    (
+                                        "Copy this "
+                                        + "confirmation phrase:"
+                                    ),
+                                    phrase
+                                );
+                            }
+                        }
+                    );
+                }
+            );
+
+
+        document
+            .querySelectorAll(
+                "[data-reset-form]"
+            )
+            .forEach(
+                function (form) {
+
+                    const expectedPhrase = (
+                        form.dataset.expectedPhrase
+                        || ""
+                    );
+
+                    const phraseInput = (
+                        form.querySelector(
+                            "[data-confirmation-input]"
+                        )
+                    );
+
+                    const passwordInput = (
+                        form.querySelector(
+                            "[data-password-input]"
+                        )
+                    );
+
+                    const acknowledgement = (
+                        form.querySelector(
+                            "[data-acknowledge]"
+                        )
+                    );
+
+                    const submitButton = (
+                        form.querySelector(
+                            "[data-destructive-submit]"
+                        )
+                    );
+
+                    const feedback = (
+                        form.querySelector(
+                            "[data-phrase-feedback]"
+                        )
+                    );
+
+
+                    function updateSubmitState() {
+
+                        const phraseMatches = (
+                            phraseInput
+                                .value
+                                .trim()
+                            === expectedPhrase
+                        );
+
+                        const passwordEntered = (
+                            passwordInput
+                                .value
+                                .trim()
+                                .length
+                            > 0
+                        );
+
+                        const acknowledged = (
+                            acknowledgement.checked
+                        );
+
+
+                        phraseInput
+                            .classList
+                            .toggle(
+                                "is-valid",
+                                phraseMatches
+                            );
+
+                        phraseInput
+                            .classList
+                            .toggle(
+                                "is-invalid",
+                                (
+                                    phraseInput
+                                        .value
+                                        .length
+                                    > 0
+                                    && !phraseMatches
+                                )
+                            );
+
+
+                        if (phraseMatches) {
+
+                            feedback.textContent = (
+                                "Confirmation phrase "
+                                + "matches."
+                            );
+
+                            feedback
+                                .classList
+                                .remove(
+                                    "text-muted",
+                                    "text-danger"
+                                );
+
+                            feedback
+                                .classList
+                                .add(
+                                    "text-success"
+                                );
+
+                        } else {
+
+                            feedback.textContent = (
+                                "The phrase must match "
+                                + "exactly, including spaces."
+                            );
+
+                            feedback
+                                .classList
+                                .remove(
+                                    "text-success"
+                                );
+
+                            feedback
+                                .classList
+                                .add(
+                                    "text-muted"
+                                );
+                        }
+
+
+                        submitButton.disabled = !(
+                            phraseMatches
+                            && passwordEntered
+                            && acknowledged
+                        );
+                    }
+
+
+                    phraseInput.addEventListener(
+                        "input",
+                        updateSubmitState
+                    );
+
+                    passwordInput.addEventListener(
+                        "input",
+                        updateSubmitState
+                    );
+
+                    acknowledgement.addEventListener(
+                        "change",
+                        updateSubmitState
+                    );
+
+
+                    form.addEventListener(
+                        "submit",
+                        function (event) {
+
+                            const confirmed = (
+                                window.confirm(
+                                    (
+                                        "This operation is "
+                                        + "permanent and cannot "
+                                        + "be undone. Proceed "
+                                        + "with the selected "
+                                        + "payroll reset?"
+                                    )
+                                )
+                            );
+
+                            if (!confirmed) {
+                                event.preventDefault();
+                            }
+                        }
+                    );
+
+
+                    const modal = (
+                        form.closest(
+                            ".modal"
+                        )
+                    );
+
+                    if (modal) {
+                        modal.addEventListener(
+                            "hidden.bs.modal",
+                            function () {
+
+                                form.reset();
+
+                                phraseInput
+                                    .classList
+                                    .remove(
+                                        "is-valid",
+                                        "is-invalid"
+                                    );
+
+                                feedback.textContent = (
+                                    "The phrase must match "
+                                    + "exactly, including spaces."
+                                );
+
+                                feedback
+                                    .classList
+                                    .remove(
+                                        "text-success",
+                                        "text-danger"
+                                    );
+
+                                feedback
+                                    .classList
+                                    .add(
+                                        "text-muted"
+                                    );
+
+                                submitButton.disabled = (
+                                    true
+                                );
+                            }
+                        );
+                    }
+                }
+            );
+    }
+);
+</script>
+
+{% endblock %}

@@ -6,10 +6,11 @@ from app.extensions import db
 
 class StatutoryRuleSet(db.Model):
     """
-    Stores effective-dated statutory payroll configuration.
+    Store effective-dated operational statutory payroll configuration.
 
-    A rule set represents the statutory rates applicable to one
-    currency during a defined period.
+    Library-import provenance is retained so installed packages can
+    be distinguished from manually created rule sets and compared
+    with newer library versions.
     """
 
     __tablename__ = "statutory_rule_sets"
@@ -79,6 +80,61 @@ class StatutoryRuleSet(db.Model):
         index=True,
     )
 
+    source_preset_id = db.Column(
+        db.Integer,
+        db.ForeignKey(
+            "statutory_presets.id",
+            ondelete="SET NULL",
+        ),
+        nullable=True,
+        index=True,
+    )
+
+    source_preset_key = db.Column(
+        db.String(120),
+        nullable=True,
+        index=True,
+    )
+
+    source_preset_version = db.Column(
+        db.String(50),
+        nullable=True,
+    )
+
+    source_engine_type = db.Column(
+        db.String(80),
+        nullable=True,
+        index=True,
+    )
+
+    source_country_code = db.Column(
+        db.String(2),
+        nullable=True,
+        index=True,
+    )
+
+    imported_from_library = db.Column(
+        db.Boolean,
+        nullable=False,
+        default=False,
+        index=True,
+    )
+
+    imported_at = db.Column(
+        db.DateTime,
+        nullable=True,
+    )
+
+    imported_by_user_id = db.Column(
+        db.Integer,
+        db.ForeignKey(
+            "users.id",
+            ondelete="SET NULL",
+        ),
+        nullable=True,
+        index=True,
+    )
+
     created_at = db.Column(
         db.DateTime,
         nullable=False,
@@ -98,6 +154,18 @@ class StatutoryRuleSet(db.Model):
         lazy="select",
         cascade="all, delete-orphan",
         order_by="TaxBand.band_order",
+    )
+
+    source_preset = db.relationship(
+        "StatutoryPreset",
+        foreign_keys=[source_preset_id],
+        lazy="select",
+    )
+
+    imported_by_user = db.relationship(
+        "User",
+        foreign_keys=[imported_by_user_id],
+        lazy="select",
     )
 
     __table_args__ = (
@@ -135,16 +203,34 @@ class StatutoryRuleSet(db.Model):
 
     @property
     def display_name(self):
-        """Return a readable rule-set label."""
-
         return (
             f"{self.name} - {self.currency} "
             f"({self.effective_from:%d %b %Y})"
         )
 
-    def applies_on(self, calculation_date):
-        """Return True when this rule set applies on a date."""
+    @property
+    def installed_version_label(self):
+        return (
+            self.source_preset_version
+            if self.imported_from_library
+            else None
+        )
 
+    @property
+    def has_library_update(self):
+        if (
+            not self.imported_from_library
+            or self.source_preset is None
+            or not self.source_preset_version
+        ):
+            return False
+
+        return (
+            str(self.source_preset.version)
+            != str(self.source_preset_version)
+        )
+
+    def applies_on(self, calculation_date):
         if not isinstance(calculation_date, date):
             raise TypeError(
                 "Calculation date must be a date object."
@@ -165,5 +251,6 @@ class StatutoryRuleSet(db.Model):
         return (
             f"<StatutoryRuleSet "
             f"name={self.name!r} "
-            f"currency={self.currency!r}>"
+            f"currency={self.currency!r} "
+            f"source_preset_key={self.source_preset_key!r}>"
         )

@@ -115,6 +115,49 @@ Settings
                     Deduction Types
                 </button>
             </li>
+
+            <li class="nav-item">
+    <a
+        class="nav-link"
+        href="{{ url_for('settings.statutory_library') }}"
+    >
+        <i class="bi bi-database me-2"></i>
+        Statutory Library
+    </a>
+</li>
+
+<li class="nav-item">
+    <a
+        class="nav-link"
+        href="{{ url_for('settings.statutory_index') }}"
+    >
+        <i class="bi bi-percent me-2"></i>
+        Operational Rules
+    </a>
+</li> 
+
+<li class="nav-item">
+    <a
+        class="nav-link"
+        href="{{ url_for('settings.statutory_update_centre') }}"
+    >
+        <i class="bi bi-arrow-repeat me-2"></i>
+        Update Centre
+    </a>
+</li>
+
+
+            <li class="nav-item">
+                <a
+                    class="nav-link text-danger"
+                    href="{{ url_for(
+                        'settings.payroll_reset_index'
+                    ) }}"
+                >
+                    <i class="bi bi-exclamation-octagon me-2"></i>
+                    Payroll Reset
+                </a>
+            </li>
         </ul>
 
     </div>
