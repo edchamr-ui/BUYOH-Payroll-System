@@ -14,9 +14,11 @@ from flask_login import (
     login_required,
 )
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import selectinload
 
 from app.extensions import db
 from app.models import (
+    Employee,
     PayrollPeriod,
     PayrollYear,
 )
@@ -109,16 +111,156 @@ def get_open_payroll_year(year):
 @payroll_periods_bp.route("/")
 @login_required
 def list_periods():
-    """Display all payroll periods."""
+    """Display the payroll operations dashboard."""
 
-    periods = PayrollPeriod.query.order_by(
-        PayrollPeriod.year.desc(),
-        PayrollPeriod.month.desc(),
-    ).all()
+    periods = (
+        PayrollPeriod.query
+        .options(
+            selectinload(
+                PayrollPeriod.payroll_records
+            )
+        )
+        .order_by(
+            PayrollPeriod.year.desc(),
+            PayrollPeriod.month.desc(),
+        )
+        .all()
+    )
+
+    period_rows = []
+    total_gross_payroll = 0
+    total_net_payroll = 0
+    total_payslips = 0
+    total_payroll_records = 0
+
+    workflow_map = {
+        "Draft": {
+            "label": "Ready for processing",
+            "button": "Process Payroll",
+            "icon": "play-circle",
+            "button_class": "btn-primary",
+        },
+        "Processing": {
+            "label": "Processing in progress",
+            "button": "Continue Processing",
+            "icon": "hourglass-split",
+            "button_class": "btn-warning",
+        },
+        "Processed": {
+            "label": "Awaiting review",
+            "button": "Review Payroll",
+            "icon": "clipboard-check",
+            "button_class": "btn-outline-primary",
+        },
+        "Approved": {
+            "label": "Ready to lock",
+            "button": "Open and Lock",
+            "icon": "lock",
+            "button_class": "btn-outline-success",
+        },
+        "Paid": {
+            "label": "Payment completed",
+            "button": "View Register",
+            "icon": "cash-coin",
+            "button_class": "btn-outline-success",
+        },
+        "Locked": {
+            "label": "Completed and protected",
+            "button": "View Register",
+            "icon": "eye",
+            "button_class": "btn-outline-dark",
+        },
+    }
+
+    for period in periods:
+        records = list(
+            period.payroll_records or []
+        )
+
+        employee_count = len(records)
+
+        gross_payroll = sum(
+            record.gross_pay or 0
+            for record in records
+        )
+
+        net_payroll = sum(
+            record.net_pay or 0
+            for record in records
+        )
+
+        payslip_count = sum(
+            1
+            for record in records
+            if record.payslip is not None
+        )
+
+        total_gross_payroll += gross_payroll
+        total_net_payroll += net_payroll
+        total_payslips += payslip_count
+        total_payroll_records += employee_count
+
+        workflow = workflow_map.get(
+            period.status,
+            {
+                "label": "Review payroll status",
+                "button": "Open Payroll",
+                "icon": "cash-stack",
+                "button_class": "btn-outline-primary",
+            },
+        )
+
+        period_rows.append(
+            {
+                "period": period,
+                "employee_count": employee_count,
+                "gross_payroll": gross_payroll,
+                "net_payroll": net_payroll,
+                "payslip_count": payslip_count,
+                "workflow": workflow,
+            }
+        )
+
+    dashboard = {
+        "payroll_years": PayrollYear.query.count(),
+        "active_employees": (
+            Employee.query
+            .filter(
+                Employee.is_active.is_(True)
+            )
+            .count()
+        ),
+        "total_periods": len(periods),
+        "draft_periods": sum(
+            1
+            for period in periods
+            if period.status == "Draft"
+        ),
+        "processed_periods": sum(
+            1
+            for period in periods
+            if period.status == "Processed"
+        ),
+        "approved_periods": sum(
+            1
+            for period in periods
+            if period.status == "Approved"
+        ),
+        "locked_periods": sum(
+            1
+            for period in periods
+            if period.status == "Locked"
+        ),
+        "total_payroll_records": total_payroll_records,
+        "total_payslips": total_payslips,
+        "total_gross_payroll": total_gross_payroll,
+        "total_net_payroll": total_net_payroll,
+    }
 
     return render_template(
         "payroll_periods/list.html",
-        periods=periods,
+        period_rows=period_rows,
+        dashboard=dashboard,
         month_name=month_name,
     )
 

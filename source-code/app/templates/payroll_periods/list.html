@@ -1,190 +1,329 @@
 {% extends "base.html" %}
 
 {% block title %}
-Payroll Periods | BUYOH Payroll
+Payroll Operations | BUYOH Payroll
 {% endblock %}
 
 {% block page_title %}
-Payroll Periods
+Payroll Operations
 {% endblock %}
 
 {% block content %}
 
 <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
-
     <div>
-        <h2 class="h3 mb-1">
-            Payroll Period Management
-        </h2>
-
+        <h2 class="h3 mb-1">Payroll Operations Dashboard</h2>
         <p class="text-muted mb-0">
-            Create and manage monthly payroll cycles.
+            Monitor employees, payroll values, payslips and monthly workflow progress.
         </p>
     </div>
 
     <div class="d-flex flex-wrap gap-2">
-
-        <a
-            href="{{ url_for('payroll.payroll_years') }}"
-            class="btn btn-primary"
-        >
+        <a href="{{ url_for('payroll.payroll_years') }}" class="btn btn-primary">
             <i class="bi bi-calendar3 me-2"></i>
             Payroll Years
         </a>
 
-        <a
-            href="{{ url_for('payroll_periods.add_period') }}"
-            class="btn btn-outline-primary"
-        >
+        <a href="{{ url_for('payroll_periods.add_period') }}" class="btn btn-outline-primary">
             <i class="bi bi-calendar-plus me-2"></i>
             Add Individual Period
         </a>
-
     </div>
-
 </div>
 
-<div class="app-card">
+<div class="row g-3 mb-4">
+    <div class="col-sm-6 col-xl-2">
+        <div class="app-card h-100"><div class="card-body p-4">
+            <div class="small text-muted mb-2">Payroll Years</div>
+            <div class="h3 mb-0">{{ dashboard.payroll_years }}</div>
+        </div></div>
+    </div>
 
-    <div class="card-body p-0">
+    <div class="col-sm-6 col-xl-2">
+        <div class="app-card h-100"><div class="card-body p-4">
+            <div class="small text-muted mb-2">Active Employees</div>
+            <div class="h3 mb-0">{{ dashboard.active_employees }}</div>
+        </div></div>
+    </div>
 
-        {% if periods %}
+    <div class="col-sm-6 col-xl-2">
+        <div class="app-card h-100"><div class="card-body p-4">
+            <div class="small text-muted mb-2">Draft Periods</div>
+            <div class="h3 mb-0">{{ dashboard.draft_periods }}</div>
+        </div></div>
+    </div>
 
-            <div class="table-responsive">
+    <div class="col-sm-6 col-xl-2">
+        <div class="app-card h-100"><div class="card-body p-4">
+            <div class="small text-muted mb-2">Approved</div>
+            <div class="h3 mb-0">{{ dashboard.approved_periods }}</div>
+        </div></div>
+    </div>
 
-                <table class="table table-hover align-middle mb-0">
+    <div class="col-sm-6 col-xl-2">
+        <div class="app-card h-100"><div class="card-body p-4">
+            <div class="small text-muted mb-2">Locked</div>
+            <div class="h3 mb-0">{{ dashboard.locked_periods }}</div>
+        </div></div>
+    </div>
 
-                    <thead class="table-light">
+    <div class="col-sm-6 col-xl-2">
+        <div class="app-card h-100"><div class="card-body p-4">
+            <div class="small text-muted mb-2">Gross Payroll</div>
+            <div class="fs-5 fw-bold">
+                {{ "{:,.2f}".format(dashboard.total_gross_payroll or 0) }}
+            </div>
+        </div></div>
+    </div>
+</div>
+
+<div class="row g-3 mb-4">
+    <div class="col-md-4">
+        <div class="app-card h-100"><div class="card-body p-4">
+            <div class="small text-muted mb-2">Payroll Records</div>
+            <div class="h4 mb-0">{{ dashboard.total_payroll_records }}</div>
+        </div></div>
+    </div>
+
+    <div class="col-md-4">
+        <div class="app-card h-100"><div class="card-body p-4">
+            <div class="small text-muted mb-2">Payslips Generated</div>
+            <div class="h4 mb-0">{{ dashboard.total_payslips }}</div>
+        </div></div>
+    </div>
+
+    <div class="col-md-4">
+        <div class="app-card h-100"><div class="card-body p-4">
+            <div class="small text-muted mb-2">Net Payroll</div>
+            <div class="h4 mb-0">
+                {{ "{:,.2f}".format(dashboard.total_net_payroll or 0) }}
+            </div>
+        </div></div>
+    </div>
+</div>
+
+<div class="app-card overflow-hidden">
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 px-4 py-3 border-bottom">
+        <div>
+            <h3 class="h5 mb-1">Monthly Payroll Cycles</h3>
+            <p class="text-muted mb-0">Draft → Processed → Approved → Locked</p>
+        </div>
+        <span class="badge text-bg-light border">
+            {{ dashboard.total_periods }} period{% if dashboard.total_periods != 1 %}s{% endif %}
+        </span>
+    </div>
+
+    {% if period_rows %}
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th class="px-4 py-3">Payroll Period</th>
+                        <th class="text-end py-3">Employees</th>
+                        <th class="text-end py-3">Gross Payroll</th>
+                        <th class="text-end py-3">Net Payroll</th>
+                        <th class="text-end py-3">Payslips</th>
+                        <th class="py-3">Status</th>
+                        <th class="py-3">Workflow</th>
+                        <th class="text-end px-4 py-3">Actions</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+                    {% for row in period_rows %}
+                        {% set period = row.period %}
+                        {% set badge = {
+                            "Draft": "secondary",
+                            "Processing": "warning",
+                            "Processed": "primary",
+                            "Approved": "success",
+                            "Paid": "success",
+                            "Locked": "dark"
+                        } %}
 
                         <tr>
-                            <th class="px-4 py-3">Period</th>
-                            <th class="py-3">Dates</th>
-                            <th class="py-3">Payment Date</th>
-                            <th class="py-3">Status</th>
-                            <th class="text-end px-4 py-3">Actions</th>
-                        </tr>
+                            <td class="px-4">
+                                <div class="fw-semibold">{{ period.period_name }}</div>
+                                <div class="small text-muted">
+                                    {{ period.start_date.strftime("%d %b") }}
+                                    –
+                                    {{ period.end_date.strftime("%d %b %Y") }}
+                                </div>
+                                <div class="small text-muted">
+                                    Payment: {{ period.payment_date.strftime("%d %b %Y") }}
+                                </div>
+                            </td>
 
-                    </thead>
+                            <td class="text-end">
+                                <div class="fw-semibold">{{ row.employee_count }}</div>
+                                <div class="small text-muted">processed</div>
+                            </td>
 
-                    <tbody>
+                            <td class="text-end">
+                                {% if row.employee_count %}
+                                    <div class="fw-semibold">
+                                        {{ "{:,.2f}".format(row.gross_payroll or 0) }}
+                                    </div>
+                                {% else %}
+                                    <span class="text-muted">—</span>
+                                {% endif %}
+                            </td>
 
-                        {% for period in periods %}
+                            <td class="text-end">
+                                {% if row.employee_count %}
+                                    <div class="fw-semibold">
+                                        {{ "{:,.2f}".format(row.net_payroll or 0) }}
+                                    </div>
+                                {% else %}
+                                    <span class="text-muted">—</span>
+                                {% endif %}
+                            </td>
 
-                        <tr>
-
-                            <td class="px-4 fw-semibold">
-                                {{ month_name[period.month] }}
-                                {{ period.year }}
+                            <td class="text-end">
+                                <div class="fw-semibold">{{ row.payslip_count }}</div>
+                                {% if row.employee_count %}
+                                    <div class="small text-muted">of {{ row.employee_count }}</div>
+                                {% endif %}
                             </td>
 
                             <td>
-                                {{ period.start_date.strftime("%d %b %Y") }}
-                                –
-                                {{ period.end_date.strftime("%d %b %Y") }}
-                            </td>
-
-                            <td>
-                                {{ period.payment_date.strftime("%d %b %Y") }}
-                            </td>
-
-                            <td>
-
-                                {% set badge = {
-                                    "Draft": "secondary",
-                                    "Processing": "warning",
-                                    "Approved": "primary",
-                                    "Paid": "success",
-                                    "Locked": "dark"
-                                } %}
-
                                 <span class="badge text-bg-{{ badge.get(period.status, 'secondary') }}">
                                     {{ period.status }}
                                 </span>
+                            </td>
 
+                            <td style="min-width: 180px;">
+                                <div class="fw-semibold small">{{ row.workflow.label }}</div>
+                                <div class="small text-muted">
+                                    {% if period.status == "Draft" %}
+                                        Run payroll for active employees
+                                    {% elif period.status == "Processed" %}
+                                        Review totals before approval
+                                    {% elif period.status == "Approved" %}
+                                        Protect the completed payroll
+                                    {% elif period.status == "Locked" %}
+                                        Payroll is read-only
+                                    {% else %}
+                                        Open the payroll register
+                                    {% endif %}
+                                </div>
                             </td>
 
                             <td class="text-end px-4">
-
-                                <div class="d-inline-flex gap-2">
-
+                                <div class="d-inline-flex align-items-center gap-2">
                                     <a
                                         href="{{ url_for(
-                                            'payroll_periods.view_period',
+                                            'payroll.view_period_payroll',
                                             period_id=period.id
                                         ) }}"
-                                        class="btn btn-sm btn-outline-primary"
+                                        class="btn btn-sm {{ row.workflow.button_class }}"
                                     >
-                                        View
+                                        <i class="bi bi-{{ row.workflow.icon }} me-1"></i>
+                                        {{ row.workflow.button }}
                                     </a>
 
-                                    {% if period.status != "Locked" %}
+                                    <div class="dropdown">
+                                        <button
+                                            type="button"
+                                            class="btn btn-sm btn-outline-secondary dropdown-toggle"
+                                            data-bs-toggle="dropdown"
+                                            aria-expanded="false"
+                                        >
+                                            <i class="bi bi-three-dots-vertical"></i>
+                                        </button>
 
-                                    <a
-                                        href="{{ url_for(
-                                            'payroll_periods.edit_period',
-                                            period_id=period.id
-                                        ) }}"
-                                        class="btn btn-sm btn-outline-secondary"
-                                    >
-                                        Edit
-                                    </a>
+                                        <ul class="dropdown-menu dropdown-menu-end shadow-sm">
+                                            <li>
+                                                <a
+                                                    href="{{ url_for(
+                                                        'payroll.view_period_payroll',
+                                                        period_id=period.id
+                                                    ) }}"
+                                                    class="dropdown-item"
+                                                >
+                                                    <i class="bi bi-cash-stack me-2"></i>
+                                                    Payroll Register
+                                                </a>
+                                            </li>
 
-                                    {% endif %}
+                                            <li>
+                                                <a
+                                                    href="{{ url_for(
+                                                        'reports.payroll_summary',
+                                                        period_id=period.id
+                                                    ) }}"
+                                                    class="dropdown-item"
+                                                >
+                                                    <i class="bi bi-file-earmark-bar-graph me-2"></i>
+                                                    Payroll Summary
+                                                </a>
+                                            </li>
 
+                                            <li>
+                                                <a
+                                                    href="{{ url_for(
+                                                        'payroll_periods.view_period',
+                                                        period_id=period.id
+                                                    ) }}"
+                                                    class="dropdown-item"
+                                                >
+                                                    <i class="bi bi-calendar-event me-2"></i>
+                                                    Period Details
+                                                </a>
+                                            </li>
+
+                                            {% if period.status == "Draft" %}
+                                                <li>
+                                                    <a
+                                                        href="{{ url_for(
+                                                            'payroll_periods.edit_period',
+                                                            period_id=period.id
+                                                        ) }}"
+                                                        class="dropdown-item"
+                                                    >
+                                                        <i class="bi bi-pencil-square me-2"></i>
+                                                        Edit Period
+                                                    </a>
+                                                </li>
+                                            {% endif %}
+
+                                            {% if period.status in ["Approved", "Paid", "Locked"] %}
+                                                <li><hr class="dropdown-divider"></li>
+                                                <li>
+                                                    <a
+                                                        href="{{ url_for(
+                                                            'payroll.download_bulk_payslips',
+                                                            period_id=period.id
+                                                        ) }}"
+                                                        class="dropdown-item"
+                                                    >
+                                                        <i class="bi bi-file-earmark-pdf me-2"></i>
+                                                        Download All Payslips
+                                                    </a>
+                                                </li>
+                                            {% endif %}
+                                        </ul>
+                                    </div>
                                 </div>
-
                             </td>
-
                         </tr>
-
-                        {% endfor %}
-
-                    </tbody>
-
-                </table>
-
-            </div>
-
-        {% else %}
-
-            <div class="text-center py-5">
-
-                <i class="bi bi-calendar3 fs-1 text-muted"></i>
-
-                <h3 class="h5 mt-3">
-                    No payroll periods found
-                </h3>
-
-                <p class="text-muted mb-4">
-                    Create your payroll year first to automatically generate all twelve payroll periods.
-                </p>
-
-                <div class="d-flex justify-content-center gap-2">
-
-                    <a
-                        href="{{ url_for('payroll.payroll_years') }}"
-                        class="btn btn-primary"
-                    >
-                        <i class="bi bi-calendar3 me-2"></i>
-                        Payroll Years
-                    </a>
-
-                    <a
-                        href="{{ url_for('payroll_periods.add_period') }}"
-                        class="btn btn-outline-primary"
-                    >
-                        <i class="bi bi-calendar-plus me-2"></i>
-                        Add Individual Period
-                    </a>
-
-                </div>
-
-            </div>
-
-        {% endif %}
-
-    </div>
-
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% else %}
+        <div class="text-center py-5 px-4">
+            <i class="bi bi-calendar3 fs-1 text-muted"></i>
+            <h3 class="h5 mt-3">No payroll periods found</h3>
+            <p class="text-muted mb-4">
+                Create a payroll year to generate all twelve monthly payroll periods.
+            </p>
+            <a href="{{ url_for('payroll.create_payroll_year') }}" class="btn btn-primary">
+                <i class="bi bi-calendar-plus me-2"></i>
+                Create Payroll Year
+            </a>
+        </div>
+    {% endif %}
 </div>
 
 {% endblock %}

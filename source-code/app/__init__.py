@@ -88,6 +88,7 @@ def create_app():
     from app.email_deliveries import email_deliveries_bp
     from app.users import users_bp
     from app.settings import settings_bp
+    
 
     app.register_blueprint(auth_bp)
     app.register_blueprint(employees_bp)
@@ -100,6 +101,7 @@ def create_app():
     app.register_blueprint(email_deliveries_bp)
     app.register_blueprint(users_bp)
     app.register_blueprint(settings_bp)
+    
 
     @app.route("/")
     @login_required

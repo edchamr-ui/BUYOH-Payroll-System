@@ -27,7 +27,7 @@ from app.settings import reset_routes
 
 
 from app.settings import statutory_update_routes
-
+from app.settings import statutory_builder_routes
 
 from app.settings import statutory_adoption_routes
 

@@ -15,9 +15,20 @@ from sqlalchemy.exc import IntegrityError
 
 from app.auth.permissions import admin_required
 from app.extensions import db
-from app.models import StatutoryRuleSet
+from app.models import (
+    StatutoryPreset,
+    StatutoryRuleSet,
+)
 from app.services.audit_log_service import (
     AuditLogService,
+)
+from app.services.statutory_engines import (
+    StatutoryEngineRegistry,
+    StatutoryEngineRegistryError,
+)
+from app.services.statutory_rule_service import (
+    StatutoryRuleService,
+    StatutoryRuleServiceError,
 )
 from app.settings import settings_bp
 from app.settings.statutory_forms import (
@@ -32,110 +43,180 @@ from app.settings.statutory_helpers import (
 )
 
 
+def _friendly_engine_name(engine_key):
+    labels = {
+        "ZIMBABWE_PROGRESSIVE": "Progressive PAYE",
+        "ZAMBIA_PROGRESSIVE": "Progressive PAYE",
+        "BOTSWANA_PAYE": "Botswana PAYE",
+        "NAMIBIA_ANNUAL": "Namibia Annual Tax",
+        "SOUTH_AFRICA_REBATE": "PAYE with Rebates",
+        "KENYA_RELIEF": "PAYE with Reliefs",
+    }
+    key = str(engine_key or "").strip().upper()
+    return labels.get(key, key.replace("_", " ").title() or "Not configured")
+
+
+def _installed_rule_lookup():
+    return {
+        rule.source_preset_key: rule
+        for rule in (
+            StatutoryRuleSet.query
+            .filter(
+                StatutoryRuleSet.imported_from_library.is_(True),
+                StatutoryRuleSet.source_preset_key.isnot(None),
+            )
+            .order_by(
+                StatutoryRuleSet.imported_at.desc(),
+                StatutoryRuleSet.id.desc(),
+            )
+            .all()
+        )
+    }
+
+
+def _build_engine_dashboard_rows():
+    presets = (
+        StatutoryPreset.query
+        .filter(StatutoryPreset.is_published.is_(True))
+        .order_by(
+            StatutoryPreset.country_name.asc(),
+            StatutoryPreset.tax_year.desc(),
+            StatutoryPreset.currency.asc(),
+        )
+        .all()
+    )
+    installed = _installed_rule_lookup()
+    rows = []
+
+    for preset in presets:
+        rule = installed.get(preset.preset_key)
+        engine_registered = False
+        engine_class_name = None
+        configuration_valid = False
+        validation_errors = ()
+        validation_warnings = ()
+
+        try:
+            engine = StatutoryEngineRegistry.resolve(preset.engine_type)
+        except StatutoryEngineRegistryError as error:
+            validation_errors = (str(error),)
+        else:
+            engine_registered = True
+            engine_class_name = type(engine).__name__
+            if rule is not None:
+                try:
+                    config = StatutoryRuleService.to_configuration(rule)
+                    validation = engine.validate_configuration(config)
+                except (StatutoryRuleServiceError, ValueError, TypeError) as error:
+                    validation_errors = (str(error),)
+                else:
+                    configuration_valid = validation.valid
+                    validation_errors = validation.errors
+                    validation_warnings = validation.warnings
+
+        verified = str(preset.verification_status or '').strip().lower() == 'verified'
+        bands = list(preset.bands or [])
+        tax_bands_valid = bool(
+            (not preset.paye_enabled)
+            or (bands and bands[0].lower_limit == 0 and bands[-1].upper_limit is None)
+        )
+        payroll_ready = bool(
+            preset.supports_payroll
+            and verified
+            and engine_registered
+            and tax_bands_valid
+            and (rule is None or configuration_valid)
+        )
+
+        rows.append({
+            'preset': preset,
+            'rule_set': rule,
+            'country_flag': preset.country_flag or '🌐',
+            'country_name': preset.country_name,
+            'country_code': preset.country_code,
+            'currency': preset.currency,
+            'engine_name': _friendly_engine_name(preset.engine_type),
+            'engine_class_name': engine_class_name,
+            'engine_registered': engine_registered,
+            'tax_year': preset.tax_year,
+            'version': preset.version,
+            'verified': verified,
+            'tax_bands_valid': tax_bands_valid,
+            'configuration_valid': configuration_valid,
+            'payroll_ready': payroll_ready,
+            'validation_errors': validation_errors,
+            'validation_warnings': validation_warnings,
+        })
+
+    return rows
+
+
 @settings_bp.route(
     "/statutory",
 )
 @login_required
 @admin_required
 def statutory_index():
-    """Display operational statutory rule sets."""
+    """Display the enterprise statutory engine dashboard."""
 
-    currency_filter = request.args.get(
-        "currency",
-        "all",
-    ).strip().upper()
+    currency_filter = request.args.get("currency", "all").strip().upper()
+    status_filter = request.args.get("status", "all").strip().lower()
+    readiness_filter = request.args.get("readiness", "all").strip().lower()
+    search_term = request.args.get("q", "").strip().lower()
 
-    status_filter = request.args.get(
-        "status",
-        "all",
-    ).strip().lower()
+    all_rows = _build_engine_dashboard_rows()
+    engine_rows = []
 
-    query = StatutoryRuleSet.query
+    for row in all_rows:
+        rule = row["rule_set"]
 
-    if currency_filter != "ALL":
-        query = query.filter(
-            StatutoryRuleSet.currency
-            == currency_filter
-        )
+        if currency_filter != "ALL" and row["currency"] != currency_filter:
+            continue
+        if status_filter == "installed" and rule is None:
+            continue
+        if status_filter == "catalogue" and rule is not None:
+            continue
+        if status_filter == "active" and not (rule and rule.is_active):
+            continue
+        if status_filter == "inactive" and not (rule and not rule.is_active):
+            continue
+        if readiness_filter == "ready" and not row["payroll_ready"]:
+            continue
+        if readiness_filter == "pending" and row["payroll_ready"]:
+            continue
 
-    if status_filter == "active":
-        query = query.filter(
-            StatutoryRuleSet.is_active.is_(
-                True
-            )
-        )
+        if search_term:
+            haystack = " ".join([
+                row["country_name"],
+                row["country_code"],
+                row["currency"],
+                row["engine_name"],
+                str(row["tax_year"]),
+                str(row["version"]),
+                row["preset"].name,
+            ]).lower()
+            if search_term not in haystack:
+                continue
 
-    elif status_filter == "inactive":
-        query = query.filter(
-            StatutoryRuleSet.is_active.is_(
-                False
-            )
-        )
+        engine_rows.append(row)
 
-    rule_sets = (
-        query
-        .order_by(
-            StatutoryRuleSet.currency.asc(),
-            StatutoryRuleSet.effective_from.desc(),
-            StatutoryRuleSet.id.desc(),
-        )
-        .all()
-    )
-
-    available_currencies = [
-        currency
-        for (currency,) in (
-            StatutoryRuleSet.query
-            .with_entities(
-                StatutoryRuleSet.currency
-            )
-            .distinct()
-            .order_by(
-                StatutoryRuleSet.currency.asc()
-            )
-            .all()
-        )
-    ]
-
-    active_count = (
-        StatutoryRuleSet.query
-        .filter(
-            StatutoryRuleSet.is_active.is_(
-                True
-            )
-        )
-        .count()
-    )
-
-    paye_enabled_count = (
-        StatutoryRuleSet.query
-        .filter(
-            StatutoryRuleSet.paye_enabled.is_(
-                True
-            )
-        )
-        .count()
-    )
-
-    action_form = (
-        StatutoryActionForm()
-    )
+    action_form = StatutoryActionForm()
 
     return render_template(
         "settings/statutory/index.html",
-        rule_sets=rule_sets,
-        available_currencies=(
-            available_currencies
-        ),
+        engine_rows=engine_rows,
+        supported_countries=len({row["country_code"] for row in all_rows}),
+        total_packages=len(all_rows),
+        registered_engine_count=sum(row["engine_registered"] for row in all_rows),
+        installed_count=sum(row["rule_set"] is not None for row in all_rows),
+        active_count=sum(bool(row["rule_set"] and row["rule_set"].is_active) for row in all_rows),
+        payroll_ready_count=sum(row["payroll_ready"] for row in all_rows),
+        pending_count=sum(not row["payroll_ready"] for row in all_rows),
+        available_currencies=sorted({row["currency"] for row in all_rows}),
         currency_filter=currency_filter,
         status_filter=status_filter,
-        total_rule_sets=(
-            StatutoryRuleSet.query.count()
-        ),
-        active_count=active_count,
-        paye_enabled_count=(
-            paye_enabled_count
-        ),
+        readiness_filter=readiness_filter,
+        search_term=search_term,
         action_form=action_form,
     )
 

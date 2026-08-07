@@ -1,605 +1,73 @@
 {% extends "base.html" %}
 
-{% block title %}
-Operational Rules |
-{{ company_settings.display_name or "Payroll" }}
-{% endblock %}
-
-{% block page_title %}
-Operational Rules
-{% endblock %}
+{% block title %}Statutory Engines | {{ company_settings.display_name or "Payroll" }}{% endblock %}
+{% block page_title %}Statutory Engines{% endblock %}
 
 {% block content %}
-
-<div
-    class="
-        d-flex
-        flex-wrap
-        justify-content-between
-        align-items-center
-        gap-3
-        mb-4
-    "
->
-    <div>
-        <h2 class="h3 mb-1">
-            Operational Statutory Rules
-        </h2>
-
-        <p class="text-muted mb-0">
-            Manage the effective-dated statutory rule sets currently
-            used by payroll processing.
-        </p>
-    </div>
-
-    <div class="d-flex flex-wrap gap-2">
-
-        <a
-            href="{{ url_for('settings.index') }}"
-            class="btn btn-outline-secondary"
-        >
-            <i class="bi bi-arrow-left me-1"></i>
-            Settings
-        </a>
-
-        <a
-            href="{{ url_for(
-                'settings.statutory_library'
-            ) }}"
-            class="btn btn-outline-info"
-        >
-            <i class="bi bi-database me-2"></i>
-            Statutory Library
-        </a>
-
-        <a
-            href="{{ url_for(
-                'settings.create_statutory_rule'
-            ) }}"
-            class="btn btn-primary"
-        >
-            <i class="bi bi-plus-circle me-2"></i>
-            New Rule Set
-        </a>
-
-    </div>
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+  <div>
+    <h2 class="h3 mb-1">Enterprise Statutory Engine Dashboard</h2>
+    <p class="text-muted mb-0">Monitor country packages, calculation engines, verification and payroll readiness.</p>
+  </div>
+  <div class="d-flex flex-wrap gap-2">
+    <a href="{{ url_for('settings.index') }}" class="btn btn-outline-secondary"><i class="bi bi-arrow-left me-1"></i>Settings</a>
+    <a href="{{ url_for('settings.statutory_update_centre') }}" class="btn btn-outline-warning"><i class="bi bi-arrow-repeat me-2"></i>Update Centre</a>
+    <a href="{{ url_for('settings.statutory_library') }}" class="btn btn-primary"><i class="bi bi-database me-2"></i>Statutory Library</a>
+  </div>
 </div>
 
-<div class="app-card mb-4">
-    <div
-        class="
-            card-body
-            p-4
-            d-flex
-            flex-wrap
-            justify-content-between
-            align-items-center
-            gap-3
-        "
-    >
-        <div class="d-flex align-items-start gap-3">
-            <div
-                class="
-                    d-flex
-                    align-items-center
-                    justify-content-center
-                    rounded
-                    bg-primary-subtle
-                    text-primary
-                    flex-shrink-0
-                "
-                style="
-                    width: 48px;
-                    height: 48px;
-                "
-            >
-                <i class="bi bi-cloud-download fs-4"></i>
-            </div>
-
-            <div>
-                <h3 class="h5 mb-1">
-                    Import verified statutory rules
-                </h3>
-
-                <p class="text-muted mb-0">
-                    Use the Statutory Library to install verified
-                    PAYE bands and contribution settings without
-                    entering them manually.
-                </p>
-            </div>
-        </div>
-
-        <a
-            href="{{ url_for(
-                'settings.statutory_library'
-            ) }}"
-            class="btn btn-primary"
-        >
-            <i class="bi bi-box-arrow-in-down me-2"></i>
-            Import From Library
-        </a>
-    </div>
+<div class="alert alert-info d-flex align-items-start gap-3 mb-4">
+  <i class="bi bi-cpu-fill fs-3"></i>
+  <div><div class="fw-semibold">Pluggable country calculation engines</div>
+  <div>A package is payroll-ready only when its source is verified, its engine is registered, its PAYE bands are valid and its installed configuration passes validation.</div></div>
 </div>
 
 <div class="row g-3 mb-4">
-
-    <div class="col-md-4">
-        <div class="app-card h-100">
-            <div class="card-body p-4">
-
-                <div class="text-muted small mb-1">
-                    Total Rule Sets
-                </div>
-
-                <div class="h3 mb-0">
-                    {{ total_rule_sets }}
-                </div>
-
-            </div>
-        </div>
-    </div>
-
-    <div class="col-md-4">
-        <div class="app-card h-100">
-            <div class="card-body p-4">
-
-                <div class="text-muted small mb-1">
-                    Active Rule Sets
-                </div>
-
-                <div class="h3 mb-0">
-                    {{ active_count }}
-                </div>
-
-            </div>
-        </div>
-    </div>
-
-    <div class="col-md-4">
-        <div class="app-card h-100">
-            <div class="card-body p-4">
-
-                <div class="text-muted small mb-1">
-                    PAYE Enabled
-                </div>
-
-                <div class="h3 mb-0">
-                    {{ paye_enabled_count }}
-                </div>
-
-            </div>
-        </div>
-    </div>
-
+  {% for label, value, tone in [
+    ('Countries', supported_countries, ''),
+    ('Published Packages', total_packages, ''),
+    ('Registered Engines', registered_engine_count, ''),
+    ('Installed', installed_count, ''),
+    ('Payroll Ready', payroll_ready_count, 'text-success'),
+    ('Pending', pending_count, 'text-warning')
+  ] %}
+  <div class="col-sm-6 col-xl-2"><div class="app-card h-100"><div class="card-body p-4">
+    <div class="small text-muted mb-1">{{ label }}</div><div class="h3 mb-0 {{ tone }}">{{ value }}</div>
+  </div></div></div>
+  {% endfor %}
 </div>
 
-<div class="app-card mb-4">
-    <div class="card-body p-4">
-
-        <form
-            method="GET"
-            action="{{ url_for(
-                'settings.statutory_index'
-            ) }}"
-            class="row g-3 align-items-end"
-        >
-
-            <div class="col-lg-4">
-
-                <label
-                    for="currency"
-                    class="form-label"
-                >
-                    Currency
-                </label>
-
-                <select
-                    id="currency"
-                    name="currency"
-                    class="form-select"
-                >
-                    <option value="all">
-                        All currencies
-                    </option>
-
-                    {% for currency in available_currencies %}
-
-                        <option
-                            value="{{ currency }}"
-                            {% if currency_filter == currency %}
-                                selected
-                            {% endif %}
-                        >
-                            {{ currency }}
-                        </option>
-
-                    {% endfor %}
-                </select>
-
-            </div>
-
-            <div class="col-lg-4">
-
-                <label
-                    for="status"
-                    class="form-label"
-                >
-                    Status
-                </label>
-
-                <select
-                    id="status"
-                    name="status"
-                    class="form-select"
-                >
-                    <option
-                        value="all"
-                        {% if status_filter == "all" %}
-                            selected
-                        {% endif %}
-                    >
-                        All statuses
-                    </option>
-
-                    <option
-                        value="active"
-                        {% if status_filter == "active" %}
-                            selected
-                        {% endif %}
-                    >
-                        Active
-                    </option>
-
-                    <option
-                        value="inactive"
-                        {% if status_filter == "inactive" %}
-                            selected
-                        {% endif %}
-                    >
-                        Inactive
-                    </option>
-                </select>
-
-            </div>
-
-            <div class="col-lg-4">
-
-                <div class="d-flex gap-2">
-
-                    <button
-                        type="submit"
-                        class="btn btn-primary flex-grow-1"
-                    >
-                        <i class="bi bi-funnel me-1"></i>
-                        Filter
-                    </button>
-
-                    <a
-                        href="{{ url_for(
-                            'settings.statutory_index'
-                        ) }}"
-                        class="btn btn-outline-secondary"
-                    >
-                        <i class="bi bi-x-lg"></i>
-                    </a>
-
-                </div>
-
-            </div>
-
-        </form>
-
-    </div>
-</div>
+<div class="app-card mb-4"><div class="card-body p-4">
+<form method="GET" class="row g-3 align-items-end">
+  <div class="col-xl-4 col-lg-6"><label for="q" class="form-label">Search</label><div class="input-group"><span class="input-group-text"><i class="bi bi-search"></i></span><input id="q" name="q" type="search" class="form-control" value="{{ search_term }}" placeholder="Country, currency, engine or package"></div></div>
+  <div class="col-xl-2 col-lg-3 col-md-4"><label for="currency" class="form-label">Currency</label><select id="currency" name="currency" class="form-select"><option value="all">All currencies</option>{% for currency in available_currencies %}<option value="{{ currency }}" {% if currency_filter == currency %}selected{% endif %}>{{ currency }}</option>{% endfor %}</select></div>
+  <div class="col-xl-2 col-lg-3 col-md-4"><label for="status" class="form-label">Installation</label><select id="status" name="status" class="form-select"><option value="all">All</option><option value="installed" {% if status_filter == 'installed' %}selected{% endif %}>Installed</option><option value="catalogue" {% if status_filter == 'catalogue' %}selected{% endif %}>Catalogue</option><option value="active" {% if status_filter == 'active' %}selected{% endif %}>Active</option><option value="inactive" {% if status_filter == 'inactive' %}selected{% endif %}>Inactive</option></select></div>
+  <div class="col-xl-2 col-lg-3 col-md-4"><label for="readiness" class="form-label">Readiness</label><select id="readiness" name="readiness" class="form-select"><option value="all">All</option><option value="ready" {% if readiness_filter == 'ready' %}selected{% endif %}>Payroll Ready</option><option value="pending" {% if readiness_filter == 'pending' %}selected{% endif %}>Pending</option></select></div>
+  <div class="col-xl-2 col-lg-3 d-grid"><button class="btn btn-primary" type="submit"><i class="bi bi-funnel me-1"></i>Filter</button></div>
+</form>
+</div></div>
 
 <div class="app-card overflow-hidden">
-
-    {% if rule_sets %}
-
-        <div class="table-responsive">
-
-            <table
-                class="
-                    table
-                    table-hover
-                    align-middle
-                    mb-0
-                "
-            >
-                <thead class="table-light">
-                    <tr>
-                        <th class="px-4 py-3">
-                            Rule Set
-                        </th>
-
-                        <th class="py-3">
-                            Effective Period
-                        </th>
-
-                        <th class="py-3 text-end">
-                            NSSA
-                        </th>
-
-                        <th class="py-3 text-end">
-                            AIDS Levy
-                        </th>
-
-                        <th class="py-3">
-                            PAYE
-                        </th>
-
-                        <th class="py-3">
-                            Status
-                        </th>
-
-                        <th class="px-4 py-3 text-end">
-                            Actions
-                        </th>
-                    </tr>
-                </thead>
-
-                <tbody>
-
-                    {% for rule_set in rule_sets %}
-
-                        <tr>
-                            <td class="px-4">
-
-                                <div class="fw-semibold">
-                                    {{ rule_set.name }}
-                                </div>
-
-                                <small class="text-muted">
-                                    {{ rule_set.currency }}
-                                    ·
-                                    {{ rule_set.tax_bands|length }}
-                                    tax band(s)
-                                </small>
-
-                            </td>
-
-                            <td>
-
-                                <div>
-                                    {{
-                                        rule_set.effective_from.strftime(
-                                            "%d %b %Y"
-                                        )
-                                    }}
-                                </div>
-
-                                <small class="text-muted">
-                                    to
-                                    {% if rule_set.effective_to %}
-                                        {{
-                                            rule_set.effective_to.strftime(
-                                                "%d %b %Y"
-                                            )
-                                        }}
-                                    {% else %}
-                                        No end date
-                                    {% endif %}
-                                </small>
-
-                            </td>
-
-                            <td class="text-end">
-
-                                <div>
-                                    Employee:
-                                    {{
-                                        "%.4f"|format(
-                                            rule_set
-                                            .nssa_employee_rate
-                                            * 100
-                                        )
-                                    }}%
-                                </div>
-
-                                <small class="text-muted">
-                                    Employer:
-                                    {{
-                                        "%.4f"|format(
-                                            rule_set
-                                            .nssa_employer_rate
-                                            * 100
-                                        )
-                                    }}%
-                                </small>
-
-                            </td>
-
-                            <td class="text-end">
-                                {{
-                                    "%.4f"|format(
-                                        rule_set.aids_levy_rate
-                                        * 100
-                                    )
-                                }}%
-                            </td>
-
-                            <td>
-
-                                {% if rule_set.paye_enabled %}
-
-                                    <span class="badge text-bg-success">
-                                        Enabled
-                                    </span>
-
-                                {% else %}
-
-                                    <span class="badge text-bg-warning">
-                                        Disabled
-                                    </span>
-
-                                {% endif %}
-
-                            </td>
-
-                            <td>
-
-                                {% if rule_set.is_active %}
-
-                                    <span class="badge text-bg-success">
-                                        Active
-                                    </span>
-
-                                {% else %}
-
-                                    <span class="badge text-bg-secondary">
-                                        Inactive
-                                    </span>
-
-                                {% endif %}
-
-                            </td>
-
-                            <td class="px-4 text-end">
-
-                                <div
-                                    class="
-                                        d-flex
-                                        flex-wrap
-                                        justify-content-end
-                                        gap-2
-                                    "
-                                >
-
-                                    <a
-                                        href="{{ url_for(
-                                            'settings.edit_statutory_rule',
-                                            rule_set_id=rule_set.id
-                                        ) }}"
-                                        class="
-                                            btn
-                                            btn-sm
-                                            btn-outline-primary
-                                        "
-                                    >
-                                        <i class="bi bi-pencil me-1"></i>
-                                        Edit
-                                    </a>
-
-                                    <form
-                                        method="POST"
-                                        action="{{ url_for(
-                                            'settings.toggle_statutory_rule',
-                                            rule_set_id=rule_set.id
-                                        ) }}"
-                                    >
-                                        {{ action_form.hidden_tag() }}
-
-                                        <button
-                                            type="submit"
-                                            class="
-                                                btn
-                                                btn-sm
-                                                {% if rule_set.is_active %}
-                                                    btn-outline-warning
-                                                {% else %}
-                                                    btn-outline-success
-                                                {% endif %}
-                                            "
-                                        >
-                                            {% if rule_set.is_active %}
-                                                Deactivate
-                                            {% else %}
-                                                Activate
-                                            {% endif %}
-                                        </button>
-                                    </form>
-
-                                    <form
-                                        method="POST"
-                                        action="{{ url_for(
-                                            'settings.delete_statutory_rule',
-                                            rule_set_id=rule_set.id
-                                        ) }}"
-                                        onsubmit="return confirm(
-                                            'Delete this unused '
-                                            + 'statutory rule set?'
-                                        );"
-                                    >
-                                        {{ action_form.hidden_tag() }}
-
-                                        <button
-                                            type="submit"
-                                            class="
-                                                btn
-                                                btn-sm
-                                                btn-outline-danger
-                                            "
-                                        >
-                                            <i class="bi bi-trash"></i>
-                                        </button>
-                                    </form>
-
-                                </div>
-
-                            </td>
-                        </tr>
-
-                    {% endfor %}
-
-                </tbody>
-            </table>
-
-        </div>
-
-    {% else %}
-
-        <div class="text-center py-5 px-4">
-
-            <i
-                class="
-                    bi
-                    bi-percent
-                    fs-1
-                    text-muted
-                "
-            ></i>
-
-            <h3 class="h5 mt-3">
-                No statutory rule sets found
-            </h3>
-
-            <p class="text-muted">
-                Import a verified preset from the Statutory Library
-                or create a custom rule set manually.
-            </p>
-
-            <div
-                class="
-                    d-flex
-                    flex-wrap
-                    justify-content-center
-                    gap-2
-                "
-            >
-                <a
-                    href="{{ url_for(
-                        'settings.statutory_library'
-                    ) }}"
-                    class="btn btn-primary"
-                >
-                    <i class="bi bi-database me-2"></i>
-                    Open Statutory Library
-                </a>
-
-                <a
-                    href="{{ url_for(
-                        'settings.create_statutory_rule'
-                    ) }}"
-                    class="btn btn-outline-primary"
-                >
-                    Create Custom Rule Set
-                </a>
-            </div>
-
-        </div>
-
-    {% endif %}
-
+  <div class="card-body p-4 border-bottom d-flex flex-wrap justify-content-between gap-3"><div><h3 class="h5 mb-1">Global Statutory Engines</h3><p class="text-muted mb-0">{{ engine_rows|length }} matching package(s)</p></div><span class="badge text-bg-light border">{{ active_count }} active operational rule(s)</span></div>
+  {% if engine_rows %}
+  <div class="table-responsive"><table class="table table-hover align-middle mb-0">
+    <thead class="table-light"><tr><th class="px-4 py-3">Country</th><th>Currency</th><th>Engine</th><th>Tax Year</th><th>Version</th><th>Verified</th><th>Installation</th><th>Payroll Ready</th><th class="text-end px-4">Actions</th></tr></thead>
+    <tbody>
+    {% for row in engine_rows %}{% set preset=row.preset %}{% set rule=row.rule_set %}
+      <tr>
+        <td class="px-4"><div class="d-flex align-items-center gap-3"><span class="fs-4">{{ row.country_flag }}</span><div><div class="fw-semibold">{{ row.country_name }}</div><div class="small text-muted">{{ row.country_code }} · {{ preset.name }}</div></div></div></td>
+        <td><span class="badge text-bg-light border">{{ row.currency }}</span></td>
+        <td><div class="fw-semibold">{{ row.engine_name }}</div><div class="small text-muted">{% if row.engine_registered %}<i class="bi bi-check-circle-fill text-success me-1"></i>{{ row.engine_class_name }}{% else %}<i class="bi bi-x-circle-fill text-danger me-1"></i>Not registered{% endif %}</div></td>
+        <td>{{ row.tax_year }}</td><td>{{ row.version }}</td>
+        <td>{% if row.verified %}<span class="badge text-bg-success"><i class="bi bi-shield-check me-1"></i>Verified</span>{% else %}<span class="badge text-bg-warning">{{ preset.verification_status }}</span>{% endif %}</td>
+        <td>{% if rule %}<span class="badge text-bg-primary">Installed</span> {% if rule.is_active %}<span class="badge text-bg-success">Active</span>{% else %}<span class="badge text-bg-secondary">Inactive</span>{% endif %}{% else %}<span class="badge text-bg-light border text-dark">Catalogue</span>{% endif %}</td>
+        <td>{% if row.payroll_ready %}<span class="badge text-bg-success"><i class="bi bi-check-circle me-1"></i>Ready</span>{% else %}<span class="badge text-bg-danger"><i class="bi bi-x-circle me-1"></i>Not Ready</span><div class="small text-muted mt-1">{% if not row.engine_registered %}Engine pending{% elif rule and not row.configuration_valid %}Configuration invalid{% elif not row.tax_bands_valid %}PAYE bands invalid{% elif not preset.supports_payroll %}Payroll disabled{% else %}Review required{% endif %}</div>{% endif %}</td>
+        <td class="text-end px-4">{% if rule %}<a href="{{ url_for('settings.manage_tax_bands', rule_set_id=rule.id) }}" class="btn btn-sm btn-primary"><i class="bi bi-sliders me-1"></i>Manage</a> <a href="{{ url_for('settings.statutory_version_history', rule_set_id=rule.id) }}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-clock-history"></i></a>{% else %}<a href="{{ url_for('settings.statutory_library', q=preset.preset_key) }}" class="btn btn-sm btn-outline-primary"><i class="bi bi-database me-1"></i>View Package</a>{% endif %}</td>
+      </tr>
+      {% if row.validation_errors or row.validation_warnings %}<tr class="table-light"><td colspan="9" class="px-4 py-2"><div class="small">{% for error in row.validation_errors %}<span class="text-danger me-3"><i class="bi bi-x-circle me-1"></i>{{ error }}</span>{% endfor %}{% for warning in row.validation_warnings %}<span class="text-warning-emphasis me-3"><i class="bi bi-exclamation-triangle me-1"></i>{{ warning }}</span>{% endfor %}</div></td></tr>{% endif %}
+    {% endfor %}
+    </tbody>
+  </table></div>
+  {% else %}<div class="text-center py-5 px-4"><i class="bi bi-cpu fs-1 text-muted"></i><h3 class="h5 mt-3">No statutory engines match the filters</h3><a href="{{ url_for('settings.statutory_index') }}" class="btn btn-outline-primary">Clear Filters</a></div>{% endif %}
 </div>
-
 {% endblock %}

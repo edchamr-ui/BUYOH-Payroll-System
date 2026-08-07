@@ -1,0 +1,284 @@
+{% extends "base.html" %}
+
+{% block title %}
+Statutory Package Studio |
+{{ company_settings.display_name or "Payroll" }}
+{% endblock %}
+
+{% block page_title %}
+Statutory Package Studio
+{% endblock %}
+
+{% block content %}
+
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+    <div>
+        <h2 class="h3 mb-1">
+            Enterprise Statutory Package Studio
+        </h2>
+
+        <p class="text-muted mb-0">
+            Create, continue, validate and publish country-specific
+            payroll statutory packages.
+        </p>
+    </div>
+
+    <div class="d-flex flex-wrap gap-2">
+        <a
+            href="{{ url_for('settings.statutory_index') }}"
+            class="btn btn-outline-secondary"
+        >
+            <i class="bi bi-arrow-left me-1"></i>
+            Statutory Engines
+        </a>
+
+        <a
+            href="{{ url_for('settings.create_statutory_package') }}"
+            class="btn btn-primary"
+        >
+            <i class="bi bi-plus-circle me-2"></i>
+            Create New Package
+        </a>
+    </div>
+</div>
+
+<div class="alert alert-info mb-4">
+    <div class="d-flex align-items-start gap-3">
+        <i class="bi bi-tools fs-3"></i>
+
+        <div>
+            <div class="fw-semibold">
+                Controlled package lifecycle
+            </div>
+
+            <div>
+                Draft → Contributions → PAYE Bands → Sources →
+                Validation → Publish → Import → Payroll
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-3 mb-4">
+    <div class="col-sm-6 col-xl">
+        <div class="app-card h-100">
+            <div class="card-body p-4">
+                <div class="small text-muted mb-1">Total Packages</div>
+                <div class="h3 mb-0">{{ total_packages }}</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-sm-6 col-xl">
+        <div class="app-card h-100">
+            <div class="card-body p-4">
+                <div class="small text-muted mb-1">Draft Packages</div>
+                <div class="h3 mb-0">{{ draft_count }}</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-sm-6 col-xl">
+        <div class="app-card h-100">
+            <div class="card-body p-4">
+                <div class="small text-muted mb-1">Published</div>
+                <div class="h3 mb-0">{{ published_count }}</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-sm-6 col-xl">
+        <div class="app-card h-100">
+            <div class="card-body p-4">
+                <div class="small text-muted mb-1">Incomplete</div>
+                <div class="h3 mb-0 text-warning">{{ incomplete_count }}</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-sm-6 col-xl">
+        <div class="app-card h-100">
+            <div class="card-body p-4">
+                <div class="small text-muted mb-1">Payroll Ready</div>
+                <div class="h3 mb-0 text-success">{{ payroll_ready_count }}</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="app-card overflow-hidden">
+    <div class="card-body p-4 border-bottom d-flex flex-wrap justify-content-between align-items-center gap-3">
+        <div>
+            <h3 class="h5 mb-1">Statutory Packages</h3>
+            <p class="text-muted mb-0">
+                Continue incomplete catalogue packages or create
+                a package for a new tax year.
+            </p>
+        </div>
+
+        <span class="badge text-bg-light border">
+            {{ total_packages }} package(s)
+        </span>
+    </div>
+
+    {% if packages %}
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th class="px-4 py-3">Package</th>
+                        <th class="py-3">Jurisdiction</th>
+                        <th class="py-3">Engine</th>
+                        <th class="py-3">Version</th>
+                        <th class="py-3">Status</th>
+                        <th class="py-3">Build Progress</th>
+                        <th class="px-4 py-3 text-end">Actions</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+                    {% for package in packages %}
+                        <tr>
+                            <td class="px-4">
+                                <div class="fw-semibold">{{ package.name }}</div>
+                                <div class="small text-muted">{{ package.preset_key }}</div>
+                            </td>
+
+                            <td>
+                                <div class="fw-semibold">
+                                    {{ package.country_flag or "🌐" }}
+                                    {{ package.country_name }}
+                                </div>
+
+                                <div class="small text-muted">
+                                    {{ package.country_code }}
+                                    · {{ package.currency }}
+                                    · {{ package.tax_year }}
+                                </div>
+                            </td>
+
+                            <td>
+                                <div class="fw-semibold">
+                                    {{ package.engine_type|replace("_", " ")|title }}
+                                </div>
+
+                                <div class="small text-muted">
+                                    {{ package.tax_period_label or "Unspecified period" }}
+                                </div>
+                            </td>
+
+                            <td>{{ package.version }}</td>
+
+                            <td>
+                                {% if package.supports_payroll %}
+                                    <span class="badge text-bg-success">
+                                        <i class="bi bi-check-circle me-1"></i>
+                                        Payroll Ready
+                                    </span>
+                                {% elif package.is_published %}
+                                    <span class="badge text-bg-warning">
+                                        <i class="bi bi-journal-text me-1"></i>
+                                        Published Catalogue
+                                    </span>
+                                {% else %}
+                                    <span class="badge text-bg-secondary">
+                                        <i class="bi bi-pencil-square me-1"></i>
+                                        Draft
+                                    </span>
+                                {% endif %}
+
+                                <div class="small text-muted mt-1">
+                                    {% if package.is_locked %}
+                                        <i class="bi bi-lock me-1"></i>Locked
+                                    {% else %}
+                                        <i class="bi bi-unlock me-1"></i>Editable
+                                    {% endif %}
+                                </div>
+                            </td>
+
+                            <td>
+                                <div class="small mb-1">
+                                    PAYE bands:
+                                    <strong>{{ package.bands|length }}</strong>
+                                </div>
+
+                                <div class="small mb-1">
+                                    Verification:
+                                    <strong>{{ package.verification_status or "Draft" }}</strong>
+                                </div>
+
+                                <div class="small">
+                                    Source:
+                                    <strong>
+                                        {% if package.source_name
+                                            and package.source_name != "Pending official source" %}
+                                            Added
+                                        {% else %}
+                                            Pending
+                                        {% endif %}
+                                    </strong>
+                                </div>
+                            </td>
+
+                            <td class="px-4 text-end">
+                                <div class="d-inline-flex flex-wrap justify-content-end gap-2">
+                                    {% if package.supports_payroll and package.is_locked %}
+                                        <a
+                                            href="{{ url_for(
+                                                'settings.statutory_library',
+                                                q=package.preset_key
+                                            ) }}"
+                                            class="btn btn-sm btn-outline-primary"
+                                        >
+                                            <i class="bi bi-eye me-1"></i>
+                                            View Package
+                                        </a>
+                                    {% else %}
+                                        <a
+                                            href="{{ url_for(
+                                                'settings.continue_statutory_package',
+                                                preset_id=package.id
+                                            ) }}"
+                                            class="btn btn-sm btn-primary"
+                                        >
+                                            <i class="bi bi-play-circle me-1"></i>
+                                            Continue Building
+                                        </a>
+                                    {% endif %}
+
+                                    <a
+                                        href="{{ url_for(
+                                            'settings.statutory_library',
+                                            q=package.preset_key
+                                        ) }}"
+                                        class="btn btn-sm btn-outline-secondary"
+                                        title="Open in statutory library"
+                                    >
+                                        <i class="bi bi-database"></i>
+                                    </a>
+                                </div>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% else %}
+        <div class="text-center py-5 px-4">
+            <i class="bi bi-box-seam fs-1 text-muted"></i>
+            <h3 class="h5 mt-3">No statutory packages found</h3>
+            <p class="text-muted mb-3">
+                Create the first statutory package draft.
+            </p>
+
+            <a
+                href="{{ url_for('settings.create_statutory_package') }}"
+                class="btn btn-primary"
+            >
+                Create Package
+            </a>
+        </div>
+    {% endif %}
+</div>
+
+{% endblock %}

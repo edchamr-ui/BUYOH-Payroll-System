@@ -1,0 +1,409 @@
+{% extends "base.html" %}
+
+{% block title %}
+New Statutory Package |
+{{ company_settings.display_name or "Payroll" }}
+{% endblock %}
+
+{% block page_title %}
+Create Statutory Package
+{% endblock %}
+
+{% block content %}
+
+<div
+    class="
+        d-flex
+        flex-wrap
+        justify-content-between
+        align-items-center
+        gap-3
+        mb-4
+    "
+>
+    <div>
+        <h2 class="h3 mb-1">
+            Package Information
+        </h2>
+
+        <p class="text-muted mb-0">
+            Step 1 of 5 — Define the country, currency,
+            tax year and calculation engine.
+        </p>
+    </div>
+
+    <a
+        href="{{ url_for(
+            'settings.statutory_package_builder'
+        ) }}"
+        class="btn btn-outline-secondary"
+    >
+        <i class="bi bi-x-lg me-1"></i>
+        Cancel
+    </a>
+</div>
+
+
+<div class="row g-3 mb-4">
+
+    {% for number, label in [
+        (1, "Package"),
+        (2, "Contributions"),
+        (3, "PAYE Bands"),
+        (4, "Sources"),
+        (5, "Review")
+    ] %}
+
+        <div class="col">
+            <div
+                class="
+                    border
+                    rounded
+                    p-3
+                    text-center
+                    h-100
+                    {% if number == 1 %}
+                        border-primary
+                        bg-primary-subtle
+                    {% else %}
+                        bg-light
+                    {% endif %}
+                "
+            >
+                <div
+                    class="
+                        fw-bold
+                        {% if number == 1 %}
+                            text-primary
+                        {% else %}
+                            text-muted
+                        {% endif %}
+                    "
+                >
+                    {{ number }}
+                </div>
+
+                <div class="small">
+                    {{ label }}
+                </div>
+            </div>
+        </div>
+
+    {% endfor %}
+
+</div>
+
+
+<form method="POST">
+
+    {{ form.hidden_tag() }}
+
+    <div class="app-card mb-4">
+        <div class="card-body p-4">
+
+            <h3 class="h5 mb-1">
+                Jurisdiction
+            </h3>
+
+            <p class="text-muted mb-4">
+                Identify the country and currency supported
+                by this statutory package.
+            </p>
+
+            <div class="row g-3">
+
+                <div class="col-md-3">
+                    {{ form.country_code.label(
+                        class="form-label"
+                    ) }}
+
+                    {{ form.country_code(
+                        class="form-control text-uppercase",
+                        maxlength="2",
+                        placeholder="BW"
+                    ) }}
+
+                    {% for error in form.country_code.errors %}
+                        <div class="text-danger small mt-1">
+                            {{ error }}
+                        </div>
+                    {% endfor %}
+                </div>
+
+                <div class="col-md-6">
+                    {{ form.country_name.label(
+                        class="form-label"
+                    ) }}
+
+                    {{ form.country_name(
+                        class="form-control",
+                        placeholder="Botswana"
+                    ) }}
+
+                    {% for error in form.country_name.errors %}
+                        <div class="text-danger small mt-1">
+                            {{ error }}
+                        </div>
+                    {% endfor %}
+                </div>
+
+                <div class="col-md-3">
+                    {{ form.country_flag.label(
+                        class="form-label"
+                    ) }}
+
+                    {{ form.country_flag(
+                        class="form-control",
+                        placeholder="🇧🇼"
+                    ) }}
+
+                    <div class="form-text">
+                        {{ form.country_flag.description }}
+                    </div>
+
+                    {% for error in form.country_flag.errors %}
+                        <div class="text-danger small mt-1">
+                            {{ error }}
+                        </div>
+                    {% endfor %}
+                </div>
+
+                <div class="col-md-4">
+                    {{ form.currency.label(
+                        class="form-label"
+                    ) }}
+
+                    {{ form.currency(
+                        class="form-control text-uppercase",
+                        maxlength="3",
+                        placeholder="BWP"
+                    ) }}
+
+                    {% for error in form.currency.errors %}
+                        <div class="text-danger small mt-1">
+                            {{ error }}
+                        </div>
+                    {% endfor %}
+                </div>
+
+                <div class="col-md-4">
+                    {{ form.tax_year.label(
+                        class="form-label"
+                    ) }}
+
+                    {{ form.tax_year(
+                        class="form-control",
+                        min="2020",
+                        max="2100"
+                    ) }}
+
+                    {% for error in form.tax_year.errors %}
+                        <div class="text-danger small mt-1">
+                            {{ error }}
+                        </div>
+                    {% endfor %}
+                </div>
+
+                <div class="col-md-4">
+                    {{ form.tax_period_label.label(
+                        class="form-label"
+                    ) }}
+
+                    {{ form.tax_period_label(
+                        class="form-select"
+                    ) }}
+
+                    {% for error in form.tax_period_label.errors %}
+                        <div class="text-danger small mt-1">
+                            {{ error }}
+                        </div>
+                    {% endfor %}
+                </div>
+
+            </div>
+
+        </div>
+    </div>
+
+
+    <div class="app-card mb-4">
+        <div class="card-body p-4">
+
+            <h3 class="h5 mb-1">
+                Package Identity
+            </h3>
+
+            <p class="text-muted mb-4">
+                Define the package name, unique key,
+                calculation engine and version.
+            </p>
+
+            <div class="row g-3">
+
+                <div class="col-lg-8">
+                    {{ form.package_name.label(
+                        class="form-label"
+                    ) }}
+
+                    {{ form.package_name(
+                        class="form-control",
+                        placeholder=(
+                            "Botswana BWP PAYE Rules 2026"
+                        )
+                    ) }}
+
+                    {% for error in form.package_name.errors %}
+                        <div class="text-danger small mt-1">
+                            {{ error }}
+                        </div>
+                    {% endfor %}
+                </div>
+
+                <div class="col-lg-4">
+                    {{ form.version.label(
+                        class="form-label"
+                    ) }}
+
+                    {{ form.version(
+                        class="form-control",
+                        placeholder="1.0"
+                    ) }}
+
+                    {% for error in form.version.errors %}
+                        <div class="text-danger small mt-1">
+                            {{ error }}
+                        </div>
+                    {% endfor %}
+                </div>
+
+                <div class="col-lg-6">
+                    {{ form.preset_key.label(
+                        class="form-label"
+                    ) }}
+
+                    {{ form.preset_key(
+                        class="form-control text-uppercase",
+                        placeholder="BW_BWP_2026_MONTHLY"
+                    ) }}
+
+                    <div class="form-text">
+                        {{ form.preset_key.description }}
+                    </div>
+
+                    {% for error in form.preset_key.errors %}
+                        <div class="text-danger small mt-1">
+                            {{ error }}
+                        </div>
+                    {% endfor %}
+                </div>
+
+                <div class="col-lg-6">
+                    {{ form.engine_type.label(
+                        class="form-label"
+                    ) }}
+
+                    {{ form.engine_type(
+                        class="form-control text-uppercase",
+                        placeholder="BOTSWANA_PAYE"
+                    ) }}
+
+                    <div class="form-text">
+                        {{ form.engine_type.description }}
+                    </div>
+
+                    {% for error in form.engine_type.errors %}
+                        <div class="text-danger small mt-1">
+                            {{ error }}
+                        </div>
+                    {% endfor %}
+                </div>
+
+            </div>
+
+        </div>
+    </div>
+
+
+    <div class="app-card mb-4">
+        <div class="card-body p-4">
+
+            <h3 class="h5 mb-1">
+                Effective Period
+            </h3>
+
+            <p class="text-muted mb-4">
+                Specify when payroll may apply this package.
+            </p>
+
+            <div class="row g-3">
+
+                <div class="col-md-6">
+                    {{ form.effective_from.label(
+                        class="form-label"
+                    ) }}
+
+                    {{ form.effective_from(
+                        class="form-control"
+                    ) }}
+
+                    {% for error in form.effective_from.errors %}
+                        <div class="text-danger small mt-1">
+                            {{ error }}
+                        </div>
+                    {% endfor %}
+                </div>
+
+                <div class="col-md-6">
+                    {{ form.effective_to.label(
+                        class="form-label"
+                    ) }}
+
+                    {{ form.effective_to(
+                        class="form-control"
+                    ) }}
+
+                    {% for error in form.effective_to.errors %}
+                        <div class="text-danger small mt-1">
+                            {{ error }}
+                        </div>
+                    {% endfor %}
+                </div>
+
+                <div class="col-12">
+                    <div class="form-check">
+                        {{ form.paye_enabled(
+                            class="form-check-input"
+                        ) }}
+
+                        {{ form.paye_enabled.label(
+                            class="form-check-label"
+                        ) }}
+                    </div>
+                </div>
+
+            </div>
+
+        </div>
+    </div>
+
+
+    <div class="d-flex flex-wrap justify-content-end gap-2">
+
+        <a
+            href="{{ url_for(
+                'settings.statutory_package_builder'
+            ) }}"
+            class="btn btn-outline-secondary"
+        >
+            Cancel
+        </a>
+
+        {{ form.submit(
+            class="btn btn-primary"
+        ) }}
+
+    </div>
+
+</form>
+
+{% endblock %}

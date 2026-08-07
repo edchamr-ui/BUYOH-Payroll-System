@@ -9,9 +9,10 @@ from sqlalchemy.exc import SQLAlchemyError
 from app.extensions import db
 from app.models import Employee, PayrollRecord
 from app.services.audit_log_service import AuditLogService
-from app.services.payroll_calculator import (
-    PayrollCalculator,
-    ZERO,
+from app.services.payroll_calculator import ZERO
+from app.services.statutory_engines import (
+    StatutoryEngineRegistry,
+    StatutoryEngineRegistryError,
 )
 from app.services.statutory_rule_service import (
     StatutoryRuleService,
@@ -325,10 +326,36 @@ class PayrollService:
                     skipped_count += 1
                     continue
 
-                calculation = PayrollCalculator(
-                    basic_salary=employee.basic_salary,
-                    statutory_config=statutory_config,
-                ).calculate()
+                try:
+                    statutory_engine = (
+                        StatutoryEngineRegistry
+                        .resolve_for_rule_set(
+                            rule_set
+                        )
+                    )
+
+                    calculation = (
+                        statutory_engine.calculate(
+                            basic_salary=(
+                                employee.basic_salary
+                            ),
+                            overtime_amount=ZERO,
+                            allowances_total=ZERO,
+                            other_deductions_total=ZERO,
+                            statutory_config=(
+                                statutory_config
+                            ),
+                        )
+                    )
+
+                except StatutoryEngineRegistryError as error:
+                    raise PayrollConfigurationError(
+                        (
+                            "Payroll could not resolve the "
+                            "configured statutory engine. "
+                            f"{error}"
+                        )
+                    ) from error
 
                 payroll_record = PayrollRecord(
                     payroll_period_id=period.id,
