@@ -115,6 +115,13 @@ class DeductionType(db.Model):
         server_default=db.true(),
     )
 
+    is_tax_deductible = db.Column(
+        db.Boolean,
+        nullable=False,
+        default=False,
+        server_default=db.false(),
+    )
+
     is_recurring = db.Column(
         db.Boolean,
         nullable=False,

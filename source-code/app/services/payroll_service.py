@@ -7,7 +7,12 @@ from decimal import Decimal
 from sqlalchemy.exc import SQLAlchemyError
 
 from app.extensions import db
-from app.models import Employee, PayrollRecord
+from app.models import (
+    Allowance,
+    Deduction,
+    Employee,
+    PayrollRecord,
+)
 from app.services.audit_log_service import AuditLogService
 from app.services.payroll_calculator import ZERO
 from app.services.statutory_engines import (
@@ -73,6 +78,109 @@ class PayrollService:
     """Coordinate payroll processing and register reporting."""
 
     DEFAULT_CURRENCY = "USD"
+
+    @classmethod
+    def _assignment_amount(cls, assignment, definition, basic_salary):
+        """Calculate one recurring assignment using employee overrides."""
+
+        if definition.calculation_method == "Percentage":
+            percentage = cls._decimal_value(assignment.percentage)
+            if percentage == ZERO:
+                percentage = cls._decimal_value(
+                    definition.default_percentage
+                )
+            return (cls._decimal_value(basic_salary) * percentage / 100).quantize(
+                Decimal("0.01")
+            )
+
+        amount = cls._decimal_value(assignment.amount)
+        if amount == ZERO:
+            amount = cls._decimal_value(definition.default_amount)
+        return amount.quantize(Decimal("0.01"))
+
+    @staticmethod
+    def _is_assignment_active(assignment, definition, calculation_date):
+        return bool(
+            assignment.is_active
+            and definition is not None
+            and definition.is_active
+            and (
+                assignment.start_date is None
+                or assignment.start_date <= calculation_date
+            )
+            and (
+                assignment.end_date is None
+                or assignment.end_date >= calculation_date
+            )
+        )
+
+    @classmethod
+    def _recurring_pay_components(cls, employee, calculation_date):
+        """Return payroll totals and historical line-item snapshots."""
+
+        allowance_lines = []
+        deduction_lines = []
+        cash_allowances = ZERO
+        taxable_cash_allowances = ZERO
+        non_cash_benefits = ZERO
+        net_pay_deductions = ZERO
+        allowable_deductions = ZERO
+
+        for assignment in employee.recurring_allowances:
+            definition = assignment.allowance_type
+            if not cls._is_assignment_active(
+                assignment, definition, calculation_date
+            ):
+                continue
+
+            amount = cls._assignment_amount(
+                assignment, definition, employee.basic_salary
+            )
+            if amount == ZERO:
+                continue
+
+            classification = definition.earning_classification
+            is_benefit = (
+                classification == definition.EARNING_TAXABLE_BENEFIT
+            )
+            if is_benefit:
+                if definition.is_taxable:
+                    non_cash_benefits += amount
+            else:
+                cash_allowances += amount
+                if definition.is_taxable:
+                    taxable_cash_allowances += amount
+
+            allowance_lines.append((assignment, definition, amount))
+
+        for assignment in employee.recurring_deductions:
+            definition = assignment.deduction_type
+            if not cls._is_assignment_active(
+                assignment, definition, calculation_date
+            ):
+                continue
+
+            amount = cls._assignment_amount(
+                assignment, definition, employee.basic_salary
+            )
+            if amount == ZERO:
+                continue
+
+            if definition.reduces_net_pay:
+                net_pay_deductions += amount
+            if definition.is_tax_deductible:
+                allowable_deductions += amount
+            deduction_lines.append((assignment, definition, amount))
+
+        return {
+            "cash_allowances": cash_allowances,
+            "taxable_cash_allowances": taxable_cash_allowances,
+            "non_cash_benefits": non_cash_benefits,
+            "net_pay_deductions": net_pay_deductions,
+            "allowable_deductions": allowable_deductions,
+            "allowance_lines": allowance_lines,
+            "deduction_lines": deduction_lines,
+        }
 
     @staticmethod
     def get_period_records(period):
@@ -348,6 +456,10 @@ class PayrollService:
                     continue
 
                 try:
+                    pay_components = cls._recurring_pay_components(
+                        employee,
+                        calculation_date,
+                    )
                     employee_statutory_config = replace(
                         statutory_config,
                         tax_residency=(
@@ -363,18 +475,29 @@ class PayrollService:
                         )
                     )
 
-                    calculation = (
-                        statutory_engine.calculate(
-                            basic_salary=(
-                                employee.basic_salary
-                            ),
-                            overtime_amount=ZERO,
-                            allowances_total=ZERO,
-                            other_deductions_total=ZERO,
-                            statutory_config=(
-                                employee_statutory_config
-                            ),
-                        )
+                    calculation_arguments = {
+                        "basic_salary": employee.basic_salary,
+                        "overtime_amount": ZERO,
+                        "allowances_total": pay_components["cash_allowances"],
+                        "other_deductions_total": pay_components["net_pay_deductions"],
+                        "statutory_config": employee_statutory_config,
+                    }
+
+                    if getattr(statutory_engine, "country_code", None) == "BW":
+                        calculation_arguments.update({
+                            "taxable_allowances_total": pay_components[
+                                "taxable_cash_allowances"
+                            ],
+                            "non_cash_benefits_total": pay_components[
+                                "non_cash_benefits"
+                            ],
+                            "allowable_deductions_total": pay_components[
+                                "allowable_deductions"
+                            ],
+                        })
+
+                    calculation = statutory_engine.calculate(
+                        **calculation_arguments
                     )
 
                 except (
@@ -443,6 +566,30 @@ class PayrollService:
                 )
 
                 db.session.add(payroll_record)
+
+                for assignment, definition, amount in pay_components[
+                    "allowance_lines"
+                ]:
+                    payroll_record.allowances.append(Allowance(
+                        employee_id=employee.id,
+                        allowance_type=definition.name,
+                        amount=amount,
+                        description=assignment.notes or definition.description,
+                        earning_classification=definition.earning_classification,
+                        is_taxable=definition.is_taxable,
+                    ))
+
+                for assignment, definition, amount in pay_components[
+                    "deduction_lines"
+                ]:
+                    payroll_record.deductions.append(Deduction(
+                        employee_id=employee.id,
+                        deduction_type=definition.name,
+                        amount=amount,
+                        description=assignment.notes or definition.description,
+                        is_tax_deductible=definition.is_tax_deductible,
+                        reduces_net_pay=definition.reduces_net_pay,
+                    ))
 
                 created_count += 1
 

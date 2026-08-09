@@ -268,6 +268,17 @@ class AllowanceTypeForm(FlaskForm):
         ],
     )
 
+    earning_classification = SelectField(
+        "Earning Classification",
+        choices=[
+            ("Regular Allowance", "Regular Allowance"),
+            ("Bonus", "Bonus"),
+            ("Commission", "Commission"),
+            ("Taxable Benefit", "Taxable Benefit (non-cash)"),
+        ],
+        validators=[DataRequired()],
+    )
+
     default_amount = DecimalField(
         "Default Amount",
         places=2,
@@ -463,6 +474,11 @@ class DeductionTypeForm(FlaskForm):
     reduces_net_pay = BooleanField(
         "Deduct from employee net pay",
         default=True,
+    )
+
+    is_tax_deductible = BooleanField(
+        "Approved deduction from taxable income",
+        default=False,
     )
 
     is_recurring = BooleanField(

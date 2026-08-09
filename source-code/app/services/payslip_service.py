@@ -1042,11 +1042,19 @@ class PayslipService:
                 "Overtime",
                 payroll_record.overtime_amount,
             ),
-            (
-                "Allowances",
-                payroll_record.allowances_total,
-            ),
         ]
+
+        earnings_rows.extend(
+            (
+                (
+                    f"{item.allowance_type} (non-cash benefit)"
+                    if item.earning_classification == "Taxable Benefit"
+                    else item.allowance_type
+                ),
+                item.amount,
+            )
+            for item in payroll_record.allowances
+        )
 
         deduction_rows = [
             (
@@ -1061,11 +1069,13 @@ class PayslipService:
                 "NSSA Deduction",
                 payroll_record.nssa,
             ),
-            (
-                "Other Deductions",
-                payroll_record.other_deductions_total,
-            ),
         ]
+
+        deduction_rows.extend(
+            (item.deduction_type, item.amount)
+            for item in payroll_record.deductions
+            if item.reduces_net_pay
+        )
 
         maximum_rows = max(
             len(earnings_rows),
@@ -1148,7 +1158,7 @@ class PayslipService:
             [
                 [
                     Paragraph(
-                        "Total Earnings",
+                        "Total Cash Earnings",
                         bold_style,
                     ),
                     Paragraph(

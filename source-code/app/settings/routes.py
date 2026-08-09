@@ -514,6 +514,10 @@ def _populate_allowance_form(
         allowance_type.calculation_method
     )
 
+    form.earning_classification.data = (
+        allowance_type.earning_classification
+    )
+
     form.default_amount.data = (
         allowance_type.default_amount
     )
@@ -583,6 +587,10 @@ def _populate_deduction_form(
 
     form.reduces_net_pay.data = (
         deduction_type.reduces_net_pay
+    )
+
+    form.is_tax_deductible.data = (
+        deduction_type.is_tax_deductible
     )
 
     form.is_recurring.data = (
@@ -972,6 +980,10 @@ def save_allowance_type():
         form.calculation_method.data
     )
 
+    allowance_type.earning_classification = (
+        form.earning_classification.data
+    )
+
     allowance_type.default_amount = (
         _decimal_or_zero(
             form.default_amount.data
@@ -1219,6 +1231,12 @@ def save_deduction_type():
         )
     )
 
+    deduction_type.is_tax_deductible = (
+        bool(
+            form.is_tax_deductible.data
+        )
+    )
+
     deduction_type.is_recurring = (
         bool(
             form.is_recurring.data
@@ -1333,4 +1351,3 @@ def toggle_deduction_type(
             tab="deductions",
         )
     )
-

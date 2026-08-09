@@ -30,6 +30,8 @@ class PayrollCalculation:
     basic_salary: Decimal
     overtime_amount: Decimal
     allowances_total: Decimal
+    non_cash_benefits_total: Decimal
+    allowable_deductions_total: Decimal
     gross_pay: Decimal
 
     nssa: Decimal
@@ -52,6 +54,9 @@ class PayrollCalculator:
         basic_salary,
         overtime_amount=ZERO,
         allowances_total=ZERO,
+        taxable_allowances_total=None,
+        non_cash_benefits_total=ZERO,
+        allowable_deductions_total=ZERO,
         other_deductions_total=ZERO,
         statutory_config: StatutoryConfiguration = (
             USD_STATUTORY_CONFIG
@@ -60,6 +65,17 @@ class PayrollCalculator:
         self.basic_salary = money(basic_salary)
         self.overtime_amount = money(overtime_amount)
         self.allowances_total = money(allowances_total)
+        self.taxable_allowances_total = money(
+            allowances_total
+            if taxable_allowances_total is None
+            else taxable_allowances_total
+        )
+        self.non_cash_benefits_total = money(
+            non_cash_benefits_total
+        )
+        self.allowable_deductions_total = money(
+            allowable_deductions_total
+        )
 
         self.other_deductions_total = money(
             other_deductions_total
@@ -76,6 +92,9 @@ class PayrollCalculator:
             "basic salary": self.basic_salary,
             "overtime amount": self.overtime_amount,
             "allowances": self.allowances_total,
+            "taxable allowances": self.taxable_allowances_total,
+            "non-cash benefits": self.non_cash_benefits_total,
+            "allowable deductions": self.allowable_deductions_total,
             "other deductions": self.other_deductions_total,
         }
 
@@ -230,9 +249,15 @@ class PayrollCalculator:
             )
         )
 
-        taxable_income = money(
-            gross_pay - nssa
-        )
+        taxable_income = money(max(
+            ZERO,
+            self.basic_salary
+            + self.overtime_amount
+            + self.taxable_allowances_total
+            + self.non_cash_benefits_total
+            - nssa
+            - self.allowable_deductions_total,
+        ))
 
         paye = money(
             self.calculate_paye(
@@ -253,9 +278,7 @@ class PayrollCalculator:
             + self.other_deductions_total
         )
 
-        net_pay = money(
-            gross_pay - total_deductions
-        )
+        net_pay = money(gross_pay - total_deductions)
 
         if net_pay < ZERO:
             raise ValueError(
@@ -270,6 +293,8 @@ class PayrollCalculator:
             basic_salary=self.basic_salary,
             overtime_amount=self.overtime_amount,
             allowances_total=self.allowances_total,
+            non_cash_benefits_total=self.non_cash_benefits_total,
+            allowable_deductions_total=self.allowable_deductions_total,
             gross_pay=gross_pay,
             nssa=nssa,
             employer_nssa=employer_nssa,

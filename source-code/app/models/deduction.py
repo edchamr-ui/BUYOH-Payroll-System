@@ -42,6 +42,20 @@ class Deduction(db.Model):
         nullable=True,
     )
 
+    is_tax_deductible = db.Column(
+        db.Boolean,
+        nullable=False,
+        default=False,
+        server_default=db.false(),
+    )
+
+    reduces_net_pay = db.Column(
+        db.Boolean,
+        nullable=False,
+        default=True,
+        server_default=db.true(),
+    )
+
     created_at = db.Column(
         db.DateTime,
         nullable=False,

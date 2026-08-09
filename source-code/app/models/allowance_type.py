@@ -27,6 +27,18 @@ class AllowanceType(db.Model):
         CALCULATION_PERCENTAGE,
     }
 
+    EARNING_REGULAR = "Regular Allowance"
+    EARNING_BONUS = "Bonus"
+    EARNING_COMMISSION = "Commission"
+    EARNING_TAXABLE_BENEFIT = "Taxable Benefit"
+
+    VALID_EARNING_CLASSIFICATIONS = {
+        EARNING_REGULAR,
+        EARNING_BONUS,
+        EARNING_COMMISSION,
+        EARNING_TAXABLE_BENEFIT,
+    }
+
     id = db.Column(
         db.Integer,
         primary_key=True,
@@ -77,6 +89,14 @@ class AllowanceType(db.Model):
         nullable=False,
         default=True,
         server_default=db.true(),
+    )
+
+    earning_classification = db.Column(
+        db.String(30),
+        nullable=False,
+        default=EARNING_REGULAR,
+        server_default=EARNING_REGULAR,
+        index=True,
     )
 
     is_recurring = db.Column(

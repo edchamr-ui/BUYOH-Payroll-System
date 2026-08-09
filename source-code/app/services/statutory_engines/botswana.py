@@ -206,23 +206,22 @@ class BotswanaStatutoryEngine(ProgressivePayeEngine):
         allowances_total,
         other_deductions_total,
         statutory_config,
+        taxable_allowances_total=None,
+        non_cash_benefits_total=ZERO,
+        allowable_deductions_total=ZERO,
     ):
-        if not self._is_non_resident(statutory_config):
-            return super().calculate(
-                basic_salary=basic_salary,
-                overtime_amount=overtime_amount,
-                allowances_total=allowances_total,
-                other_deductions_total=other_deductions_total,
-                statutory_config=statutory_config,
-            )
-
         return PayrollCalculator(
             basic_salary=basic_salary,
             overtime_amount=overtime_amount,
             allowances_total=allowances_total,
+            taxable_allowances_total=taxable_allowances_total,
+            non_cash_benefits_total=non_cash_benefits_total,
+            allowable_deductions_total=allowable_deductions_total,
             other_deductions_total=other_deductions_total,
-            statutory_config=self._with_non_resident_bands(
-                statutory_config
+            statutory_config=(
+                self._with_non_resident_bands(statutory_config)
+                if self._is_non_resident(statutory_config)
+                else statutory_config
             ),
         ).calculate()
 

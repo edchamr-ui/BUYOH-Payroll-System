@@ -741,6 +741,20 @@ Settings
                                 }}
                             </div>
 
+                            <div class="mb-3">
+                                {{ allowance_form.earning_classification.label(
+                                    class="form-label"
+                                ) }}
+                                {{ allowance_form.earning_classification(
+                                    class="form-select"
+                                ) }}
+                                <div class="form-text">
+                                    Taxable benefits are treated as non-cash
+                                    remuneration. Bonus and commission tax-year
+                                    treatment is completed in Milestone 3B.
+                                </div>
+                            </div>
+
                             <div class="row g-3 mb-3">
 
                                 <div class="col-md-6">
@@ -915,6 +929,17 @@ Settings
                                                 <small class="text-muted">
                                                     {{ allowance_type.code }}
                                                 </small>
+
+                                                <div class="mt-1">
+                                                    <span class="badge text-bg-light border">
+                                                        {{ allowance_type.earning_classification }}
+                                                    </span>
+                                                    {% if allowance_type.is_taxable %}
+                                                        <span class="badge text-bg-warning">Taxable</span>
+                                                    {% else %}
+                                                        <span class="badge text-bg-secondary">Non-taxable</span>
+                                                    {% endif %}
+                                                </div>
 
                                             </td>
 
@@ -1292,6 +1317,19 @@ Settings
                             </div>
 
                             <div class="form-check mb-2">
+                                {{ deduction_form.is_tax_deductible(
+                                    class="form-check-input"
+                                ) }}
+                                {{ deduction_form.is_tax_deductible.label(
+                                    class="form-check-label"
+                                ) }}
+                                <div class="form-text">
+                                    Select only where payroll legislation permits
+                                    this employee contribution to reduce taxable income.
+                                </div>
+                            </div>
+
+                            <div class="form-check mb-2">
                                 {{
                                     deduction_form.is_recurring(
                                         class="form-check-input"
@@ -1413,6 +1451,14 @@ Settings
                                                 <small class="text-muted">
                                                     {{ deduction_type.code }}
                                                 </small>
+
+                                                {% if deduction_type.is_tax_deductible %}
+                                                    <div class="mt-1">
+                                                        <span class="badge text-bg-info">
+                                                            Tax allowable
+                                                        </span>
+                                                    </div>
+                                                {% endif %}
 
                                             </td>
 

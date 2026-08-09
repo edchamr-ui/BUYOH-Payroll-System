@@ -42,6 +42,20 @@ class Allowance(db.Model):
         nullable=True,
     )
 
+    earning_classification = db.Column(
+        db.String(30),
+        nullable=False,
+        default="Regular Allowance",
+        server_default="Regular Allowance",
+    )
+
+    is_taxable = db.Column(
+        db.Boolean,
+        nullable=False,
+        default=True,
+        server_default=db.true(),
+    )
+
     created_at = db.Column(
         db.DateTime,
         nullable=False,
