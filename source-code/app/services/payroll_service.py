@@ -11,6 +11,7 @@ from app.models import (
     Allowance,
     Deduction,
     Employee,
+    PayrollPeriod,
     PayrollRecord,
 )
 from app.services.audit_log_service import AuditLogService
@@ -125,6 +126,8 @@ class PayrollService:
         non_cash_benefits = ZERO
         net_pay_deductions = ZERO
         allowable_deductions = ZERO
+        regular_variable_pay = ZERO
+        occasional_irregular_pay = ZERO
 
         for assignment in employee.recurring_allowances:
             definition = assignment.allowance_type
@@ -150,6 +153,10 @@ class PayrollService:
                 cash_allowances += amount
                 if definition.is_taxable:
                     taxable_cash_allowances += amount
+                    if classification == definition.EARNING_COMMISSION:
+                        regular_variable_pay += amount
+                    elif classification == definition.EARNING_BONUS:
+                        occasional_irregular_pay += amount
 
             allowance_lines.append((assignment, definition, amount))
 
@@ -178,8 +185,66 @@ class PayrollService:
             "non_cash_benefits": non_cash_benefits,
             "net_pay_deductions": net_pay_deductions,
             "allowable_deductions": allowable_deductions,
+            "regular_variable_pay": regular_variable_pay,
+            "occasional_irregular_pay": occasional_irregular_pay,
             "allowance_lines": allowance_lines,
             "deduction_lines": deduction_lines,
+        }
+
+    @classmethod
+    def _botswana_ytd_context(cls, employee_id, calculation_date):
+        """Return prior July-June values required by BURS spread-back PAYE."""
+
+        tax_year_start = date(
+            calculation_date.year if calculation_date.month >= 7
+            else calculation_date.year - 1,
+            7,
+            1,
+        )
+        records = (
+            PayrollRecord.query
+            .join(PayrollPeriod)
+            .filter(
+                PayrollRecord.employee_id == employee_id,
+                PayrollPeriod.payment_date >= tax_year_start,
+                PayrollPeriod.payment_date < calculation_date,
+            )
+            .order_by(PayrollPeriod.payment_date.asc())
+            .all()
+        )
+
+        taxable_income = ZERO
+        variable_income = ZERO
+        regular_paye = ZERO
+        for record in records:
+            taxable_allowances = ZERO
+            allowable_deductions = ZERO
+            for line in record.allowances:
+                if not line.is_taxable:
+                    continue
+                if line.earning_classification == "Bonus":
+                    continue
+                taxable_allowances += cls._decimal_value(line.amount)
+                if line.earning_classification == "Commission":
+                    variable_income += cls._decimal_value(line.amount)
+            for line in record.deductions:
+                if line.is_tax_deductible:
+                    allowable_deductions += cls._decimal_value(line.amount)
+            taxable_income += max(
+                ZERO,
+                cls._decimal_value(record.basic_salary)
+                + cls._decimal_value(record.overtime_amount)
+                + taxable_allowances
+                - cls._decimal_value(record.nssa)
+                - allowable_deductions,
+            )
+            regular_paye += cls._decimal_value(record.regular_paye)
+
+        return {
+            "elapsed_payments": len(records),
+            "regular_taxable_income": taxable_income,
+            "regular_variable_income": variable_income,
+            "regular_paye": regular_paye,
         }
 
     @staticmethod
@@ -484,6 +549,18 @@ class PayrollService:
                     }
 
                     if getattr(statutory_engine, "country_code", None) == "BW":
+                        ytd = cls._botswana_ytd_context(
+                            employee.id, calculation_date
+                        )
+                        fixed_current = max(
+                            ZERO,
+                            cls._decimal_value(employee.basic_salary)
+                            + pay_components["taxable_cash_allowances"]
+                            + pay_components["non_cash_benefits"]
+                            - pay_components["regular_variable_pay"]
+                            - pay_components["occasional_irregular_pay"]
+                            - pay_components["allowable_deductions"],
+                        )
                         calculation_arguments.update({
                             "taxable_allowances_total": pay_components[
                                 "taxable_cash_allowances"
@@ -494,6 +571,22 @@ class PayrollService:
                             "allowable_deductions_total": pay_components[
                                 "allowable_deductions"
                             ],
+                            "regular_variable_pay_total": pay_components[
+                                "regular_variable_pay"
+                            ],
+                            "occasional_irregular_pay_total": pay_components[
+                                "occasional_irregular_pay"
+                            ],
+                            "ytd_regular_taxable_income": ytd[
+                                "regular_taxable_income"
+                            ],
+                            "ytd_regular_paye": ytd["regular_paye"],
+                            "elapsed_payments": ytd["elapsed_payments"],
+                            "projected_annual_regular_income": (
+                                fixed_current * 12
+                                + ytd["regular_variable_income"]
+                                + pay_components["regular_variable_pay"]
+                            ),
                         })
 
                     calculation = statutory_engine.calculate(
@@ -540,6 +633,10 @@ class PayrollService:
                     ),
 
                     paye=calculation.paye,
+
+                    regular_paye=calculation.regular_paye,
+
+                    irregular_paye=calculation.irregular_paye,
 
                     aids_levy=(
                         calculation.aids_levy

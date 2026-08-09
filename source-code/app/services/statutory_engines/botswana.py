@@ -11,7 +11,7 @@ from app.services.statutory_engines.base import (
     StatutoryEngineValidation,
 )
 from app.services.statutory_config import TaxBandConfiguration
-from app.services.payroll_calculator import PayrollCalculator
+from app.services.payroll_calculator import PayrollCalculator, money
 from app.services.statutory_engines.progressive import (
     ProgressivePayeEngine,
 )
@@ -34,6 +34,23 @@ NON_RESIDENT_MONTHLY_BANDS = (
     TaxBandConfiguration(
         5, Decimal("33333"), None, Decimal("0.275")
     ),
+)
+
+RESIDENT_ANNUAL_BANDS = (
+    TaxBandConfiguration(1, Decimal("0"), Decimal("48000"), Decimal("0")),
+    TaxBandConfiguration(2, Decimal("48000"), Decimal("84000"), Decimal("0.05")),
+    TaxBandConfiguration(3, Decimal("84000"), Decimal("120000"), Decimal("0.125")),
+    TaxBandConfiguration(4, Decimal("120000"), Decimal("156000"), Decimal("0.1875")),
+    TaxBandConfiguration(5, Decimal("156000"), Decimal("400000"), Decimal("0.25")),
+    TaxBandConfiguration(6, Decimal("400000"), None, Decimal("0.275")),
+)
+
+NON_RESIDENT_ANNUAL_BANDS = (
+    TaxBandConfiguration(1, Decimal("0"), Decimal("84000"), Decimal("0.05")),
+    TaxBandConfiguration(2, Decimal("84000"), Decimal("120000"), Decimal("0.125")),
+    TaxBandConfiguration(3, Decimal("120000"), Decimal("156000"), Decimal("0.1875")),
+    TaxBandConfiguration(4, Decimal("156000"), Decimal("400000"), Decimal("0.25")),
+    TaxBandConfiguration(5, Decimal("400000"), None, Decimal("0.275")),
 )
 
 
@@ -209,8 +226,14 @@ class BotswanaStatutoryEngine(ProgressivePayeEngine):
         taxable_allowances_total=None,
         non_cash_benefits_total=ZERO,
         allowable_deductions_total=ZERO,
+        regular_variable_pay_total=ZERO,
+        occasional_irregular_pay_total=ZERO,
+        ytd_regular_taxable_income=ZERO,
+        ytd_regular_paye=ZERO,
+        elapsed_payments=0,
+        projected_annual_regular_income=None,
     ):
-        return PayrollCalculator(
+        calculation = PayrollCalculator(
             basic_salary=basic_salary,
             overtime_amount=overtime_amount,
             allowances_total=allowances_total,
@@ -224,6 +247,95 @@ class BotswanaStatutoryEngine(ProgressivePayeEngine):
                 else statutory_config
             ),
         ).calculate()
+
+        irregular_total = money(
+            money(regular_variable_pay_total)
+            + money(occasional_irregular_pay_total)
+        )
+        if irregular_total == ZERO:
+            return calculation
+
+        current_taxable_income = money(max(
+            ZERO,
+            money(basic_salary)
+            + money(overtime_amount)
+            + money(
+                allowances_total
+                if taxable_allowances_total is None
+                else taxable_allowances_total
+            )
+            + money(non_cash_benefits_total)
+            - calculation.nssa
+            - money(allowable_deductions_total),
+        ))
+
+        regular_current = money(max(
+            ZERO,
+            current_taxable_income - money(occasional_irregular_pay_total),
+        ))
+        payment_count = int(elapsed_payments) + 1
+        cumulative_regular = money(
+            money(ytd_regular_taxable_income) + regular_current
+        )
+        average_regular = money(cumulative_regular / payment_count)
+        cumulative_regular_tax = money(
+            self.calculate_paye(
+                taxable_income=average_regular,
+                statutory_config=statutory_config,
+            ) * payment_count
+        )
+        regular_paye = money(max(
+            ZERO,
+            cumulative_regular_tax - money(ytd_regular_paye),
+        ))
+
+        annual_regular = money(
+            projected_annual_regular_income
+            if projected_annual_regular_income is not None
+            else regular_current * 12
+        )
+        bonus = money(occasional_irregular_pay_total)
+        irregular_paye = ZERO
+        if bonus > ZERO:
+            annual_config = self._with_annual_bands(statutory_config)
+            annual_without = PayrollCalculator(
+                basic_salary=0,
+                statutory_config=annual_config,
+            ).calculate_paye(annual_regular)
+            annual_with = PayrollCalculator(
+                basic_salary=0,
+                statutory_config=annual_config,
+            ).calculate_paye(annual_regular + bonus)
+            irregular_paye = money(max(ZERO, annual_with - annual_without))
+
+        paye = money(regular_paye + irregular_paye)
+        total_deductions = money(
+            calculation.total_deductions - calculation.paye + paye
+        )
+        net_pay = money(calculation.gross_pay - total_deductions)
+        if net_pay < ZERO:
+            raise ValueError("Payroll deductions cannot exceed gross pay.")
+
+        return replace(
+            calculation,
+            paye=paye,
+            regular_paye=regular_paye,
+            irregular_paye=irregular_paye,
+            total_deductions=total_deductions,
+            net_pay=net_pay,
+        )
+
+    def _with_annual_bands(self, statutory_config):
+        bands = (
+            NON_RESIDENT_ANNUAL_BANDS
+            if self._is_non_resident(statutory_config)
+            else RESIDENT_ANNUAL_BANDS
+        )
+        if is_dataclass(statutory_config):
+            return replace(statutory_config, tax_bands=bands)
+        values = dict(vars(statutory_config))
+        values["tax_bands"] = bands
+        return SimpleNamespace(**values)
 
     def calculate_employee_contributions(
         self,

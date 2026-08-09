@@ -73,6 +73,14 @@ class PayrollRecord(db.Model):
         default=0,
     )
 
+    regular_paye = db.Column(
+        db.Numeric(12, 2), nullable=False, default=0, server_default="0"
+    )
+
+    irregular_paye = db.Column(
+        db.Numeric(12, 2), nullable=False, default=0, server_default="0"
+    )
+
     aids_levy = db.Column(
         db.Numeric(12, 2),
         nullable=False,

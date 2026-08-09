@@ -37,6 +37,8 @@ class PayrollCalculation:
     nssa: Decimal
     employer_nssa: Decimal
     paye: Decimal
+    regular_paye: Decimal
+    irregular_paye: Decimal
     aids_levy: Decimal
 
     other_deductions_total: Decimal
@@ -299,6 +301,8 @@ class PayrollCalculator:
             nssa=nssa,
             employer_nssa=employer_nssa,
             paye=paye,
+            regular_paye=paye,
+            irregular_paye=ZERO,
             aids_levy=aids_levy,
             other_deductions_total=(
                 self.other_deductions_total

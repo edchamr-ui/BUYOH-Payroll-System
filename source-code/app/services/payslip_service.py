@@ -1058,10 +1058,6 @@ class PayslipService:
 
         deduction_rows = [
             (
-                "PAYE",
-                payroll_record.paye,
-            ),
-            (
                 "AIDS Levy",
                 payroll_record.aids_levy,
             ),
@@ -1070,6 +1066,14 @@ class PayslipService:
                 payroll_record.nssa,
             ),
         ]
+
+        if payroll_record.irregular_paye:
+            deduction_rows[0:0] = [
+                ("PAYE — Regular", payroll_record.regular_paye),
+                ("PAYE — Irregular", payroll_record.irregular_paye),
+            ]
+        else:
+            deduction_rows.insert(0, ("PAYE", payroll_record.paye))
 
         deduction_rows.extend(
             (item.deduction_type, item.amount)
