@@ -30,6 +30,12 @@ class InvalidTaxBandConfigurationError(
     """Raised when PAYE is enabled without valid tax bands."""
 
 
+class InvalidStatutoryRuleConfigurationError(
+    StatutoryRuleServiceError
+):
+    """Raised when an active rule contains contradictory settings."""
+
+
 class StatutoryRuleService:
     """
     Find and convert effective-dated statutory payroll rules.
@@ -95,6 +101,67 @@ class StatutoryRuleService:
         return matching_rules[0]
 
     @staticmethod
+    def get_latest_prior_year_rule_set(
+        calculation_date,
+        currency="USD",
+    ):
+        """Return a usable rule from the immediately preceding year.
+
+        This is an explicit provisional fallback for cases where the new
+        year's official PAYE tables have not yet been published. It never
+        selects a PAYE-disabled rule, a rule without bands, or a rule older
+        than the immediately preceding calendar year.
+        """
+
+        if not isinstance(calculation_date, date):
+            raise TypeError(
+                "Calculation date must be a date object."
+            )
+
+        normalized_currency = str(currency).strip().upper()
+
+        if not normalized_currency:
+            raise ValueError("Currency is required.")
+
+        prior_year = calculation_date.year - 1
+
+        candidates = (
+            StatutoryRuleSet.query
+            .filter(
+                StatutoryRuleSet.currency == normalized_currency,
+                StatutoryRuleSet.is_active.is_(True),
+                StatutoryRuleSet.paye_enabled.is_(True),
+                StatutoryRuleSet.effective_from
+                <= date(prior_year, 12, 31),
+            )
+            .order_by(
+                StatutoryRuleSet.effective_from.desc(),
+                StatutoryRuleSet.id.desc(),
+            )
+            .all()
+        )
+
+        usable_rules = [
+            rule
+            for rule in candidates
+            if rule.effective_from.year <= prior_year
+            and (
+                rule.effective_to is None
+                or rule.effective_to.year == prior_year
+            )
+            and bool(rule.tax_bands)
+        ]
+
+        if not usable_rules:
+            raise StatutoryRuleNotFoundError(
+                "No verified current-year rule or usable "
+                f"{prior_year} fallback rule was found for "
+                f"{normalized_currency}."
+            )
+
+        return usable_rules[0]
+
+    @staticmethod
     def _convert_tax_bands(rule_set):
         """Convert database tax bands into immutable values."""
 
@@ -131,6 +198,23 @@ class StatutoryRuleService:
                 "A statutory rule set is required."
             )
 
+        aids_levy_rate = Decimal(
+            str(rule_set.aids_levy_rate)
+        )
+
+        # An AIDS levy is calculated from PAYE.  Enabling the levy while
+        # disabling PAYE is therefore an unsafe placeholder/configuration,
+        # not a legitimate contribution-only rule.  Reject it before any
+        # payroll records are created.  Genuine PAYE-exempt configurations
+        # remain supported when both PAYE and its levy are disabled.
+        if not rule_set.paye_enabled and aids_levy_rate > 0:
+            raise InvalidStatutoryRuleConfigurationError(
+                "The active statutory rule has PAYE disabled while an "
+                "AIDS levy rate is configured. Install a verified "
+                "PAYE-enabled rule with tax bands, or disable the levy "
+                "for a genuine PAYE-exempt configuration."
+            )
+
         return StatutoryConfiguration(
             currency=rule_set.currency,
             nssa_employee_rate=Decimal(
@@ -142,9 +226,7 @@ class StatutoryRuleService:
             nssa_monthly_ceiling=Decimal(
                 str(rule_set.nssa_monthly_ceiling)
             ),
-            aids_levy_rate=Decimal(
-                str(rule_set.aids_levy_rate)
-            ),
+            aids_levy_rate=aids_levy_rate,
             paye_enabled=bool(rule_set.paye_enabled),
             tax_bands=cls._convert_tax_bands(rule_set),
         )

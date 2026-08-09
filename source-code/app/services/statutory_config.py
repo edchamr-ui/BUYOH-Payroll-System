@@ -32,6 +32,7 @@ class StatutoryConfiguration:
     paye_enabled: bool
 
     tax_bands: tuple[TaxBandConfiguration, ...] = ()
+    tax_residency: str = "Resident"
 
 
 USD_STATUTORY_CONFIG = StatutoryConfiguration(

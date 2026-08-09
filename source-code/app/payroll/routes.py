@@ -47,6 +47,7 @@ from app.services.email_service import (
 from app.services.payroll_service import (
     InvalidPayrollStatusError,
     NoActiveEmployeesError,
+    PayrollConfigurationError,
     PayrollPersistenceError,
     PayrollService,
 )
@@ -395,6 +396,12 @@ def process_payroll(
             "warning",
         )
 
+    except PayrollConfigurationError as error:
+        flash(
+            str(error),
+            "danger",
+        )
+
     except PayrollPersistenceError as error:
         flash(
             str(error),
@@ -402,6 +409,23 @@ def process_payroll(
         )
 
     else:
+        if result.provisional_rule_used:
+            effective_to = (
+                result.rule_effective_to.isoformat()
+                if result.rule_effective_to is not None
+                else "its configured end date"
+            )
+            flash(
+                (
+                    f"Provisional statutory fallback used: "
+                    f"{result.rule_set_name}, valid through "
+                    f"{effective_to}. Review and recalculate this "
+                    "payroll when confirmed current-year ZIMRA "
+                    "USD PAYE tables become available."
+                ),
+                "warning",
+            )
+
         if result.created_count:
             flash(
                 (

@@ -139,6 +139,13 @@ class StatutoryEngineRegistry:
                     ZambiaStatutoryEngine.engine_key
                 )
             elif (
+                country_code == "BW"
+                or currency == "BWP"
+            ):
+                engine_key = (
+                    BotswanaStatutoryEngine.engine_key
+                )
+            elif (
                 country_code == "ZW"
                 or currency in {"USD", "ZWG"}
             ):

@@ -1,6 +1,6 @@
 """Payroll processing and register service."""
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import date, datetime
 from decimal import Decimal
 
@@ -13,6 +13,9 @@ from app.services.payroll_calculator import ZERO
 from app.services.statutory_engines import (
     StatutoryEngineRegistry,
     StatutoryEngineRegistryError,
+)
+from app.services.statutory_engines.base import (
+    StatutoryEngineError,
 )
 from app.services.statutory_rule_service import (
     StatutoryRuleService,
@@ -49,6 +52,8 @@ class PayrollProcessingResult:
     rule_set_name: str
     currency: str
     calculation_date: date
+    provisional_rule_used: bool
+    rule_effective_to: date | None
 
 
 @dataclass(frozen=True)
@@ -216,6 +221,8 @@ class PayrollService:
             cls._get_calculation_date(period)
         )
 
+        provisional_rule_used = False
+
         try:
             rule_set = (
                 StatutoryRuleService
@@ -225,25 +232,38 @@ class PayrollService:
                 )
             )
 
+        except StatutoryRuleServiceError as error:
+            try:
+                rule_set = (
+                    StatutoryRuleService
+                    .get_latest_prior_year_rule_set(
+                        calculation_date=calculation_date,
+                        currency=currency,
+                    )
+                )
+                provisional_rule_used = True
+            except StatutoryRuleServiceError as fallback_error:
+                raise PayrollConfigurationError(
+                    "Payroll could not find an applicable "
+                    "statutory rule set. "
+                    f"Currency: {currency}; calculation date: "
+                    f"{calculation_date.isoformat()}. "
+                    f"{fallback_error}"
+                ) from fallback_error
+
+        try:
             statutory_config = (
                 StatutoryRuleService
                 .to_configuration(rule_set)
             )
-
         except StatutoryRuleServiceError as error:
-            raise PayrollConfigurationError(
-                "Payroll could not find an applicable "
-                "statutory rule set. "
-                f"Currency: {currency}; "
-                f"calculation date: "
-                f"{calculation_date.isoformat()}. "
-                f"{error}"
-            ) from error
+            raise PayrollConfigurationError(str(error)) from error
 
         return (
             rule_set,
             statutory_config,
             calculation_date,
+            provisional_rule_used,
         )
 
     @classmethod
@@ -283,6 +303,7 @@ class PayrollService:
             rule_set,
             statutory_config,
             calculation_date,
+            provisional_rule_used,
         ) = cls._load_statutory_configuration(
             period=period,
             currency=normalized_currency,
@@ -327,6 +348,14 @@ class PayrollService:
                     continue
 
                 try:
+                    employee_statutory_config = replace(
+                        statutory_config,
+                        tax_residency=(
+                            employee.tax_residency
+                            or "Resident"
+                        ),
+                    )
+
                     statutory_engine = (
                         StatutoryEngineRegistry
                         .resolve_for_rule_set(
@@ -343,12 +372,15 @@ class PayrollService:
                             allowances_total=ZERO,
                             other_deductions_total=ZERO,
                             statutory_config=(
-                                statutory_config
+                                employee_statutory_config
                             ),
                         )
                     )
 
-                except StatutoryEngineRegistryError as error:
+                except (
+                    StatutoryEngineRegistryError,
+                    StatutoryEngineError,
+                ) as error:
                     raise PayrollConfigurationError(
                         (
                             "Payroll could not resolve the "
@@ -432,6 +464,13 @@ class PayrollService:
                     f"Created {created_count} payroll "
                     f"record(s) using the "
                     f"{rule_set.display_name} rule set."
+                    + (
+                        " PROVISIONAL FALLBACK: prior-year statutory "
+                        "rates were used because no verified current-year "
+                        "rule was available."
+                        if provisional_rule_used
+                        else ""
+                    )
                 ),
                 commit=False,
             )
@@ -459,4 +498,6 @@ class PayrollService:
             rule_set_name=rule_set.display_name,
             currency=normalized_currency,
             calculation_date=calculation_date,
+            provisional_rule_used=provisional_rule_used,
+            rule_effective_to=rule_set.effective_to,
         )

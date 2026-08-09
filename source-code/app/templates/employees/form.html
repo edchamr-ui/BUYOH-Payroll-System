@@ -305,6 +305,31 @@
                 </div>
 
                 <div class="col-md-6">
+                    {{ form.tax_residency.label(class="form-label") }}
+
+                    {{
+                        form.tax_residency(
+                            class=(
+                                "form-select is-invalid"
+                                if form.tax_residency.errors
+                                else "form-select"
+                            )
+                        )
+                    }}
+
+                    {% for error in form.tax_residency.errors %}
+                        <div class="invalid-feedback">
+                            {{ error }}
+                        </div>
+                    {% endfor %}
+
+                    <div class="form-text">
+                        Select the employee's tax status explicitly.
+                        Do not infer it from citizenship or nationality.
+                    </div>
+                </div>
+
+                <div class="col-md-6">
                     {{
                         form.payment_method.label(
                             class="form-label"

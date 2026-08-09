@@ -104,6 +104,16 @@ class EmployeeForm(FlaskForm):
         ],
     )
 
+    tax_residency = SelectField(
+        "Tax Residency",
+        choices=[
+            ("Resident", "Resident"),
+            ("Non-Resident", "Non-Resident"),
+        ],
+        default="Resident",
+        validators=[DataRequired()],
+    )
+
     employment_status = SelectField(
         "Employment Status",
         choices=[
@@ -217,4 +227,3 @@ class EmployeeForm(FlaskForm):
             raise ValidationError(
                 "Account number is required for bank transfers."
             )
-

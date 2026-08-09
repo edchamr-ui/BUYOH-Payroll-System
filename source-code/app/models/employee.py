@@ -72,6 +72,14 @@ class Employee(db.Model):
         nullable=False,
     )
 
+    tax_residency = db.Column(
+        db.String(20),
+        nullable=False,
+        default="Resident",
+        server_default="Resident",
+        index=True,
+    )
+
     payment_method = db.Column(
         db.String(30),
         nullable=False,

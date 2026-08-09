@@ -90,6 +90,10 @@ def apply_employee_form(employee, form):
         form.basic_salary.data
     )
 
+    employee.tax_residency = (
+        form.tax_residency.data
+    )
+
     employee.employment_status = (
         form.employment_status.data
     )

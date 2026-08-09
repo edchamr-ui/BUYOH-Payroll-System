@@ -1,5 +1,4 @@
 from datetime import date
-from decimal import Decimal
 
 from sqlalchemy.exc import SQLAlchemyError
 
@@ -18,10 +17,14 @@ class StatutoryRuleSeedError(Exception):
 
 def seed_statutory_rules():
     """
-    Create the default Zimbabwe USD statutory rule set.
+    Retire the obsolete Zimbabwe USD 2026 placeholder rule.
 
-    The function is idempotent. Running it more than once will
-    not create duplicate records.
+    Verified statutory rules must be installed from the statutory preset
+    library.  The former seed created an active rule with PAYE disabled and
+    no tax bands, which allowed payroll to produce misleading zero-PAYE
+    records.  This migration-style seed is intentionally idempotent: it
+    deactivates that exact legacy placeholder when present and never creates
+    statutory values that have not been verified.
     """
 
     existing_rule = StatutoryRuleSet.query.filter_by(
@@ -30,45 +33,63 @@ def seed_statutory_rules():
         effective_from=DEFAULT_EFFECTIVE_DATE,
     ).first()
 
-    if existing_rule is not None:
+    if existing_rule is None:
         return {
             "created": False,
             "message": (
-                "Statutory rule set already exists: "
+                "No obsolete statutory placeholder was found. "
+                "Install a verified rule from the statutory preset "
+                "library before processing payroll."
+            ),
+            "rule_set": None,
+        }
+
+    is_legacy_placeholder = (
+        not existing_rule.paye_enabled
+        and not existing_rule.tax_bands
+        and existing_rule.source_preset_id is None
+        and existing_rule.source_preset_key is None
+        and not existing_rule.imported_from_library
+    )
+
+    if not is_legacy_placeholder:
+        return {
+            "created": False,
+            "message": (
+                "Existing statutory rule was preserved because it is not "
+                "the obsolete placeholder: "
                 f"{existing_rule.display_name}"
             ),
             "rule_set": existing_rule,
         }
 
-    rule_set = StatutoryRuleSet(
-        name=DEFAULT_RULE_NAME,
-        currency=DEFAULT_CURRENCY,
-        effective_from=DEFAULT_EFFECTIVE_DATE,
-        effective_to=None,
-        nssa_employee_rate=Decimal("0.045000"),
-        nssa_employer_rate=Decimal("0.045000"),
-        nssa_monthly_ceiling=Decimal("700.00"),
-        aids_levy_rate=Decimal("0.030000"),
-        paye_enabled=False,
-        is_active=True,
-    )
+    if not existing_rule.is_active:
+        return {
+            "created": False,
+            "message": (
+                "Obsolete statutory placeholder is already inactive: "
+                f"{existing_rule.display_name}"
+            ),
+            "rule_set": existing_rule,
+        }
 
     try:
-        db.session.add(rule_set)
+        existing_rule.is_active = False
         db.session.commit()
 
     except SQLAlchemyError as error:
         db.session.rollback()
 
         raise StatutoryRuleSeedError(
-            "The statutory rule set could not be created."
+            "The obsolete statutory placeholder could not be deactivated."
         ) from error
 
     return {
-        "created": True,
+        "created": False,
         "message": (
-            "Created statutory rule set: "
-            f"{rule_set.display_name}"
+            "Deactivated obsolete statutory placeholder: "
+            f"{existing_rule.display_name}. Install a verified rule from "
+            "the statutory preset library before processing payroll."
         ),
-        "rule_set": rule_set,
+        "rule_set": existing_rule,
     }
