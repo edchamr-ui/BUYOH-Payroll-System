@@ -40,7 +40,7 @@ def upgrade():
         "UPDATE payroll_records "
         "SET regular_paye = paye, irregular_paye = 0"
     )
-    
+
     # ### end Alembic commands ###
 
 
