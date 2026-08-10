@@ -138,12 +138,20 @@ def test_parses_regional_k_code(
         "BR",
         "D0",
         "D1",
-        "D2",
         "NT",
         "0T",
         "SBR",
         "SD0",
+        "SD1",
+        "SD2",
+        "SD3",
+        "SNT",
+        "S0T",
+        "CBR",
         "CD0",
+        "CD1",
+        "CNT",
+        "C0T",
     ),
 )
 def test_parses_special_codes(tax_code):
@@ -159,6 +167,7 @@ def test_parses_special_codes(tax_code):
     assert result.is_special is True
     assert result.special_code == expected_core
     assert result.annual_allowance == Decimal("0.00")
+    assert result.annual_additional_pay == Decimal("0.00")
 
 
 @pytest.mark.parametrize(
@@ -171,6 +180,10 @@ def test_parses_special_codes(tax_code):
         "1257",
         "L1257",
         "K",
+        "D2",
+        "D3",
+        "CD2",
+        "CD3",
         "1257L INVALID",
         "1257L M1 EXTRA",
     ),

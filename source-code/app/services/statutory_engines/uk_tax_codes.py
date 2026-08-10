@@ -30,13 +30,30 @@ EMERGENCY_SUFFIXES = {
     "NONCUM",
 }
 
-SPECIAL_CODES = {
-    "BR",
-    "D0",
-    "D1",
-    "D2",
-    "NT",
-    "0T",
+SPECIAL_CODES_BY_REGION = {
+    REGION_ENGLAND_NI: {
+        "BR",
+        "D0",
+        "D1",
+        "NT",
+        "0T",
+    },
+    REGION_SCOTLAND: {
+        "BR",
+        "D0",
+        "D1",
+        "D2",
+        "D3",
+        "NT",
+        "0T",
+    },
+    REGION_WALES: {
+        "BR",
+        "D0",
+        "D1",
+        "NT",
+        "0T",
+    },
 }
 
 ALLOWANCE_PATTERN = re.compile(
@@ -70,18 +87,26 @@ class ParsedUKTaxCode:
 
     @property
     def is_cumulative(self):
+        """Return whether the code uses cumulative PAYE."""
+
         return self.basis == BASIS_CUMULATIVE
 
     @property
     def is_non_cumulative(self):
+        """Return whether the code uses Week 1/Month 1 PAYE."""
+
         return self.basis == BASIS_W1_M1
 
     @property
     def is_k_code(self):
+        """Return whether the code is a K code."""
+
         return self.kind == KIND_K_CODE
 
     @property
     def is_special(self):
+        """Return whether the code is a special-rate code."""
+
         return self.kind == KIND_SPECIAL
 
 
@@ -164,9 +189,8 @@ def _additional_pay_from_k_number(code_number):
     """
     Convert a K-code number into annual additional taxable pay.
 
-    HMRC K-code construction removes the final digit and then
-    reduces the remaining number by one. Reversing that process
-    means K154 represents £1,550 of additional taxable pay.
+    Reversing HMRC's K-code construction means that K154
+    represents £1,550 of additional taxable pay.
     """
 
     return Decimal((code_number + 1) * 10).quantize(
@@ -197,7 +221,11 @@ def parse_uk_tax_code(
             f"Invalid UK tax code: {normalized!r}."
         )
 
-    if core_code in SPECIAL_CODES:
+    supported_special_codes = (
+        SPECIAL_CODES_BY_REGION[region]
+    )
+
+    if core_code in supported_special_codes:
         return ParsedUKTaxCode(
             raw_code=str(value),
             normalized_code=normalized,
