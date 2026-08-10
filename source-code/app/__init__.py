@@ -5,7 +5,7 @@ from decimal import Decimal
 from flask import Flask, render_template
 from flask_login import login_required
 from sqlalchemy import func
-from app.payroll_years import payroll_years_bp
+
 from config import Config
 from app.cli import register_cli_commands
 from app.extensions import db, login_manager, migrate
@@ -21,19 +21,25 @@ from app.models import (
     Setting,
     User,
 )
+from app.payroll_years import payroll_years_bp
 from app.services.company_settings_service import (
     CompanySettingsService,
 )
 
 
-def create_app():
+def create_app(config_overrides=None):
     """Create and configure the payroll Flask application."""
 
     app = Flask(__name__)
     app.config.from_object(Config)
+
+    if config_overrides:
+        app.config.update(config_overrides)
+
     app.register_blueprint(
-    payroll_years_bp
+        payroll_years_bp
     )
+
     db.init_app(app)
     login_manager.init_app(app)
     migrate.init_app(app, db)
@@ -88,7 +94,6 @@ def create_app():
     from app.email_deliveries import email_deliveries_bp
     from app.users import users_bp
     from app.settings import settings_bp
-    
 
     app.register_blueprint(auth_bp)
     app.register_blueprint(employees_bp)
@@ -101,7 +106,6 @@ def create_app():
     app.register_blueprint(email_deliveries_bp)
     app.register_blueprint(users_bp)
     app.register_blueprint(settings_bp)
-    
 
     @app.route("/")
     @login_required
