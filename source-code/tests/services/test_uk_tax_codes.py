@@ -107,7 +107,7 @@ def test_parses_k_code():
     assert result.annual_allowance == Decimal("0.00")
     assert (
         result.annual_additional_pay
-        == Decimal("1550.00")
+        == Decimal("1540.00")
     )
 
 
@@ -128,7 +128,7 @@ def test_parses_regional_k_code(
     assert result.region == expected_region
     assert (
         result.annual_additional_pay
-        == Decimal("1550.00")
+        == Decimal("1540.00")
     )
 
 
@@ -145,12 +145,10 @@ def test_parses_regional_k_code(
         "SD1",
         "SD2",
         "SD3",
-        "SNT",
         "S0T",
         "CBR",
         "CD0",
         "CD1",
-        "CNT",
         "C0T",
     ),
 )
@@ -184,6 +182,8 @@ def test_parses_special_codes(tax_code):
         "D3",
         "CD2",
         "CD3",
+        "SNT",
+        "CNT",
         "1257L INVALID",
         "1257L M1 EXTRA",
     ),
@@ -202,5 +202,16 @@ def test_rejects_invalid_default_basis():
     ):
         parse_uk_tax_code(
             "1257L",
+            default_basis="INVALID",
+        )
+
+
+def test_rejects_invalid_default_basis_with_emergency_marker():
+    with pytest.raises(
+        UKTaxCodeError,
+        match="UK tax basis",
+    ):
+        parse_uk_tax_code(
+            "1257L M1",
             default_basis="INVALID",
         )

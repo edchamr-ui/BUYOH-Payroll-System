@@ -44,14 +44,12 @@ SPECIAL_CODES_BY_REGION = {
         "D1",
         "D2",
         "D3",
-        "NT",
         "0T",
     },
     REGION_WALES: {
         "BR",
         "D0",
         "D1",
-        "NT",
         "0T",
     },
 }
@@ -135,6 +133,14 @@ def _split_basis(normalized_code, default_basis):
 
     parts = normalized_code.split(" ")
 
+    if default_basis not in {
+        BASIS_CUMULATIVE,
+        BASIS_W1_M1,
+    }:
+        raise UKTaxCodeError(
+            "UK tax basis must be CUMULATIVE or W1_M1."
+        )
+
     if (
         len(parts) == 2
         and parts[1] in EMERGENCY_SUFFIXES
@@ -145,14 +151,6 @@ def _split_basis(normalized_code, default_basis):
         raise UKTaxCodeError(
             f"Invalid UK tax code format: "
             f"{normalized_code!r}."
-        )
-
-    if default_basis not in {
-        BASIS_CUMULATIVE,
-        BASIS_W1_M1,
-    }:
-        raise UKTaxCodeError(
-            "UK tax basis must be CUMULATIVE or W1_M1."
         )
 
     return parts[0], default_basis
@@ -189,11 +187,11 @@ def _additional_pay_from_k_number(code_number):
     """
     Convert a K-code number into annual additional taxable pay.
 
-    Reversing HMRC's K-code construction means that K154
-    represents £1,550 of additional taxable pay.
+    For example, code K154 represents £1,540 of additional
+    taxable pay.
     """
 
-    return Decimal((code_number + 1) * 10).quantize(
+    return Decimal(code_number * 10).quantize(
         Decimal("0.01")
     )
 
