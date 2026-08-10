@@ -14,8 +14,15 @@ class PayrollYear(db.Model):
     STATUS_CLOSING = "Closing"
     STATUS_CLOSED = "Closed"
 
-    id = db.Column(db.Integer, primary_key=True)
-    year = db.Column(db.Integer, nullable=False, unique=True, index=True)
+    id = db.Column(
+        db.Integer,
+        primary_key=True,
+    )
+
+    year = db.Column(
+        db.Integer,
+        nullable=False,
+    )
 
     status = db.Column(
         db.String(20),
@@ -33,30 +40,48 @@ class PayrollYear(db.Model):
 
     opened_by_user_id = db.Column(
         db.Integer,
-        db.ForeignKey("users.id", ondelete="SET NULL"),
+        db.ForeignKey(
+            "users.id",
+            ondelete="SET NULL",
+        ),
         nullable=True,
         index=True,
     )
 
-    closing_started_at = db.Column(db.DateTime, nullable=True)
+    closing_started_at = db.Column(
+        db.DateTime,
+        nullable=True,
+    )
 
     closing_started_by_user_id = db.Column(
         db.Integer,
-        db.ForeignKey("users.id", ondelete="SET NULL"),
+        db.ForeignKey(
+            "users.id",
+            ondelete="SET NULL",
+        ),
         nullable=True,
         index=True,
     )
 
-    closed_at = db.Column(db.DateTime, nullable=True)
+    closed_at = db.Column(
+        db.DateTime,
+        nullable=True,
+    )
 
     closed_by_user_id = db.Column(
         db.Integer,
-        db.ForeignKey("users.id", ondelete="SET NULL"),
+        db.ForeignKey(
+            "users.id",
+            ondelete="SET NULL",
+        ),
         nullable=True,
         index=True,
     )
 
-    closing_reason = db.Column(db.Text, nullable=True)
+    closing_reason = db.Column(
+        db.Text,
+        nullable=True,
+    )
 
     created_at = db.Column(
         db.DateTime,
@@ -98,6 +123,15 @@ class PayrollYear(db.Model):
     )
 
     __table_args__ = (
+        db.UniqueConstraint(
+            "year",
+            name="uq_payroll_year_year",
+        ),
+        db.Index(
+            "ix_payroll_years_year",
+            "year",
+            unique=True,
+        ),
         db.CheckConstraint(
             "year >= 2020 AND year <= 2100",
             name="ck_payroll_year_valid_year",
@@ -145,4 +179,3 @@ class PayrollYear(db.Model):
             f"year={self.year} "
             f"status={self.status!r}>"
         )
-

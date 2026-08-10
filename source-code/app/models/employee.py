@@ -188,6 +188,14 @@ class Employee(db.Model):
         cascade="all, delete-orphan",
     )
 
+    uk_tax_profile = db.relationship(
+        "EmployeeUKTaxProfile",
+        back_populates="employee",
+        uselist=False,
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
+
     @property
     def full_name(self):
         """Return the employee's full display name."""

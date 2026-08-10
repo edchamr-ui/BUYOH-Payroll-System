@@ -24,7 +24,7 @@ from app.models.tax_band import TaxBand
 
 from app.models.statutory_preset import StatutoryPreset
 from app.models.statutory_preset_band import StatutoryPresetBand
-
+from app.models.employee_uk_tax_profile import EmployeeUKTaxProfile
 from app.models.email_delivery import EmailDelivery
 
 from app.models.statutory_rule_set_version import (
