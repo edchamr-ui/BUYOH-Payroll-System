@@ -1,7 +1,7 @@
 """Payroll processing and register service."""
 
 from dataclasses import dataclass, replace
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from decimal import Decimal
 
 from sqlalchemy.exc import SQLAlchemyError
@@ -245,6 +245,81 @@ class PayrollService:
             "regular_taxable_income": taxable_income,
             "regular_variable_income": variable_income,
             "regular_paye": regular_paye,
+        }
+
+    @staticmethod
+    def _uk_tax_month(calculation_date):
+        """Return the HMRC tax month (1-12) for a payment date."""
+
+        shifted_date = calculation_date - timedelta(days=5)
+        tax_year_start_year = (
+            shifted_date.year
+            if shifted_date.month >= 4
+            else shifted_date.year - 1
+        )
+
+        return (
+            (shifted_date.year - tax_year_start_year) * 12
+            + shifted_date.month
+            - 3
+        )
+
+    @staticmethod
+    def _uk_history_records(employee_id, calculation_date):
+        """Load earlier UK payroll snapshots in the current tax year."""
+
+        tax_year_start = date(
+            (
+                calculation_date.year
+                if calculation_date >= date(
+                    calculation_date.year,
+                    4,
+                    6,
+                )
+                else calculation_date.year - 1
+            ),
+            4,
+            6,
+        )
+
+        return (
+            PayrollRecord.query
+            .join(PayrollPeriod)
+            .filter(
+                PayrollRecord.employee_id == employee_id,
+                PayrollPeriod.payment_date >= tax_year_start,
+                PayrollPeriod.payment_date < calculation_date,
+                PayrollRecord.uk_taxable_pay.isnot(None),
+            )
+            .order_by(PayrollPeriod.payment_date.asc())
+            .all()
+        )
+
+    @classmethod
+    def _uk_ytd_context(cls, employee_id, calculation_date):
+        """Return prior UK taxable pay and PAYE in the tax year."""
+
+        records = cls._uk_history_records(
+            employee_id,
+            calculation_date,
+        )
+
+        return {
+            "taxable_pay": sum(
+                (
+                    cls._decimal_value(record.uk_taxable_pay)
+                    for record in records
+                ),
+                ZERO,
+            ),
+            "tax_paid": sum(
+                (
+                    cls._decimal_value(record.paye)
+                    for record in records
+                ),
+                ZERO,
+            ),
+            "elapsed_payments": len(records),
         }
 
     @staticmethod
@@ -540,6 +615,8 @@ class PayrollService:
                         )
                     )
 
+                    uk_snapshot = None
+
                     calculation_arguments = {
                         "basic_salary": employee.basic_salary,
                         "overtime_amount": ZERO,
@@ -588,6 +665,57 @@ class PayrollService:
                                 + pay_components["regular_variable_pay"]
                             ),
                         })
+
+                    elif getattr(
+                        statutory_engine,
+                        "country_code",
+                        None,
+                    ) == "GB":
+                        tax_profile = employee.uk_tax_profile
+
+                        if tax_profile is None:
+                            raise PayrollConfigurationError(
+                                "The employee does not have a UK tax profile."
+                            )
+
+                        ytd = cls._uk_ytd_context(
+                            employee.id,
+                            calculation_date,
+                        )
+                        tax_month = cls._uk_tax_month(calculation_date)
+                        current_taxable_pay = max(
+                            ZERO,
+                            cls._decimal_value(employee.basic_salary)
+                            + pay_components["taxable_cash_allowances"]
+                            + pay_components["non_cash_benefits"]
+                            - pay_components["allowable_deductions"],
+                        )
+
+                        calculation_arguments.update({
+                            "taxable_allowances_total": pay_components[
+                                "taxable_cash_allowances"
+                            ],
+                            "non_cash_benefits_total": pay_components[
+                                "non_cash_benefits"
+                            ],
+                            "allowable_deductions_total": pay_components[
+                                "allowable_deductions"
+                            ],
+                            "tax_profile": tax_profile,
+                            "tax_month": tax_month,
+                            "prior_taxable_pay": ytd["taxable_pay"],
+                            "prior_tax_paid": ytd["tax_paid"],
+                        })
+
+                        uk_snapshot = {
+                            "uk_tax_code": tax_profile.tax_code,
+                            "uk_tax_basis": tax_profile.tax_basis,
+                            "uk_tax_region": tax_profile.tax_region,
+                            "uk_tax_month": tax_month,
+                            "uk_taxable_pay": current_taxable_pay,
+                            "uk_prior_taxable_pay": ytd["taxable_pay"],
+                            "uk_prior_tax_paid": ytd["tax_paid"],
+                        }
 
                     calculation = statutory_engine.calculate(
                         **calculation_arguments
@@ -660,6 +788,8 @@ class PayrollService:
                     ),
 
                     status="Draft",
+
+                    **(uk_snapshot or {}),
                 )
 
                 db.session.add(payroll_record)

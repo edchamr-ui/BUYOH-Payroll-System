@@ -73,6 +73,29 @@ class PayrollRecord(db.Model):
         default=0,
     )
 
+    uk_tax_code = db.Column(db.String(20), nullable=True)
+
+    uk_tax_basis = db.Column(db.String(20), nullable=True)
+
+    uk_tax_region = db.Column(db.String(20), nullable=True)
+
+    uk_tax_month = db.Column(db.Integer, nullable=True)
+
+    uk_taxable_pay = db.Column(
+        db.Numeric(14, 2),
+        nullable=True,
+    )
+
+    uk_prior_taxable_pay = db.Column(
+        db.Numeric(14, 2),
+        nullable=True,
+    )
+
+    uk_prior_tax_paid = db.Column(
+        db.Numeric(14, 2),
+        nullable=True,
+    )
+
     regular_paye = db.Column(
         db.Numeric(12, 2), nullable=False, default=0, server_default="0"
     )
@@ -182,6 +205,15 @@ class PayrollRecord(db.Model):
         db.CheckConstraint(
             "employer_nssa >= 0",
             name="ck_payroll_record_employer_nssa_non_negative",
+        ),
+        db.CheckConstraint(
+            "uk_tax_month IS NULL OR "
+            "(uk_tax_month >= 1 AND uk_tax_month <= 12)",
+            name="ck_payroll_record_uk_tax_month_valid",
+        ),
+        db.CheckConstraint(
+            "uk_taxable_pay IS NULL OR uk_taxable_pay >= 0",
+            name="ck_payroll_record_uk_taxable_pay_non_negative",
         ),
         db.CheckConstraint(
             "total_deductions >= 0",
