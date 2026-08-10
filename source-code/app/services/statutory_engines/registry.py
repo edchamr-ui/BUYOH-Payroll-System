@@ -3,15 +3,17 @@
 from app.services.statutory_engines.base import (
     UnsupportedStatutoryEngineError,
 )
+from app.services.statutory_engines.botswana import (
+    BotswanaStatutoryEngine,
+)
+from app.services.statutory_engines.uk import (
+    UKStatutoryEngine,
+)
 from app.services.statutory_engines.zambia import (
     ZambiaStatutoryEngine,
 )
 from app.services.statutory_engines.zimbabwe import (
     ZimbabweStatutoryEngine,
-)
-
-from app.services.statutory_engines.botswana import (
-    BotswanaStatutoryEngine,
 )
 
 
@@ -146,6 +148,13 @@ class StatutoryEngineRegistry:
                     BotswanaStatutoryEngine.engine_key
                 )
             elif (
+                country_code in {"GB", "UK", "GBR"}
+                or currency == "GBP"
+            ):
+                engine_key = (
+                    UKStatutoryEngine.engine_key
+                )
+            elif (
                 country_code == "ZW"
                 or currency in {"USD", "ZWG"}
             ):
@@ -200,4 +209,8 @@ StatutoryEngineRegistry.register(
 
 StatutoryEngineRegistry.register(
     BotswanaStatutoryEngine
+)
+
+StatutoryEngineRegistry.register(
+    UKStatutoryEngine
 )
