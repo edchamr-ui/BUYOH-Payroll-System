@@ -1,19 +1,12 @@
 from flask_wtf import FlaskForm
 from wtforms import (
+    BooleanField,
     DateField,
     DecimalField,
     SelectField,
     StringField,
     SubmitField,
 )
-from wtforms.validators import (
-    DataRequired,
-    Length,
-    NumberRange,
-    Optional,
-    ValidationError,
-)
-
 from wtforms.validators import (
     DataRequired,
     Email,
@@ -53,16 +46,14 @@ class EmployeeForm(FlaskForm):
 
     email = StringField(
         "Email Address",
-       validators=[
-           Optional(),
-           Email(
-               message="Enter a valid email address."
-           ),
-           Length(max=255),
+        validators=[
+            Optional(),
+            Email(
+                message="Enter a valid email address."
+            ),
+            Length(max=255),
         ],
     )
-
-
 
     national_id = StringField(
         "National ID",
@@ -95,6 +86,11 @@ class EmployeeForm(FlaskForm):
         ],
     )
 
+    termination_date = DateField(
+        "Termination Date",
+        validators=[],
+    )
+
     basic_salary = DecimalField(
         "Basic Salary",
         places=2,
@@ -112,6 +108,62 @@ class EmployeeForm(FlaskForm):
         ],
         default="Resident",
         validators=[DataRequired()],
+    )
+
+    uk_profile_enabled = BooleanField(
+        "Use United Kingdom PAYE and National Insurance",
+        default=False,
+    )
+
+    uk_tax_code = StringField(
+        "UK Tax Code",
+        validators=[Length(max=20)],
+        default="1257L",
+    )
+
+    uk_tax_basis = SelectField(
+        "UK Tax Basis",
+        choices=[
+            ("CUMULATIVE", "Cumulative"),
+            ("W1_M1", "Week 1 / Month 1"),
+        ],
+        default="CUMULATIVE",
+    )
+
+    uk_tax_region = SelectField(
+        "UK Tax Region",
+        choices=[
+            ("ENGLAND_NI", "England and Northern Ireland"),
+            ("SCOTLAND", "Scotland"),
+            ("WALES", "Wales"),
+        ],
+        default="ENGLAND_NI",
+    )
+
+    uk_ni_category = SelectField(
+        "National Insurance Category",
+        choices=[
+            (letter, letter)
+            for letter in (
+                "A", "B", "C", "D", "E", "F", "H", "I",
+                "J", "K", "L", "M", "N", "S", "V", "Z",
+            )
+        ],
+        default="A",
+    )
+
+    is_director = BooleanField(
+        "Company Director",
+        default=False,
+    )
+
+    director_ni_method = SelectField(
+        "Director NI Method",
+        choices=[
+            ("STANDARD", "Annual earnings method"),
+            ("ALTERNATIVE", "Alternative method"),
+        ],
+        default="STANDARD",
     )
 
     employment_status = SelectField(
@@ -226,4 +278,38 @@ class EmployeeForm(FlaskForm):
         ):
             raise ValidationError(
                 "Account number is required for bank transfers."
+            )
+
+    def validate_uk_tax_code(self, field):
+        """Require and normalise the code for UK payroll employees."""
+
+        if not self.uk_profile_enabled.data:
+            return
+
+        tax_code = str(field.data or "").strip().upper()
+        if not tax_code:
+            raise ValidationError(
+                "UK tax code is required when UK payroll is enabled."
+            )
+
+        field.data = tax_code
+
+    def validate_termination_date(self, field):
+        """Require a coherent date for terminated employees."""
+
+        if (
+            self.employment_status.data == "Terminated"
+            and field.data is None
+        ):
+            raise ValidationError(
+                "Termination date is required for a terminated employee."
+            )
+
+        if (
+            field.data is not None
+            and self.employment_date.data is not None
+            and field.data < self.employment_date.data
+        ):
+            raise ValidationError(
+                "Termination date cannot be before employment date."
             )

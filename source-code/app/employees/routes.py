@@ -17,6 +17,7 @@ from app.models import (
     Department,
     EmailDelivery,
     Employee,
+    EmployeeUKTaxProfile,
     PayrollRecord,
 )
 
@@ -63,13 +64,11 @@ def apply_employee_form(employee, form):
     )
 
     employee.email = clean_optional_text(
-    form.email.data
+        form.email.data
     )
 
     if employee.email:
         employee.email = employee.email.lower()
-
-
     employee.national_id = clean_optional_text(
         form.national_id.data
     )
@@ -84,6 +83,10 @@ def apply_employee_form(employee, form):
 
     employee.employment_date = (
         form.employment_date.data
+    )
+
+    employee.termination_date = (
+        form.termination_date.data
     )
 
     employee.basic_salary = (
@@ -129,6 +132,41 @@ def apply_employee_form(employee, form):
     employee.account_type = clean_optional_text(
         form.account_type.data
     )
+
+    if form.uk_profile_enabled.data:
+        profile = employee.uk_tax_profile
+        if profile is None:
+            profile = EmployeeUKTaxProfile()
+            employee.uk_tax_profile = profile
+
+        profile.tax_code = form.uk_tax_code.data.strip().upper()
+        profile.tax_basis = form.uk_tax_basis.data
+        profile.tax_region = form.uk_tax_region.data
+        profile.ni_category = form.uk_ni_category.data
+        profile.is_director = bool(form.is_director.data)
+        profile.director_ni_method = (
+            form.director_ni_method.data
+            if profile.is_director
+            else "STANDARD"
+        )
+    elif employee.uk_tax_profile is not None:
+        employee.uk_tax_profile = None
+
+
+def populate_uk_profile_form(form, employee):
+    """Populate nested UK profile fields when editing an employee."""
+
+    profile = employee.uk_tax_profile
+    if profile is None:
+        return
+
+    form.uk_profile_enabled.data = True
+    form.uk_tax_code.data = profile.tax_code
+    form.uk_tax_basis.data = profile.tax_basis
+    form.uk_tax_region.data = profile.tax_region
+    form.uk_ni_category.data = profile.ni_category
+    form.is_director.data = profile.is_director
+    form.director_ni_method.data = profile.director_ni_method
 
 
 @employees_bp.route("/")
@@ -405,6 +443,9 @@ def edit_employee(employee_id):
     form = EmployeeForm(obj=employee)
 
     load_department_choices(form)
+
+    if request.method == "GET":
+        populate_uk_profile_form(form, employee)
 
     if form.validate_on_submit():
         apply_employee_form(

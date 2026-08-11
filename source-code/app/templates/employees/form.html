@@ -280,6 +280,26 @@
                     </div>
                 </div>
 
+                <div class="col-md-6" id="termination-date-field">
+                    {{ form.termination_date.label(class="form-label") }}
+                    {{
+                        form.termination_date(
+                            class=(
+                                "form-control is-invalid"
+                                if form.termination_date.errors
+                                else "form-control"
+                            )
+                        )
+                    }}
+                    {% for error in form.termination_date.errors %}
+                        <div class="invalid-feedback">{{ error }}</div>
+                    {% endfor %}
+                    <div class="form-text">
+                        Required when employment status is Terminated; this
+                        triggers final-period director NI reconciliation.
+                    </div>
+                </div>
+
                 <div class="col-md-6">
                     {{
                         form.employment_status.label(
@@ -361,6 +381,98 @@
                     </div>
                 </div>
 
+            </div>
+
+            <hr class="my-5">
+
+            <div class="d-flex align-items-center justify-content-between mb-4">
+                <div>
+                    <h2 class="h5 mb-1">United Kingdom Payroll</h2>
+                    <p class="text-muted small mb-0">
+                        Configure HMRC PAYE and National Insurance only for
+                        employees processed under the UK statutory engine.
+                    </p>
+                </div>
+                <i class="bi bi-building-check fs-3 text-primary"></i>
+            </div>
+
+            <div class="form-check form-switch mb-3">
+                {{
+                    form.uk_profile_enabled(
+                        class="form-check-input",
+                        id="uk-profile-enabled"
+                    )
+                }}
+                {{
+                    form.uk_profile_enabled.label(
+                        class="form-check-label",
+                        for="uk-profile-enabled"
+                    )
+                }}
+            </div>
+
+            <div id="uk-profile-section" class="row g-3">
+                <div class="col-md-4">
+                    {{ form.uk_tax_code.label(class="form-label") }}
+                    {{
+                        form.uk_tax_code(
+                            class=(
+                                "form-control is-invalid"
+                                if form.uk_tax_code.errors
+                                else "form-control"
+                            ),
+                            placeholder="e.g. 1257L"
+                        )
+                    }}
+                    {% for error in form.uk_tax_code.errors %}
+                        <div class="invalid-feedback">{{ error }}</div>
+                    {% endfor %}
+                </div>
+
+                <div class="col-md-4">
+                    {{ form.uk_tax_basis.label(class="form-label") }}
+                    {{ form.uk_tax_basis(class="form-select") }}
+                </div>
+
+                <div class="col-md-4">
+                    {{ form.uk_tax_region.label(class="form-label") }}
+                    {{ form.uk_tax_region(class="form-select") }}
+                </div>
+
+                <div class="col-md-4">
+                    {{ form.uk_ni_category.label(class="form-label") }}
+                    {{ form.uk_ni_category(class="form-select") }}
+                    <div class="form-text">
+                        Use the category letter supplied by the employer's
+                        HMRC records.
+                    </div>
+                </div>
+
+                <div class="col-md-4 d-flex align-items-center">
+                    <div class="form-check form-switch mt-3">
+                        {{
+                            form.is_director(
+                                class="form-check-input",
+                                id="is-director"
+                            )
+                        }}
+                        {{
+                            form.is_director.label(
+                                class="form-check-label",
+                                for="is-director"
+                            )
+                        }}
+                    </div>
+                </div>
+
+                <div class="col-md-4" id="director-method-field">
+                    {{ form.director_ni_method.label(class="form-label") }}
+                    {{ form.director_ni_method(class="form-select") }}
+                    <div class="form-text">
+                        The alternative method reconciles automatically in
+                        the final tax month or final payment period.
+                    </div>
+                </div>
             </div>
 
             <!-- ==========================================
@@ -629,6 +741,35 @@ document.addEventListener("DOMContentLoaded", function () {
     );
 
     updateBankingVisibility();
+
+    const ukEnabled = document.getElementById("uk-profile-enabled");
+    const ukSection = document.getElementById("uk-profile-section");
+    const director = document.getElementById("is-director");
+    const directorMethod = document.getElementById("director-method-field");
+
+    function updateUKVisibility() {
+        if (!ukEnabled || !ukSection) {
+            return;
+        }
+        ukSection.classList.toggle("d-none", !ukEnabled.checked);
+    }
+
+    function updateDirectorVisibility() {
+        if (!director || !directorMethod) {
+            return;
+        }
+        directorMethod.classList.toggle("d-none", !director.checked);
+    }
+
+    if (ukEnabled) {
+        ukEnabled.addEventListener("change", updateUKVisibility);
+    }
+    if (director) {
+        director.addEventListener("change", updateDirectorVisibility);
+    }
+
+    updateUKVisibility();
+    updateDirectorVisibility();
 });
 </script>
 

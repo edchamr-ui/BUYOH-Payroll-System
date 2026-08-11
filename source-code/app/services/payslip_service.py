@@ -64,6 +64,26 @@ class PayslipService:
         return f"{Decimal(str(value)):,.2f}"
 
     @staticmethod
+    def _uses_uk_statutory_labels(payroll_record):
+        """Identify UK calculations from the persisted PAYE snapshot."""
+
+        return bool(
+            str(getattr(payroll_record, "uk_tax_code", "") or "").strip()
+        )
+
+    @classmethod
+    def _employee_social_security_label(cls, payroll_record):
+        if cls._uses_uk_statutory_labels(payroll_record):
+            return "National Insurance (NI)"
+        return "NSSA Deduction"
+
+    @classmethod
+    def _employer_social_security_label(cls, payroll_record):
+        if cls._uses_uk_statutory_labels(payroll_record):
+            return "Employer National Insurance"
+        return "Employer NSSA"
+
+    @staticmethod
     def _safe_text(
         value,
         fallback="-",
@@ -1056,16 +1076,22 @@ class PayslipService:
             for item in payroll_record.allowances
         )
 
-        deduction_rows = [
+        deduction_rows = []
+
+        if (
+            not cls._uses_uk_statutory_labels(payroll_record)
+            or payroll_record.aids_levy
+        ):
+            deduction_rows.append(
+                ("AIDS Levy", payroll_record.aids_levy)
+            )
+
+        deduction_rows.append(
             (
-                "AIDS Levy",
-                payroll_record.aids_levy,
-            ),
-            (
-                "NSSA Deduction",
+                cls._employee_social_security_label(payroll_record),
                 payroll_record.nssa,
-            ),
-        ]
+            )
+        )
 
         if payroll_record.irregular_paye:
             deduction_rows[0:0] = [
@@ -1184,7 +1210,7 @@ class PayslipService:
                 ],
                 [
                     Paragraph(
-                        "Employer NSSA",
+                        cls._employer_social_security_label(payroll_record),
                         bold_style,
                     ),
                     Paragraph(
