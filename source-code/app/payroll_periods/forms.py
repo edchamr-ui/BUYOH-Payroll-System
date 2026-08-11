@@ -3,13 +3,18 @@ from calendar import month_name
 from flask_wtf import FlaskForm
 from wtforms import (
     DateField,
+    DecimalField,
     IntegerField,
     SelectField,
     SubmitField,
+    TextAreaField,
 )
 from wtforms.validators import (
     DataRequired,
+    InputRequired,
+    Length,
     NumberRange,
+    Optional,
 )
 
 
@@ -60,3 +65,48 @@ class PayrollPeriodActionForm(FlaskForm):
     """CSRF-protected form for payroll workflow actions."""
 
     submit = SubmitField("Continue")
+
+
+class PayrollSSPInputForm(FlaskForm):
+    """Capture one employee's sickness input for a Draft period."""
+
+    sickness_start_date = DateField(
+        "Sickness Start Date",
+        validators=[DataRequired()],
+    )
+    average_weekly_earnings = DecimalField(
+        "Average Weekly Earnings",
+        places=2,
+        validators=[
+            InputRequired(),
+            NumberRange(min=0, message="Average weekly earnings cannot be negative."),
+        ],
+    )
+    qualifying_days_per_week = IntegerField(
+        "Qualifying Days per Week",
+        validators=[
+            InputRequired(),
+            NumberRange(min=1, max=7, message="Enter between 1 and 7 qualifying days."),
+        ],
+    )
+    qualifying_days_sick = IntegerField(
+        "Qualifying Days Sick in this Period",
+        validators=[
+            InputRequired(),
+            NumberRange(min=0, max=31, message="Enter between 0 and 31 sick days."),
+        ],
+    )
+    salary_withheld = DecimalField(
+        "Contractual Salary Withheld",
+        places=2,
+        default=0,
+        validators=[
+            InputRequired(),
+            NumberRange(min=0, message="Salary withheld cannot be negative."),
+        ],
+    )
+    notes = TextAreaField(
+        "Payroll Notes",
+        validators=[Optional(), Length(max=500)],
+    )
+    submit = SubmitField("Save SSP Input")

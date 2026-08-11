@@ -22,8 +22,49 @@ from app.models import (
     PayrollPeriod,
     PayrollYear,
 )
+from app.models.payroll_ssp_input import PayrollSSPInput
 from app.payroll_periods import payroll_periods_bp
-from app.payroll_periods.forms import PayrollPeriodForm
+from app.payroll_periods.forms import (
+    PayrollPeriodActionForm,
+    PayrollPeriodForm,
+    PayrollSSPInputForm,
+)
+
+
+def can_manage_ssp(period):
+    """Return whether operational SSP inputs may still be changed."""
+
+    return (
+        period.status == "Draft"
+        and period.payroll_year is not None
+        and period.payroll_year.is_open
+    )
+
+
+def validate_ssp_dates(form, period):
+    """Return period-aware validation messages for a sickness input."""
+
+    sickness_start = form.sickness_start_date.data
+    if sickness_start is None:
+        return []
+
+    if sickness_start > period.end_date:
+        return [
+            "Sickness start date cannot be after the payroll period end date."
+        ]
+
+    return []
+
+
+def get_uk_employee_or_404(employee_id):
+    """Resolve an employee who has an enabled UK payroll profile."""
+
+    return (
+        Employee.query
+        .filter(Employee.id == employee_id)
+        .filter(Employee.uk_tax_profile.has())
+        .first_or_404()
+    )
 
 
 def validate_period_dates(form):
@@ -407,6 +448,132 @@ def view_period(period_id):
         "payroll_periods/view.html",
         period=period,
         month_name=month_name,
+    )
+
+
+@payroll_periods_bp.route("/<int:period_id>/ssp")
+@login_required
+def list_ssp_inputs(period_id):
+    """List UK employees and their SSP inputs for one payroll period."""
+
+    period = PayrollPeriod.query.get_or_404(period_id)
+    employees = (
+        Employee.query
+        .filter(Employee.uk_tax_profile.has())
+        .filter(Employee.is_active.is_(True))
+        .order_by(Employee.last_name, Employee.first_name)
+        .all()
+    )
+    saved_inputs = {
+        item.employee_id: item
+        for item in PayrollSSPInput.query.filter_by(
+            payroll_period_id=period.id
+        ).all()
+    }
+
+    return render_template(
+        "payroll_periods/ssp_inputs.html",
+        period=period,
+        employees=employees,
+        saved_inputs=saved_inputs,
+        can_edit=can_manage_ssp(period),
+        action_form=PayrollPeriodActionForm(),
+        month_name=month_name,
+    )
+
+
+@payroll_periods_bp.route(
+    "/<int:period_id>/ssp/<int:employee_id>",
+    methods=["GET", "POST"],
+)
+@login_required
+def edit_ssp_input(period_id, employee_id):
+    """Create or update one UK employee's Draft-period SSP input."""
+
+    period = PayrollPeriod.query.get_or_404(period_id)
+    employee = get_uk_employee_or_404(employee_id)
+
+    if not can_manage_ssp(period):
+        flash("SSP inputs can only be changed in an open Draft period.", "warning")
+        return redirect(
+            url_for("payroll_periods.list_ssp_inputs", period_id=period.id)
+        )
+
+    ssp_input = PayrollSSPInput.query.filter_by(
+        payroll_period_id=period.id,
+        employee_id=employee.id,
+    ).first()
+    form = PayrollSSPInputForm(obj=ssp_input)
+
+    if form.validate_on_submit():
+        date_errors = validate_ssp_dates(form, period)
+        if date_errors:
+            for error in date_errors:
+                form.sickness_start_date.errors.append(error)
+        else:
+            if ssp_input is None:
+                ssp_input = PayrollSSPInput(
+                    payroll_period_id=period.id,
+                    employee_id=employee.id,
+                )
+                db.session.add(ssp_input)
+
+            ssp_input.sickness_start_date = form.sickness_start_date.data
+            ssp_input.average_weekly_earnings = form.average_weekly_earnings.data
+            ssp_input.qualifying_days_per_week = (
+                form.qualifying_days_per_week.data
+            )
+            ssp_input.qualifying_days_sick = form.qualifying_days_sick.data
+            ssp_input.salary_withheld = form.salary_withheld.data
+            ssp_input.notes = (form.notes.data or "").strip() or None
+            try:
+                db.session.commit()
+            except IntegrityError:
+                db.session.rollback()
+                flash("The SSP input could not be saved. Please try again.", "danger")
+            else:
+                flash(f"SSP input saved for {employee.full_name}.", "success")
+                return redirect(
+                    url_for("payroll_periods.list_ssp_inputs", period_id=period.id)
+                )
+
+    return render_template(
+        "payroll_periods/ssp_form.html",
+        period=period,
+        employee=employee,
+        form=form,
+        month_name=month_name,
+    )
+
+
+@payroll_periods_bp.route(
+    "/<int:period_id>/ssp/<int:employee_id>/delete",
+    methods=["POST"],
+)
+@login_required
+def delete_ssp_input(period_id, employee_id):
+    """Delete one SSP input while its payroll period remains editable."""
+
+    period = PayrollPeriod.query.get_or_404(period_id)
+    employee = get_uk_employee_or_404(employee_id)
+    form = PayrollPeriodActionForm()
+
+    if not form.validate_on_submit():
+        flash("The SSP deletion request was invalid.", "danger")
+    elif not can_manage_ssp(period):
+        flash("SSP inputs can only be deleted in an open Draft period.", "warning")
+    else:
+        ssp_input = PayrollSSPInput.query.filter_by(
+            payroll_period_id=period.id,
+            employee_id=employee.id,
+        ).first()
+        if ssp_input is not None:
+            db.session.delete(ssp_input)
+            db.session.commit()
+            flash(f"SSP input removed for {employee.full_name}.", "success")
+
+    return redirect(
+        url_for("payroll_periods.list_ssp_inputs", period_id=period.id)
     )
 
 
