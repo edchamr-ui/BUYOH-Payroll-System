@@ -12,6 +12,7 @@ from app.services.statutory_engines.uk_paye import (
     calculate_monthly_paye_from_profile,
 )
 from app.services.statutory_engines.uk_ni import (
+    calculate_director_class_1,
     calculate_monthly_class_1,
 )
 
@@ -123,6 +124,11 @@ class UKStatutoryEngine(BaseStatutoryEngine):
         prior_taxable_pay=ZERO,
         prior_tax_paid=ZERO,
         current_pay_for_regulatory_limit=None,
+        prior_ni_earnings=ZERO,
+        prior_employee_ni=ZERO,
+        prior_employer_ni=ZERO,
+        director_appointment_week=1,
+        director_final_pay_period=False,
     ):
         """Return the application's backward-compatible payroll result."""
 
@@ -186,10 +192,26 @@ class UKStatutoryEngine(BaseStatutoryEngine):
         )
         paye = money(paye_result.paye)
         ni_category = getattr(tax_profile, "ni_category", "A")
-        ni_result = calculate_monthly_class_1(
-            gross_pay,
-            ni_category,
-        )
+        if bool(getattr(tax_profile, "is_director", False)):
+            ni_result = calculate_director_class_1(
+                gross_pay,
+                category=ni_category,
+                method=getattr(
+                    tax_profile,
+                    "director_ni_method",
+                    "STANDARD",
+                ),
+                appointment_week=director_appointment_week,
+                prior_earnings=prior_ni_earnings,
+                prior_employee_ni=prior_employee_ni,
+                prior_employer_ni=prior_employer_ni,
+                final_pay_period=director_final_pay_period,
+            )
+        else:
+            ni_result = calculate_monthly_class_1(
+                gross_pay,
+                ni_category,
+            )
         employee_ni = money(ni_result.employee_ni)
         employer_ni = money(ni_result.employer_ni)
         total_deductions = money(

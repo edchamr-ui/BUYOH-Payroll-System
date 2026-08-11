@@ -188,3 +188,88 @@ def test_registry_reports_uk_keys_as_registered():
     assert "UK_PAYE" in registered
     assert "GB" in registered
     assert "GBP" not in registered
+
+
+def test_engine_uses_standard_annual_ni_for_director_profile():
+    result = UKStatutoryEngine().calculate(
+        basic_salary="10000",
+        overtime_amount="0",
+        allowances_total="0",
+        other_deductions_total="0",
+        statutory_config=uk_config(),
+        tax_profile=uk_profile(
+            is_director=True,
+            director_ni_method="STANDARD",
+        ),
+        tax_month=1,
+    )
+
+    assert result.nssa == Decimal("0.00")
+    assert result.employer_nssa == Decimal("750.00")
+
+
+def test_engine_applies_director_ytd_context_and_pro_rata_period():
+    result = UKStatutoryEngine().calculate(
+        basic_salary="10000",
+        overtime_amount="0",
+        allowances_total="0",
+        other_deductions_total="0",
+        statutory_config=uk_config(),
+        tax_profile=uk_profile(
+            is_director=True,
+            director_ni_method="STANDARD",
+        ),
+        tax_month=7,
+        prior_ni_earnings="10000",
+        prior_employee_ni="0",
+        prior_employer_ni="750",
+        director_appointment_week=1,
+    )
+
+    assert result.nssa == Decimal("594.40")
+    assert result.employer_nssa == Decimal("1500.00")
+
+
+def test_engine_uses_alternative_monthly_method_before_final_period():
+    result = UKStatutoryEngine().calculate(
+        basic_salary="5000",
+        overtime_amount="0",
+        allowances_total="0",
+        other_deductions_total="0",
+        statutory_config=uk_config(),
+        tax_profile=uk_profile(
+            is_director=True,
+            director_ni_method="ALTERNATIVE",
+        ),
+        tax_month=2,
+        prior_ni_earnings="5000",
+        prior_employee_ni="267.50",
+        prior_employer_ni="687.45",
+    )
+
+    assert result.nssa == Decimal("267.50")
+    assert result.employer_nssa == Decimal("687.45")
+
+
+def test_engine_reconciles_alternative_method_in_final_period():
+    result = UKStatutoryEngine().calculate(
+        basic_salary="5000",
+        overtime_amount="0",
+        allowances_total="0",
+        other_deductions_total="0",
+        statutory_config=uk_config(),
+        tax_profile=uk_profile(
+            is_director=True,
+            director_ni_method="ALTERNATIVE",
+        ),
+        tax_month=12,
+        prior_taxable_pay="55000",
+        prior_tax_paid="11000",
+        prior_ni_earnings="55000",
+        prior_employee_ni="2942.50",
+        prior_employer_ni="7561.95",
+        director_final_pay_period=True,
+    )
+
+    assert result.nssa == Decimal("268.10")
+    assert result.employer_nssa == Decimal("688.05")
