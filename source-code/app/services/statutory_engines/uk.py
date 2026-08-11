@@ -15,6 +15,7 @@ from app.services.statutory_engines.uk_ni import (
     calculate_director_class_1,
     calculate_monthly_class_1,
 )
+from app.services.statutory_engines.uk_ssp import calculate_ssp_2026_27
 
 
 ZERO = Decimal("0.00")
@@ -106,6 +107,27 @@ class UKStatutoryEngine(BaseStatutoryEngine):
                 current_pay_for_regulatory_limit
             ),
             payrolled_benefits=payrolled_benefits,
+        )
+
+    def calculate_statutory_sick_pay(
+        self,
+        *,
+        average_weekly_earnings,
+        qualifying_days_per_week,
+        qualifying_days_sick,
+        prior_paid_qualifying_days=0,
+        sickness_start_date=None,
+        statutory_config=None,
+    ):
+        """Return an auditable 2026/27 Statutory Sick Pay result."""
+
+        self._require_valid_configuration(statutory_config)
+        return calculate_ssp_2026_27(
+            average_weekly_earnings=average_weekly_earnings,
+            qualifying_days_per_week=qualifying_days_per_week,
+            qualifying_days_sick=qualifying_days_sick,
+            prior_paid_qualifying_days=prior_paid_qualifying_days,
+            sickness_start_date=sickness_start_date,
         )
 
     def calculate(

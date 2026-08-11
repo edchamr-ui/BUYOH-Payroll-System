@@ -80,6 +80,19 @@ def test_calculate_paye_returns_auditable_hmrc_result():
     assert result.tax_code == "1257L"
 
 
+def test_calculate_statutory_sick_pay_through_engine():
+    result = UKStatutoryEngine().calculate_statutory_sick_pay(
+        average_weekly_earnings="185",
+        qualifying_days_per_week=5,
+        qualifying_days_sick=3,
+        statutory_config=uk_config(),
+    )
+
+    assert result.tax_year == "2026/27"
+    assert result.weekly_rate == Decimal("123.25")
+    assert result.amount == Decimal("73.95")
+
+
 def test_calculate_returns_backward_compatible_payroll_result():
     result = UKStatutoryEngine().calculate(
         basic_salary="3500",
