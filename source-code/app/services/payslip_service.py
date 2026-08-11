@@ -1064,6 +1064,11 @@ class PayslipService:
             ),
         ]
 
+        if getattr(payroll_record, "uk_ssp_amount", 0):
+            earnings_rows.append(
+                ("Statutory Sick Pay (SSP)", payroll_record.uk_ssp_amount)
+            )
+
         earnings_rows.extend(
             (
                 (

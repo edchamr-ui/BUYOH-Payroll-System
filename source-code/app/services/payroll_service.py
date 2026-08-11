@@ -14,6 +14,7 @@ from app.models import (
     PayrollPeriod,
     PayrollRecord,
 )
+from app.models.payroll_ssp_input import PayrollSSPInput
 from app.services.audit_log_service import AuditLogService
 from app.services.payroll_calculator import ZERO
 from app.services.statutory_engines import (
@@ -318,6 +319,75 @@ class PayrollService:
             ),
             "elapsed_payments": len(records),
         }
+
+    @classmethod
+    def _uk_prior_ssp_paid_days(cls, employee_id, calculation_date):
+        """Return paid SSP qualifying days already used in the tax year."""
+
+        return sum(
+            int(getattr(row, "uk_ssp_payable_days", 0) or 0)
+            for row in cls._uk_history_records(employee_id, calculation_date)
+        )
+
+    @classmethod
+    def _uk_ssp_snapshot(
+        cls,
+        *,
+        employee,
+        period,
+        statutory_engine,
+        statutory_config,
+        calculation_date,
+    ):
+        """Calculate period SSP input and return pay/snapshot values."""
+
+        entry = PayrollSSPInput.query.filter_by(
+            payroll_period_id=period.id,
+            employee_id=employee.id,
+        ).one_or_none()
+        if entry is None:
+            return ZERO, cls._decimal_value(employee.basic_salary), {}
+
+        contractual_salary = cls._decimal_value(employee.basic_salary)
+        salary_withheld = cls._decimal_value(entry.salary_withheld)
+        if salary_withheld > contractual_salary:
+            raise PayrollConfigurationError(
+                "SSP salary withheld cannot exceed the employee's "
+                "contractual basic salary."
+            )
+
+        prior_paid_days = cls._uk_prior_ssp_paid_days(
+            employee.id,
+            calculation_date,
+        )
+        try:
+            result = statutory_engine.calculate_statutory_sick_pay(
+                average_weekly_earnings=entry.average_weekly_earnings,
+                qualifying_days_per_week=entry.qualifying_days_per_week,
+                qualifying_days_sick=entry.qualifying_days_sick,
+                prior_paid_qualifying_days=prior_paid_days,
+                sickness_start_date=entry.sickness_start_date,
+                statutory_config=statutory_config,
+            )
+        except ValueError as error:
+            raise PayrollConfigurationError(
+                f"Invalid SSP input for employee {employee.employee_number}: "
+                f"{error}"
+            ) from error
+
+        normal_basic_pay = contractual_salary - salary_withheld
+        snapshot = {
+            "uk_ssp_amount": result.amount,
+            "uk_ssp_salary_withheld": salary_withheld,
+            "uk_ssp_average_weekly_earnings": result.average_weekly_earnings,
+            "uk_ssp_weekly_rate": result.weekly_rate,
+            "uk_ssp_qualifying_days_per_week": result.qualifying_days_per_week,
+            "uk_ssp_qualifying_days_sick": result.qualifying_days_sick,
+            "uk_ssp_payable_days": result.payable_qualifying_days,
+            "uk_ssp_prior_paid_days": result.prior_paid_qualifying_days,
+            "uk_ssp_sickness_start_date": entry.sickness_start_date,
+        }
+        return result.amount, normal_basic_pay, snapshot
 
     @staticmethod
     def _uk_director_appointment_week(employment_date, calculation_date):
@@ -652,6 +722,10 @@ class PayrollService:
                     }
 
                     uk_snapshot = None
+                    uk_ssp_snapshot = {}
+                    persisted_basic_salary = cls._decimal_value(
+                        employee.basic_salary
+                    )
 
                     if getattr(statutory_engine, "country_code", None) == "BW":
                         ytd = cls._botswana_ytd_context(
@@ -704,9 +778,24 @@ class PayrollService:
                             calculation_date,
                         )
                         tax_month = cls._uk_tax_month(calculation_date)
+                        (
+                            ssp_amount,
+                            persisted_basic_salary,
+                            uk_ssp_snapshot,
+                        ) = cls._uk_ssp_snapshot(
+                            employee=employee,
+                            period=period,
+                            statutory_engine=statutory_engine,
+                            statutory_config=employee_statutory_config,
+                            calculation_date=calculation_date,
+                        )
+                        statutory_basic_pay = (
+                            persisted_basic_salary + ssp_amount
+                        )
+                        calculation_arguments["basic_salary"] = statutory_basic_pay
                         current_taxable_pay = max(
                             ZERO,
-                            cls._decimal_value(employee.basic_salary)
+                            statutory_basic_pay
                             + pay_components["taxable_cash_allowances"]
                             + pay_components["non_cash_benefits"]
                             - pay_components["allowable_deductions"],
@@ -777,7 +866,7 @@ class PayrollService:
                     processed_by=processed_by_user_id,
 
                     basic_salary=(
-                        calculation.basic_salary
+                        persisted_basic_salary
                     ),
 
                     overtime_amount=(
@@ -828,6 +917,7 @@ class PayrollService:
                     status="Draft",
 
                     **(uk_snapshot or {}),
+                    **uk_ssp_snapshot,
                 )
 
                 db.session.add(payroll_record)

@@ -118,6 +118,8 @@ class ReportingService:
             "overtime_amount": ZERO,
             "allowances_total": ZERO,
             "gross_pay": ZERO,
+            "statutory_sick_pay": ZERO,
+            "ssp_salary_withheld": ZERO,
             "employee_nssa": ZERO,
             "employer_nssa": ZERO,
             "paye": ZERO,
@@ -143,6 +145,14 @@ class ReportingService:
 
             totals["gross_pay"] += cls._decimal(
                 record.gross_pay
+            )
+
+            totals["statutory_sick_pay"] += cls._decimal(
+                getattr(record, "uk_ssp_amount", ZERO)
+            )
+
+            totals["ssp_salary_withheld"] += cls._decimal(
+                getattr(record, "uk_ssp_salary_withheld", ZERO)
             )
 
             totals["employee_nssa"] += cls._decimal(

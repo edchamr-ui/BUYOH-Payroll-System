@@ -96,6 +96,22 @@ class PayrollRecord(db.Model):
         nullable=True,
     )
 
+    uk_ssp_amount = db.Column(
+        db.Numeric(12, 2), nullable=False, default=0, server_default="0"
+    )
+
+    uk_ssp_salary_withheld = db.Column(
+        db.Numeric(12, 2), nullable=False, default=0, server_default="0"
+    )
+
+    uk_ssp_average_weekly_earnings = db.Column(db.Numeric(12, 2))
+    uk_ssp_weekly_rate = db.Column(db.Numeric(12, 2))
+    uk_ssp_qualifying_days_per_week = db.Column(db.Integer)
+    uk_ssp_qualifying_days_sick = db.Column(db.Integer)
+    uk_ssp_payable_days = db.Column(db.Integer)
+    uk_ssp_prior_paid_days = db.Column(db.Integer)
+    uk_ssp_sickness_start_date = db.Column(db.Date)
+
     regular_paye = db.Column(
         db.Numeric(12, 2), nullable=False, default=0, server_default="0"
     )
@@ -214,6 +230,10 @@ class PayrollRecord(db.Model):
         db.CheckConstraint(
             "uk_taxable_pay IS NULL OR uk_taxable_pay >= 0",
             name="ck_payroll_record_uk_taxable_pay_non_negative",
+        ),
+        db.CheckConstraint(
+            "uk_ssp_amount >= 0 AND uk_ssp_salary_withheld >= 0",
+            name="ck_payroll_record_uk_ssp_amounts_non_negative",
         ),
         db.CheckConstraint(
             "total_deductions >= 0",
