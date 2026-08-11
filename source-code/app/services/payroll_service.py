@@ -249,7 +249,7 @@ class PayrollService:
 
     @staticmethod
     def _uk_tax_month(calculation_date):
-        """Return the HMRC tax month (1-12) for a payment date."""
+        """Return HMRC tax month 1-12 for a payment date."""
 
         shifted_date = calculation_date - timedelta(days=5)
         tax_year_start_year = (
@@ -257,7 +257,6 @@ class PayrollService:
             if shifted_date.month >= 4
             else shifted_date.year - 1
         )
-
         return (
             (shifted_date.year - tax_year_start_year) * 12
             + shifted_date.month
@@ -269,19 +268,12 @@ class PayrollService:
         """Load earlier UK payroll snapshots in the current tax year."""
 
         tax_year_start = date(
-            (
-                calculation_date.year
-                if calculation_date >= date(
-                    calculation_date.year,
-                    4,
-                    6,
-                )
-                else calculation_date.year - 1
-            ),
+            calculation_date.year
+            if calculation_date >= date(calculation_date.year, 4, 6)
+            else calculation_date.year - 1,
             4,
             6,
         )
-
         return (
             PayrollRecord.query
             .join(PayrollPeriod)
@@ -297,30 +289,66 @@ class PayrollService:
 
     @classmethod
     def _uk_ytd_context(cls, employee_id, calculation_date):
-        """Return prior UK taxable pay and PAYE in the tax year."""
+        """Return prior PAYE and Class 1 NI values for the UK tax year."""
 
         records = cls._uk_history_records(
             employee_id,
             calculation_date,
         )
-
         return {
             "taxable_pay": sum(
-                (
-                    cls._decimal_value(record.uk_taxable_pay)
-                    for record in records
-                ),
+                (cls._decimal_value(row.uk_taxable_pay) for row in records),
                 ZERO,
             ),
             "tax_paid": sum(
-                (
-                    cls._decimal_value(record.paye)
-                    for record in records
-                ),
+                (cls._decimal_value(row.paye) for row in records),
+                ZERO,
+            ),
+            "ni_earnings": sum(
+                (cls._decimal_value(row.gross_pay) for row in records),
+                ZERO,
+            ),
+            "employee_ni": sum(
+                (cls._decimal_value(row.nssa) for row in records),
+                ZERO,
+            ),
+            "employer_ni": sum(
+                (cls._decimal_value(row.employer_nssa) for row in records),
                 ZERO,
             ),
             "elapsed_payments": len(records),
         }
+
+    @staticmethod
+    def _uk_director_appointment_week(employment_date, calculation_date):
+        """Return the director's HMRC appointment tax week for this tax year."""
+
+        tax_year_start = date(
+            calculation_date.year
+            if calculation_date >= date(calculation_date.year, 4, 6)
+            else calculation_date.year - 1,
+            4,
+            6,
+        )
+        if employment_date is None or employment_date <= tax_year_start:
+            return 1
+        if employment_date > calculation_date:
+            raise PayrollConfigurationError(
+                "Director employment date cannot be after the payment date."
+            )
+        return min(53, ((employment_date - tax_year_start).days // 7) + 1)
+
+    @classmethod
+    def _uk_director_final_pay_period(cls, employee, period, calculation_date):
+        """Detect the annual or employment-ending director reconciliation."""
+
+        if cls._uk_tax_month(calculation_date) == 12:
+            return True
+        termination_date = getattr(employee, "termination_date", None)
+        return bool(
+            termination_date is not None
+            and termination_date <= period.end_date
+        )
 
     @staticmethod
     def get_period_records(period):
@@ -615,8 +643,6 @@ class PayrollService:
                         )
                     )
 
-                    uk_snapshot = None
-
                     calculation_arguments = {
                         "basic_salary": employee.basic_salary,
                         "overtime_amount": ZERO,
@@ -624,6 +650,8 @@ class PayrollService:
                         "other_deductions_total": pay_components["net_pay_deductions"],
                         "statutory_config": employee_statutory_config,
                     }
+
+                    uk_snapshot = None
 
                     if getattr(statutory_engine, "country_code", None) == "BW":
                         ytd = cls._botswana_ytd_context(
@@ -665,19 +693,12 @@ class PayrollService:
                                 + pay_components["regular_variable_pay"]
                             ),
                         })
-
-                    elif getattr(
-                        statutory_engine,
-                        "country_code",
-                        None,
-                    ) == "GB":
+                    elif getattr(statutory_engine, "country_code", None) == "GB":
                         tax_profile = employee.uk_tax_profile
-
                         if tax_profile is None:
                             raise PayrollConfigurationError(
                                 "The employee does not have a UK tax profile."
                             )
-
                         ytd = cls._uk_ytd_context(
                             employee.id,
                             calculation_date,
@@ -690,7 +711,6 @@ class PayrollService:
                             + pay_components["non_cash_benefits"]
                             - pay_components["allowable_deductions"],
                         )
-
                         calculation_arguments.update({
                             "taxable_allowances_total": pay_components[
                                 "taxable_cash_allowances"
@@ -706,7 +726,25 @@ class PayrollService:
                             "prior_taxable_pay": ytd["taxable_pay"],
                             "prior_tax_paid": ytd["tax_paid"],
                         })
-
+                        if bool(getattr(tax_profile, "is_director", False)):
+                            calculation_arguments.update({
+                                "prior_ni_earnings": ytd["ni_earnings"],
+                                "prior_employee_ni": ytd["employee_ni"],
+                                "prior_employer_ni": ytd["employer_ni"],
+                                "director_appointment_week": (
+                                    cls._uk_director_appointment_week(
+                                        employee.employment_date,
+                                        calculation_date,
+                                    )
+                                ),
+                                "director_final_pay_period": (
+                                    cls._uk_director_final_pay_period(
+                                        employee,
+                                        period,
+                                        calculation_date,
+                                    )
+                                ),
+                            })
                         uk_snapshot = {
                             "uk_tax_code": tax_profile.tax_code,
                             "uk_tax_basis": tax_profile.tax_basis,

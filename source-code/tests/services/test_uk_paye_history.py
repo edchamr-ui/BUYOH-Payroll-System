@@ -58,14 +58,23 @@ def test_uk_ytd_context_sums_taxable_pay_and_paye(monkeypatch):
         SimpleNamespace(
             uk_taxable_pay=Decimal("4000.00"),
             paye=Decimal("590.20"),
+            gross_pay=Decimal("4100.00"),
+            nssa=Decimal("244.16"),
+            employer_nssa=Decimal("552.45"),
         ),
         SimpleNamespace(
             uk_taxable_pay=Decimal("4250.00"),
             paye=Decimal("640.00"),
+            gross_pay=Decimal("4250.00"),
+            nssa=Decimal("256.16"),
+            employer_nssa=Decimal("574.95"),
         ),
         SimpleNamespace(
             uk_taxable_pay=Decimal("3900.00"),
             paye=Decimal("-50.00"),
+            gross_pay=Decimal("3900.00"),
+            nssa=Decimal("228.16"),
+            employer_nssa=Decimal("522.45"),
         ),
     ]
 
@@ -83,6 +92,9 @@ def test_uk_ytd_context_sums_taxable_pay_and_paye(monkeypatch):
     assert result == {
         "taxable_pay": Decimal("12150.00"),
         "tax_paid": Decimal("1180.20"),
+        "ni_earnings": Decimal("12250.00"),
+        "employee_ni": Decimal("728.48"),
+        "employer_ni": Decimal("1649.85"),
         "elapsed_payments": 3,
     }
 
@@ -102,5 +114,8 @@ def test_uk_ytd_context_returns_zero_without_history(monkeypatch):
     assert result == {
         "taxable_pay": Decimal("0.00"),
         "tax_paid": Decimal("0.00"),
+        "ni_earnings": Decimal("0.00"),
+        "employee_ni": Decimal("0.00"),
+        "employer_ni": Decimal("0.00"),
         "elapsed_payments": 0,
     }
