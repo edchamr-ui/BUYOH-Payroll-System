@@ -29,6 +29,7 @@ def uk_profile(**overrides):
         "tax_code": "1257L",
         "tax_basis": "CUMULATIVE",
         "tax_region": "ENGLAND_NI",
+        "ni_category": "A",
     }
     values.update(overrides)
     return SimpleNamespace(**values)
@@ -95,12 +96,12 @@ def test_calculate_returns_backward_compatible_payroll_result():
 
     assert result.gross_pay == Decimal("4100.00")
     assert result.paye == Decimal("590.20")
-    assert result.nssa == Decimal("0.00")
-    assert result.employer_nssa == Decimal("0.00")
+    assert result.nssa == Decimal("244.16")
+    assert result.employer_nssa == Decimal("552.45")
     assert result.aids_levy == Decimal("0.00")
-    assert result.total_deductions == Decimal("640.20")
-    assert result.net_pay == Decimal("3459.80")
-    assert result.employer_cost == Decimal("4100.00")
+    assert result.total_deductions == Decimal("884.36")
+    assert result.net_pay == Decimal("3215.64")
+    assert result.employer_cost == Decimal("4652.45")
 
 
 def test_calculate_supports_cumulative_history_and_refunds():
@@ -117,8 +118,11 @@ def test_calculate_supports_cumulative_history_and_refunds():
     )
 
     assert result.paye == Decimal("-38434.60")
-    assert result.total_deductions == Decimal("-38434.60")
-    assert result.net_pay == Decimal("49679.65")
+    assert result.nssa == Decimal("392.40")
+    assert result.employer_nssa == Decimal("1624.21")
+    assert result.total_deductions == Decimal("-38042.20")
+    assert result.net_pay == Decimal("49287.25")
+    assert result.employer_cost == Decimal("12869.26")
 
 
 def test_calculate_rejects_invalid_configuration():

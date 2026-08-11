@@ -11,13 +11,16 @@ from app.services.statutory_engines.base import (
 from app.services.statutory_engines.uk_paye import (
     calculate_monthly_paye_from_profile,
 )
+from app.services.statutory_engines.uk_ni import (
+    calculate_monthly_class_1,
+)
 
 
 ZERO = Decimal("0.00")
 
 
 class UKStatutoryEngine(BaseStatutoryEngine):
-    """HMRC-compatible monthly PAYE engine for the United Kingdom."""
+    """HMRC-compatible monthly PAYE and Class 1 NI engine."""
 
     engine_key = "UK_PAYE"
     country_code = "GB"
@@ -182,7 +185,16 @@ class UKStatutoryEngine(BaseStatutoryEngine):
             payrolled_benefits=benefits,
         )
         paye = money(paye_result.paye)
-        total_deductions = money(paye + other_deductions)
+        ni_category = getattr(tax_profile, "ni_category", "A")
+        ni_result = calculate_monthly_class_1(
+            gross_pay,
+            ni_category,
+        )
+        employee_ni = money(ni_result.employee_ni)
+        employer_ni = money(ni_result.employer_ni)
+        total_deductions = money(
+            paye + employee_ni + other_deductions
+        )
         net_pay = money(gross_pay - total_deductions)
 
         if net_pay < ZERO:
@@ -195,8 +207,8 @@ class UKStatutoryEngine(BaseStatutoryEngine):
             non_cash_benefits_total=benefits,
             allowable_deductions_total=allowable_deductions,
             gross_pay=gross_pay,
-            nssa=ZERO,
-            employer_nssa=ZERO,
+            nssa=employee_ni,
+            employer_nssa=employer_ni,
             paye=paye,
             regular_paye=paye,
             irregular_paye=ZERO,
@@ -204,7 +216,7 @@ class UKStatutoryEngine(BaseStatutoryEngine):
             other_deductions_total=other_deductions,
             total_deductions=total_deductions,
             net_pay=net_pay,
-            employer_cost=gross_pay,
+            employer_cost=money(gross_pay + employer_ni),
         )
 
     def calculate_employee_contributions(
@@ -212,22 +224,36 @@ class UKStatutoryEngine(BaseStatutoryEngine):
         *,
         gross_pay,
         statutory_config,
+        ni_category="A",
     ):
-        """NI is intentionally deferred to its dedicated checkpoint."""
+        """Return the employee Class 1 NI contribution."""
 
         self._require_valid_configuration(statutory_config)
-        return {}
+        result = calculate_monthly_class_1(
+            gross_pay,
+            ni_category,
+        )
+        return {
+            self.contribution_labels["employee"]: result.employee_ni,
+        }
 
     def calculate_employer_contributions(
         self,
         *,
         gross_pay,
         statutory_config,
+        ni_category="A",
     ):
-        """Employer NI is intentionally deferred to its checkpoint."""
+        """Return the employer Class 1 NI contribution."""
 
         self._require_valid_configuration(statutory_config)
-        return {}
+        result = calculate_monthly_class_1(
+            gross_pay,
+            ni_category,
+        )
+        return {
+            self.contribution_labels["employer"]: result.employer_ni,
+        }
 
     def calculate_levies(
         self,
