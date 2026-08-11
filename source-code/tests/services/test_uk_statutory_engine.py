@@ -286,3 +286,15 @@ def test_engine_reconciles_alternative_method_in_final_period():
 
     assert result.nssa == Decimal("268.10")
     assert result.employer_nssa == Decimal("688.05")
+
+
+def test_engine_exposes_statutory_maternity_pay_calculation():
+    result = UKStatutoryEngine().calculate_statutory_maternity_pay(
+        average_weekly_earnings="500",
+        paid_days=7,
+        prior_paid_days=42,
+        statutory_config=uk_config(),
+    )
+
+    assert result.standard_rate_days == 7
+    assert result.amount == Decimal("194.32")

@@ -16,6 +16,7 @@ from app.services.statutory_engines.uk_ni import (
     calculate_monthly_class_1,
 )
 from app.services.statutory_engines.uk_ssp import calculate_ssp_2026_27
+from app.services.statutory_engines.uk_smp import calculate_smp_2026_27
 
 
 ZERO = Decimal("0.00")
@@ -128,6 +129,25 @@ class UKStatutoryEngine(BaseStatutoryEngine):
             qualifying_days_sick=qualifying_days_sick,
             prior_paid_qualifying_days=prior_paid_qualifying_days,
             sickness_start_date=sickness_start_date,
+        )
+
+    def calculate_statutory_maternity_pay(
+        self,
+        *,
+        average_weekly_earnings,
+        paid_days,
+        prior_paid_days=0,
+        payment_date=None,
+        statutory_config=None,
+    ):
+        """Return an auditable 2026/27 Statutory Maternity Pay result."""
+
+        self._require_valid_configuration(statutory_config)
+        return calculate_smp_2026_27(
+            average_weekly_earnings=average_weekly_earnings,
+            paid_days=paid_days,
+            prior_paid_days=prior_paid_days,
+            payment_date=payment_date,
         )
 
     def calculate(
