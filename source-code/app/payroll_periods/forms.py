@@ -203,3 +203,15 @@ class PayrollSPPInputForm(FlaskForm):
         validators=[Optional(), Length(max=500)],
     )
     submit = SubmitField("Save SPP Input")
+
+
+class PayrollSAPInputForm(FlaskForm):
+    """Capture one employee's adoption-pay input for a Draft period."""
+    adoption_pay_period_start = DateField("Adoption Pay Period Start", validators=[DataRequired()])
+    average_weekly_earnings = DecimalField("Average Weekly Earnings", places=2, validators=[InputRequired(), NumberRange(min=0, message="Average weekly earnings cannot be negative.")])
+    paid_days = IntegerField("SAP Paid Days in this Period", validators=[InputRequired(), NumberRange(min=0, max=31, message="Enter between 0 and 31 paid days.")])
+    salary_withheld = DecimalField("Contractual Salary Withheld", places=2, default=0, validators=[InputRequired(), NumberRange(min=0, message="Salary withheld cannot be negative.")])
+    eligibility_confirmed = BooleanField("Employer eligibility checks completed", validators=[DataRequired(message="Confirm eligibility before saving SAP.")])
+    adoption_evidence_received = BooleanField("Adoption evidence received", validators=[DataRequired(message="Confirm adoption evidence before saving SAP.")])
+    notes = TextAreaField("Payroll Notes", validators=[Optional(), Length(max=500)])
+    submit = SubmitField("Save SAP Input")

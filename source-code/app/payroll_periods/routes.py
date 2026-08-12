@@ -25,6 +25,7 @@ from app.models import (
 from app.models.payroll_ssp_input import PayrollSSPInput
 from app.models.payroll_smp_input import PayrollSMPInput
 from app.models.payroll_spp_input import PayrollSPPInput
+from app.models.payroll_sap_input import PayrollSAPInput
 from app.payroll_periods import payroll_periods_bp
 from app.payroll_periods.forms import (
     PayrollPeriodActionForm,
@@ -32,6 +33,7 @@ from app.payroll_periods.forms import (
     PayrollSSPInputForm,
     PayrollSMPInputForm,
     PayrollSPPInputForm,
+    PayrollSAPInputForm,
 )
 
 
@@ -82,6 +84,17 @@ def validate_spp_dates(form, period):
         return [
             "Paternity pay period start cannot be after the payroll period end date."
         ]
+    return []
+
+
+def can_manage_sap(period):
+    return can_manage_ssp(period)
+
+
+def validate_sap_dates(form, period):
+    start = form.adoption_pay_period_start.data
+    if start is not None and start > period.end_date:
+        return ["Adoption pay period start cannot be after the payroll period end date."]
     return []
 
 
@@ -868,6 +881,67 @@ def delete_spp_input(period_id, employee_id):
     return redirect(
         url_for("payroll_periods.list_spp_inputs", period_id=period.id)
     )
+
+
+@payroll_periods_bp.route("/<int:period_id>/sap")
+@login_required
+def list_sap_inputs(period_id):
+    period = PayrollPeriod.query.get_or_404(period_id)
+    employees = (Employee.query.filter(Employee.uk_tax_profile.has()).filter(Employee.is_active.is_(True)).order_by(Employee.last_name, Employee.first_name).all())
+    saved_inputs = {item.employee_id: item for item in PayrollSAPInput.query.filter_by(payroll_period_id=period.id).all()}
+    return render_template("payroll_periods/sap_inputs.html", period=period, employees=employees, saved_inputs=saved_inputs, can_edit=can_manage_sap(period), action_form=PayrollPeriodActionForm(), month_name=month_name)
+
+
+@payroll_periods_bp.route("/<int:period_id>/sap/<int:employee_id>", methods=["GET", "POST"])
+@login_required
+def edit_sap_input(period_id, employee_id):
+    period = PayrollPeriod.query.get_or_404(period_id)
+    employee = get_uk_employee_or_404(employee_id)
+    if not can_manage_sap(period):
+        flash("SAP inputs can only be changed in an open Draft period.", "warning")
+        return redirect(url_for("payroll_periods.list_sap_inputs", period_id=period.id))
+    item = PayrollSAPInput.query.filter_by(payroll_period_id=period.id, employee_id=employee.id).first()
+    form = PayrollSAPInputForm(obj=item)
+    if form.validate_on_submit():
+        errors = validate_sap_dates(form, period)
+        if errors:
+            form.adoption_pay_period_start.errors.extend(errors)
+        else:
+            if item is None:
+                item = PayrollSAPInput(payroll_period_id=period.id, employee_id=employee.id)
+                db.session.add(item)
+            item.adoption_pay_period_start = form.adoption_pay_period_start.data
+            item.average_weekly_earnings = form.average_weekly_earnings.data
+            item.paid_days = form.paid_days.data
+            item.salary_withheld = form.salary_withheld.data
+            item.eligibility_confirmed = form.eligibility_confirmed.data
+            item.adoption_evidence_received = form.adoption_evidence_received.data
+            item.notes = (form.notes.data or "").strip() or None
+            try:
+                db.session.commit()
+            except IntegrityError:
+                db.session.rollback(); flash("The SAP input could not be saved. Please try again.", "danger")
+            else:
+                flash(f"SAP input saved for {employee.full_name}.", "success")
+                return redirect(url_for("payroll_periods.list_sap_inputs", period_id=period.id))
+    return render_template("payroll_periods/sap_form.html", period=period, employee=employee, form=form, month_name=month_name)
+
+
+@payroll_periods_bp.route("/<int:period_id>/sap/<int:employee_id>/delete", methods=["POST"])
+@login_required
+def delete_sap_input(period_id, employee_id):
+    period = PayrollPeriod.query.get_or_404(period_id)
+    employee = get_uk_employee_or_404(employee_id)
+    form = PayrollPeriodActionForm()
+    if not form.validate_on_submit():
+        flash("The SAP deletion request was invalid.", "danger")
+    elif not can_manage_sap(period):
+        flash("SAP inputs can only be deleted in an open Draft period.", "warning")
+    else:
+        item = PayrollSAPInput.query.filter_by(payroll_period_id=period.id, employee_id=employee.id).first()
+        if item is not None:
+            db.session.delete(item); db.session.commit(); flash(f"SAP input removed for {employee.full_name}.", "success")
+    return redirect(url_for("payroll_periods.list_sap_inputs", period_id=period.id))
 
 
 @payroll_periods_bp.route(
