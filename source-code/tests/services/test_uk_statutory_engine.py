@@ -309,3 +309,15 @@ def test_engine_exposes_statutory_paternity_pay_calculation():
 
     assert result.payable_days == 7
     assert result.amount == Decimal("194.32")
+
+
+def test_engine_exposes_statutory_adoption_pay_calculation():
+    result = UKStatutoryEngine().calculate_statutory_adoption_pay(
+        average_weekly_earnings="500",
+        paid_days=7,
+        prior_paid_days=42,
+        statutory_config=uk_config(),
+    )
+
+    assert result.standard_rate_days == 7
+    assert result.amount == Decimal("194.32")
