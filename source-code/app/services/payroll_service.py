@@ -18,6 +18,7 @@ from app.models.payroll_ssp_input import PayrollSSPInput
 from app.models.payroll_smp_input import PayrollSMPInput
 from app.models.payroll_spp_input import PayrollSPPInput
 from app.models.payroll_sap_input import PayrollSAPInput
+from app.models.payroll_shpp_input import PayrollShPPInput
 from app.services.audit_log_service import AuditLogService
 from app.services.payroll_calculator import ZERO
 from app.services.statutory_engines import (
@@ -612,6 +613,57 @@ class PayrollService:
         }
         return result.amount, salary_withheld, snapshot
 
+    @staticmethod
+    def _uk_shpp_history_records(employee_id, entitlement_reference, calculation_date):
+        return (PayrollRecord.query.join(PayrollPeriod).filter(
+            PayrollRecord.employee_id == employee_id,
+            PayrollRecord.uk_shpp_entitlement_reference == entitlement_reference,
+            PayrollPeriod.payment_date < calculation_date,
+        ).order_by(PayrollPeriod.payment_date.asc()).all())
+
+    @classmethod
+    def _uk_prior_shpp_paid_days(cls, employee_id, entitlement_reference, calculation_date):
+        return sum(int(getattr(row, "uk_shpp_paid_days", 0) or 0) for row in cls._uk_shpp_history_records(employee_id, entitlement_reference, calculation_date))
+
+    @classmethod
+    def _uk_shpp_snapshot(cls, *, employee, period, statutory_engine, statutory_config, calculation_date):
+        entry = PayrollShPPInput.query.filter_by(payroll_period_id=period.id, employee_id=employee.id).one_or_none()
+        if entry is None:
+            return ZERO, ZERO, {}
+        for valid, message in (
+            (entry.eligibility_confirmed, "ShPP eligibility is not confirmed"),
+            (entry.curtailment_notice_received, "ShPP curtailment notice is not recorded"),
+            (entry.partner_declaration_received, "ShPP partner declaration is not recorded"),
+        ):
+            if not valid:
+                raise PayrollConfigurationError(f"{message} for employee {employee.employee_number}.")
+        salary_withheld = cls._decimal_value(entry.salary_withheld)
+        if salary_withheld > cls._decimal_value(employee.basic_salary):
+            raise PayrollConfigurationError("ShPP salary withheld cannot exceed the employee's contractual basic salary.")
+        prior = cls._uk_prior_shpp_paid_days(employee.id, entry.entitlement_reference, calculation_date)
+        try:
+            result = statutory_engine.calculate_statutory_shared_parental_pay(
+                average_weekly_earnings=entry.average_weekly_earnings,
+                allocated_days=entry.allocated_days, paid_days=entry.paid_days,
+                prior_paid_days=prior, payment_date=calculation_date,
+                statutory_config=statutory_config,
+            )
+        except ValueError as error:
+            raise PayrollConfigurationError(f"Invalid ShPP input for employee {employee.employee_number}: {error}") from error
+        snapshot = {
+            "uk_shpp_amount": result.amount, "uk_shpp_salary_withheld": salary_withheld,
+            "uk_shpp_average_weekly_earnings": result.average_weekly_earnings,
+            "uk_shpp_weekly_rate": result.weekly_rate, "uk_shpp_allocated_days": result.allocated_days,
+            "uk_shpp_paid_days": result.payable_days, "uk_shpp_prior_paid_days": result.prior_paid_days,
+            "uk_shpp_remaining_allocated_days": result.remaining_allocated_days,
+            "uk_shpp_entitlement_reference": entry.entitlement_reference,
+            "uk_shpp_period_start_date": entry.shared_pay_period_start,
+            "uk_shpp_eligibility_confirmed": entry.eligibility_confirmed,
+            "uk_shpp_curtailment_notice_received": entry.curtailment_notice_received,
+            "uk_shpp_partner_declaration_received": entry.partner_declaration_received,
+        }
+        return result.amount, salary_withheld, snapshot
+
     @classmethod
     def _uk_ssp_snapshot(
         cls,
@@ -1009,6 +1061,7 @@ class PayrollService:
                     uk_smp_snapshot = {}
                     uk_spp_snapshot = {}
                     uk_sap_snapshot = {}
+                    uk_shpp_snapshot = {}
                     persisted_basic_salary = cls._decimal_value(
                         employee.basic_salary
                     )
@@ -1133,6 +1186,13 @@ class PayrollService:
                             )
                         persisted_basic_salary -= sap_salary_withheld
                         statutory_basic_pay = persisted_basic_salary + ssp_amount + smp_amount + spp_amount + sap_amount
+                        shpp_amount, shpp_salary_withheld, uk_shpp_snapshot = cls._uk_shpp_snapshot(
+                            employee=employee, period=period, statutory_engine=statutory_engine,
+                            statutory_config=employee_statutory_config, calculation_date=calculation_date)
+                        if shpp_salary_withheld > persisted_basic_salary:
+                            raise PayrollConfigurationError("Combined SSP, SMP, SPP, SAP and ShPP salary withheld cannot exceed contractual basic salary.")
+                        persisted_basic_salary -= shpp_salary_withheld
+                        statutory_basic_pay = persisted_basic_salary + ssp_amount + smp_amount + spp_amount + sap_amount + shpp_amount
                         calculation_arguments["basic_salary"] = statutory_basic_pay
                         current_taxable_pay = max(
                             ZERO,
@@ -1262,6 +1322,7 @@ class PayrollService:
                     **uk_smp_snapshot,
                     **uk_spp_snapshot,
                     **uk_sap_snapshot,
+                    **uk_shpp_snapshot,
                 )
 
                 db.session.add(payroll_record)

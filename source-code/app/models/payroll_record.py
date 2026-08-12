@@ -156,6 +156,20 @@ class PayrollRecord(db.Model):
     uk_sap_eligibility_confirmed = db.Column(db.Boolean)
     uk_sap_adoption_evidence_received = db.Column(db.Boolean)
 
+    uk_shpp_amount = db.Column(db.Numeric(12, 2), nullable=False, default=0, server_default="0")
+    uk_shpp_salary_withheld = db.Column(db.Numeric(12, 2), nullable=False, default=0, server_default="0")
+    uk_shpp_average_weekly_earnings = db.Column(db.Numeric(12, 2))
+    uk_shpp_weekly_rate = db.Column(db.Numeric(12, 2))
+    uk_shpp_allocated_days = db.Column(db.Integer)
+    uk_shpp_paid_days = db.Column(db.Integer)
+    uk_shpp_prior_paid_days = db.Column(db.Integer)
+    uk_shpp_remaining_allocated_days = db.Column(db.Integer)
+    uk_shpp_entitlement_reference = db.Column(db.String(80))
+    uk_shpp_period_start_date = db.Column(db.Date)
+    uk_shpp_eligibility_confirmed = db.Column(db.Boolean)
+    uk_shpp_curtailment_notice_received = db.Column(db.Boolean)
+    uk_shpp_partner_declaration_received = db.Column(db.Boolean)
+
     regular_paye = db.Column(
         db.Numeric(12, 2), nullable=False, default=0, server_default="0"
     )
@@ -291,6 +305,7 @@ class PayrollRecord(db.Model):
             "uk_sap_amount >= 0 AND uk_sap_salary_withheld >= 0",
             name="ck_payroll_record_uk_sap_amounts_non_negative",
         ),
+        db.CheckConstraint("uk_shpp_amount >= 0 AND uk_shpp_salary_withheld >= 0", name="ck_payroll_record_uk_shpp_amounts_non_negative"),
         db.CheckConstraint(
             "total_deductions >= 0",
             name="ck_payroll_record_deductions_non_negative",
