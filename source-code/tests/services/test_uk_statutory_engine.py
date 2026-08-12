@@ -330,3 +330,16 @@ def test_engine_exposes_shared_parental_pay_calculation():
     )
     assert result.remaining_allocated_days == 63
     assert result.amount == Decimal("194.32")
+
+
+def test_engine_exposes_parental_bereavement_pay_calculation():
+    result = UKStatutoryEngine().calculate_statutory_parental_bereavement_pay(
+        average_weekly_earnings="500",
+        paid_days=7,
+        prior_paid_days=7,
+        statutory_config=uk_config(),
+    )
+
+    assert result.payable_days == 7
+    assert result.remaining_paid_days == 0
+    assert result.amount == Decimal("194.32")
