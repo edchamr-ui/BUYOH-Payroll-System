@@ -343,3 +343,17 @@ def test_engine_exposes_parental_bereavement_pay_calculation():
     assert result.payable_days == 7
     assert result.remaining_paid_days == 0
     assert result.amount == Decimal("194.32")
+
+
+def test_engine_exposes_neonatal_care_pay_calculation():
+    result = UKStatutoryEngine().calculate_statutory_neonatal_care_pay(
+        average_weekly_earnings="500",
+        accrued_weeks=4,
+        paid_days=7,
+        prior_paid_days=7,
+        statutory_config=uk_config(),
+    )
+
+    assert result.payable_days == 7
+    assert result.remaining_accrued_days == 14
+    assert result.amount == Decimal("194.32")
