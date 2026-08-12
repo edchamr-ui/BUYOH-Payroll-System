@@ -157,3 +157,49 @@ class PayrollSMPInputForm(FlaskForm):
         validators=[Optional(), Length(max=500)],
     )
     submit = SubmitField("Save SMP Input")
+
+
+class PayrollSPPInputForm(FlaskForm):
+    """Capture one employee's paternity-pay input for a Draft period."""
+
+    paternity_pay_period_start = DateField(
+        "Paternity Pay Period Start",
+        validators=[DataRequired()],
+    )
+    average_weekly_earnings = DecimalField(
+        "Average Weekly Earnings",
+        places=2,
+        validators=[
+            InputRequired(),
+            NumberRange(min=0, message="Average weekly earnings cannot be negative."),
+        ],
+    )
+    paid_days = IntegerField(
+        "SPP Paid Days in this Period",
+        validators=[
+            InputRequired(),
+            NumberRange(min=0, max=14, message="Enter between 0 and 14 paid days."),
+        ],
+    )
+    salary_withheld = DecimalField(
+        "Contractual Salary Withheld",
+        places=2,
+        default=0,
+        validators=[
+            InputRequired(),
+            NumberRange(min=0, message="Salary withheld cannot be negative."),
+        ],
+    )
+    eligibility_confirmed = BooleanField(
+        "Employer eligibility checks completed",
+        validators=[DataRequired(message="Confirm eligibility before saving SPP.")],
+    )
+    declaration_received = BooleanField(
+        "Employee declaration or evidence received",
+        validators=[DataRequired(message="Confirm the declaration before saving SPP.")],
+    )
+    notes = TextAreaField(
+        "Payroll Notes",
+        validators=[Optional(), Length(max=500)],
+    )
+    submit = SubmitField("Save SPP Input")

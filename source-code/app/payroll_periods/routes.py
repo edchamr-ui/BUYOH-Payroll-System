@@ -24,12 +24,14 @@ from app.models import (
 )
 from app.models.payroll_ssp_input import PayrollSSPInput
 from app.models.payroll_smp_input import PayrollSMPInput
+from app.models.payroll_spp_input import PayrollSPPInput
 from app.payroll_periods import payroll_periods_bp
 from app.payroll_periods.forms import (
     PayrollPeriodActionForm,
     PayrollPeriodForm,
     PayrollSSPInputForm,
     PayrollSMPInputForm,
+    PayrollSPPInputForm,
 )
 
 
@@ -61,6 +63,25 @@ def validate_smp_dates(form, period):
             "Maternity pay period start cannot be after the payroll period end date."
         ]
 
+    return []
+
+
+def can_manage_spp(period):
+    """Return whether operational SPP inputs may still be changed."""
+
+    return can_manage_ssp(period)
+
+
+def validate_spp_dates(form, period):
+    """Return period-aware validation messages for an SPP input."""
+
+    paternity_start = form.paternity_pay_period_start.data
+    if paternity_start is None:
+        return []
+    if paternity_start > period.end_date:
+        return [
+            "Paternity pay period start cannot be after the payroll period end date."
+        ]
     return []
 
 
@@ -724,6 +745,128 @@ def delete_smp_input(period_id, employee_id):
 
     return redirect(
         url_for("payroll_periods.list_smp_inputs", period_id=period.id)
+    )
+
+
+@payroll_periods_bp.route("/<int:period_id>/spp")
+@login_required
+def list_spp_inputs(period_id):
+    """List UK employees and their SPP inputs for one payroll period."""
+
+    period = PayrollPeriod.query.get_or_404(period_id)
+    employees = (
+        Employee.query
+        .filter(Employee.uk_tax_profile.has())
+        .filter(Employee.is_active.is_(True))
+        .order_by(Employee.last_name, Employee.first_name)
+        .all()
+    )
+    saved_inputs = {
+        item.employee_id: item
+        for item in PayrollSPPInput.query.filter_by(
+            payroll_period_id=period.id
+        ).all()
+    }
+    return render_template(
+        "payroll_periods/spp_inputs.html",
+        period=period,
+        employees=employees,
+        saved_inputs=saved_inputs,
+        can_edit=can_manage_spp(period),
+        action_form=PayrollPeriodActionForm(),
+        month_name=month_name,
+    )
+
+
+@payroll_periods_bp.route(
+    "/<int:period_id>/spp/<int:employee_id>", methods=["GET", "POST"]
+)
+@login_required
+def edit_spp_input(period_id, employee_id):
+    """Create or update one UK employee's Draft-period SPP input."""
+
+    period = PayrollPeriod.query.get_or_404(period_id)
+    employee = get_uk_employee_or_404(employee_id)
+    if not can_manage_spp(period):
+        flash("SPP inputs can only be changed in an open Draft period.", "warning")
+        return redirect(
+            url_for("payroll_periods.list_spp_inputs", period_id=period.id)
+        )
+
+    spp_input = PayrollSPPInput.query.filter_by(
+        payroll_period_id=period.id,
+        employee_id=employee.id,
+    ).first()
+    form = PayrollSPPInputForm(obj=spp_input)
+
+    if form.validate_on_submit():
+        date_errors = validate_spp_dates(form, period)
+        if date_errors:
+            for error in date_errors:
+                form.paternity_pay_period_start.errors.append(error)
+        else:
+            if spp_input is None:
+                spp_input = PayrollSPPInput(
+                    payroll_period_id=period.id,
+                    employee_id=employee.id,
+                )
+                db.session.add(spp_input)
+
+            spp_input.paternity_pay_period_start = (
+                form.paternity_pay_period_start.data
+            )
+            spp_input.average_weekly_earnings = form.average_weekly_earnings.data
+            spp_input.paid_days = form.paid_days.data
+            spp_input.salary_withheld = form.salary_withheld.data
+            spp_input.eligibility_confirmed = form.eligibility_confirmed.data
+            spp_input.declaration_received = form.declaration_received.data
+            spp_input.notes = (form.notes.data or "").strip() or None
+            try:
+                db.session.commit()
+            except IntegrityError:
+                db.session.rollback()
+                flash("The SPP input could not be saved. Please try again.", "danger")
+            else:
+                flash(f"SPP input saved for {employee.full_name}.", "success")
+                return redirect(
+                    url_for("payroll_periods.list_spp_inputs", period_id=period.id)
+                )
+
+    return render_template(
+        "payroll_periods/spp_form.html",
+        period=period,
+        employee=employee,
+        form=form,
+        month_name=month_name,
+    )
+
+
+@payroll_periods_bp.route(
+    "/<int:period_id>/spp/<int:employee_id>/delete", methods=["POST"]
+)
+@login_required
+def delete_spp_input(period_id, employee_id):
+    """Delete one SPP input while its payroll period remains editable."""
+
+    period = PayrollPeriod.query.get_or_404(period_id)
+    employee = get_uk_employee_or_404(employee_id)
+    form = PayrollPeriodActionForm()
+    if not form.validate_on_submit():
+        flash("The SPP deletion request was invalid.", "danger")
+    elif not can_manage_spp(period):
+        flash("SPP inputs can only be deleted in an open Draft period.", "warning")
+    else:
+        spp_input = PayrollSPPInput.query.filter_by(
+            payroll_period_id=period.id,
+            employee_id=employee.id,
+        ).first()
+        if spp_input is not None:
+            db.session.delete(spp_input)
+            db.session.commit()
+            flash(f"SPP input removed for {employee.full_name}.", "success")
+
+    return redirect(
+        url_for("payroll_periods.list_spp_inputs", period_id=period.id)
     )
 
 
