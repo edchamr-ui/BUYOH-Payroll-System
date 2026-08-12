@@ -299,3 +299,92 @@ class PayrollSPBPInputForm(FlaskForm):
         validators=[Optional(), Length(max=500)],
     )
     submit = SubmitField("Save SPBP Input")
+
+
+class PayrollSNCPInputForm(FlaskForm):
+    """Capture one employee's neonatal-care-pay input."""
+
+    entitlement_reference = StringField(
+        "Entitlement Reference",
+        validators=[DataRequired(), Length(max=80)],
+    )
+    baby_date_of_birth = DateField(
+        "Baby Date of Birth",
+        validators=[DataRequired()],
+    )
+    neonatal_care_start_date = DateField(
+        "Neonatal Care Start Date",
+        validators=[DataRequired()],
+    )
+    neonatal_care_through_date = DateField(
+        "Neonatal Care Confirmed Through",
+        validators=[DataRequired()],
+    )
+    neonatal_pay_period_start = DateField(
+        "Neonatal Pay Period Start",
+        validators=[DataRequired()],
+    )
+    average_weekly_earnings = DecimalField(
+        "Average Weekly Earnings",
+        places=2,
+        validators=[
+            InputRequired(),
+            NumberRange(
+                min=0,
+                message="Average weekly earnings cannot be negative.",
+            ),
+        ],
+    )
+    paid_days = IntegerField(
+        "SNCP Paid Days in this Period",
+        validators=[
+            InputRequired(),
+            NumberRange(
+                min=0,
+                max=31,
+                message="Enter between 0 and 31 paid days.",
+            ),
+        ],
+    )
+    salary_withheld = DecimalField(
+        "Contractual Salary Withheld",
+        places=2,
+        default=0,
+        validators=[
+            InputRequired(),
+            NumberRange(min=0, message="Salary withheld cannot be negative."),
+        ],
+    )
+    eligibility_confirmed = BooleanField(
+        "Employer eligibility checks completed",
+        validators=[
+            DataRequired(message="Confirm eligibility before saving SNCP.")
+        ],
+    )
+    service_confirmed = BooleanField(
+        "Continuous employment requirement confirmed",
+        validators=[
+            DataRequired(message="Confirm service before saving SNCP.")
+        ],
+    )
+    neonatal_care_confirmed = BooleanField(
+        "Qualifying neonatal care confirmed",
+        validators=[
+            DataRequired(message="Confirm neonatal care before saving SNCP.")
+        ],
+    )
+    notice_received = BooleanField(
+        "Employee notice received",
+        validators=[DataRequired(message="Confirm notice before saving SNCP.")],
+    )
+    declaration_received = BooleanField(
+        "Employee declaration received",
+        validators=[
+            DataRequired(message="Confirm the declaration before saving SNCP.")
+        ],
+    )
+    notes = TextAreaField(
+        "Payroll Notes",
+        validators=[Optional(), Length(max=500)],
+    )
+    submit = SubmitField("Save SNCP Input")

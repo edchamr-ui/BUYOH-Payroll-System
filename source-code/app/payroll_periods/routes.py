@@ -28,6 +28,7 @@ from app.models.payroll_spp_input import PayrollSPPInput
 from app.models.payroll_sap_input import PayrollSAPInput
 from app.models.payroll_shpp_input import PayrollShPPInput
 from app.models.payroll_spbp_input import PayrollSPBPInput
+from app.models.payroll_sncp_input import PayrollSNCPInput
 from app.payroll_periods import payroll_periods_bp
 from app.payroll_periods.forms import (
     PayrollPeriodActionForm,
@@ -38,6 +39,7 @@ from app.payroll_periods.forms import (
     PayrollSAPInputForm,
     PayrollShPPInputForm,
     PayrollSPBPInputForm,
+    PayrollSNCPInputForm,
 )
 
 
@@ -154,6 +156,70 @@ def validate_spbp_input(form, period):
         errors.append(
             "Parental bereavement leave must finish within 56 weeks of the "
             "bereavement date."
+        )
+    return errors
+
+
+def can_manage_sncp(period):
+    return can_manage_ssp(period)
+
+
+def validate_sncp_input(form, period):
+    """Return period and statutory-window errors for an SNCP input."""
+
+    errors = []
+    birth = form.baby_date_of_birth.data
+    care_start = form.neonatal_care_start_date.data
+    care_through = form.neonatal_care_through_date.data
+    pay_start = form.neonatal_pay_period_start.data
+    paid_days = form.paid_days.data
+
+    dated_fields = (
+        (birth, "Baby date of birth"),
+        (care_start, "Neonatal care start date"),
+        (care_through, "Neonatal care confirmed-through date"),
+        (pay_start, "Neonatal pay period start"),
+    )
+    for value, label in dated_fields:
+        if value and value > period.end_date:
+            errors.append(
+                f"{label} cannot be after the payroll period end date."
+            )
+
+    if birth and care_start and care_start < birth:
+        errors.append("Neonatal care cannot start before the baby's birth.")
+    if birth and care_start and (care_start - birth).days > 28:
+        errors.append(
+            "Neonatal care must start within 28 days of the baby's birth."
+        )
+    if care_start and care_through and care_through < care_start:
+        errors.append(
+            "The neonatal care confirmed-through date cannot be before "
+            "the care start date."
+        )
+    if care_start and care_through and (
+        care_through - care_start
+    ).days < 7:
+        errors.append(
+            "At least 7 consecutive full days of neonatal care must be "
+            "confirmed."
+        )
+    if care_start and pay_start and pay_start < care_start + timedelta(days=8):
+        errors.append(
+            "Neonatal care leave cannot start before the first qualifying "
+            "care week is complete."
+        )
+    if birth and pay_start and (pay_start - birth).days > 476:
+        errors.append(
+            "Neonatal care leave must start within 68 weeks of the baby's "
+            "birth."
+        )
+    if birth and pay_start and paid_days and (
+        pay_start + timedelta(days=paid_days - 1) - birth
+    ).days > 476:
+        errors.append(
+            "Neonatal care leave must finish within 68 weeks of the baby's "
+            "birth."
         )
     return errors
 
@@ -1186,6 +1252,155 @@ def delete_spbp_input(period_id, employee_id):
             )
     return redirect(
         url_for("payroll_periods.list_spbp_inputs", period_id=period.id)
+    )
+
+
+@payroll_periods_bp.route("/<int:period_id>/sncp")
+@login_required
+def list_sncp_inputs(period_id):
+    period = PayrollPeriod.query.get_or_404(period_id)
+    employees = (
+        Employee.query
+        .filter(Employee.uk_tax_profile.has())
+        .filter(Employee.is_active.is_(True))
+        .order_by(Employee.last_name, Employee.first_name)
+        .all()
+    )
+    saved_inputs = {
+        item.employee_id: item
+        for item in PayrollSNCPInput.query.filter_by(
+            payroll_period_id=period.id
+        ).all()
+    }
+    return render_template(
+        "payroll_periods/sncp_inputs.html",
+        period=period,
+        employees=employees,
+        saved_inputs=saved_inputs,
+        can_edit=can_manage_sncp(period),
+        action_form=PayrollPeriodActionForm(),
+        month_name=month_name,
+    )
+
+
+@payroll_periods_bp.route(
+    "/<int:period_id>/sncp/<int:employee_id>",
+    methods=["GET", "POST"],
+)
+@login_required
+def edit_sncp_input(period_id, employee_id):
+    period = PayrollPeriod.query.get_or_404(period_id)
+    employee = get_uk_employee_or_404(employee_id)
+    if not can_manage_sncp(period):
+        flash(
+            "SNCP inputs can only be changed in an open Draft period.",
+            "warning",
+        )
+        return redirect(
+            url_for("payroll_periods.list_sncp_inputs", period_id=period.id)
+        )
+
+    item = PayrollSNCPInput.query.filter_by(
+        payroll_period_id=period.id,
+        employee_id=employee.id,
+    ).first()
+    form = PayrollSNCPInputForm(obj=item)
+    if form.validate_on_submit():
+        errors = validate_sncp_input(form, period)
+        if errors:
+            for error in errors:
+                flash(error, "danger")
+        else:
+            if item is None:
+                item = PayrollSNCPInput(
+                    payroll_period_id=period.id,
+                    employee_id=employee.id,
+                )
+                db.session.add(item)
+            item.entitlement_reference = (
+                form.entitlement_reference.data.strip()
+            )
+            item.baby_date_of_birth = form.baby_date_of_birth.data
+            item.neonatal_care_start_date = (
+                form.neonatal_care_start_date.data
+            )
+            item.neonatal_care_through_date = (
+                form.neonatal_care_through_date.data
+            )
+            item.neonatal_pay_period_start = (
+                form.neonatal_pay_period_start.data
+            )
+            item.average_weekly_earnings = (
+                form.average_weekly_earnings.data
+            )
+            item.paid_days = form.paid_days.data
+            item.salary_withheld = form.salary_withheld.data
+            item.eligibility_confirmed = form.eligibility_confirmed.data
+            item.service_confirmed = form.service_confirmed.data
+            item.neonatal_care_confirmed = (
+                form.neonatal_care_confirmed.data
+            )
+            item.notice_received = form.notice_received.data
+            item.declaration_received = form.declaration_received.data
+            item.notes = (form.notes.data or "").strip() or None
+            try:
+                db.session.commit()
+            except IntegrityError:
+                db.session.rollback()
+                flash(
+                    "The SNCP input could not be saved. Please try again.",
+                    "danger",
+                )
+            else:
+                flash(
+                    f"SNCP input saved for {employee.full_name}.",
+                    "success",
+                )
+                return redirect(
+                    url_for(
+                        "payroll_periods.list_sncp_inputs",
+                        period_id=period.id,
+                    )
+                )
+    return render_template(
+        "payroll_periods/sncp_form.html",
+        period=period,
+        employee=employee,
+        form=form,
+        month_name=month_name,
+    )
+
+
+@payroll_periods_bp.route(
+    "/<int:period_id>/sncp/<int:employee_id>/delete",
+    methods=["POST"],
+)
+@login_required
+def delete_sncp_input(period_id, employee_id):
+    period = PayrollPeriod.query.get_or_404(period_id)
+    employee = get_uk_employee_or_404(employee_id)
+    form = PayrollPeriodActionForm()
+    if not form.validate_on_submit():
+        flash("The SNCP deletion request was invalid.", "danger")
+    elif not can_manage_sncp(period):
+        flash(
+            "SNCP inputs can only be deleted in an open Draft period.",
+            "warning",
+        )
+    else:
+        item = PayrollSNCPInput.query.filter_by(
+            payroll_period_id=period.id,
+            employee_id=employee.id,
+        ).first()
+        if item is not None:
+            db.session.delete(item)
+            db.session.commit()
+            flash(
+                f"SNCP input removed for {employee.full_name}.",
+                "success",
+            )
+    return redirect(
+        url_for("payroll_periods.list_sncp_inputs", period_id=period.id)
     )
 
 
