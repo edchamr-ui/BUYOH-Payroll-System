@@ -122,6 +122,8 @@ class ReportingService:
             "ssp_salary_withheld": ZERO,
             "statutory_maternity_pay": ZERO,
             "smp_salary_withheld": ZERO,
+            "statutory_paternity_pay": ZERO,
+            "spp_salary_withheld": ZERO,
             "employee_nssa": ZERO,
             "employer_nssa": ZERO,
             "paye": ZERO,
@@ -163,6 +165,14 @@ class ReportingService:
 
             totals["smp_salary_withheld"] += cls._decimal(
                 getattr(record, "uk_smp_salary_withheld", ZERO)
+            )
+
+            totals["statutory_paternity_pay"] += cls._decimal(
+                getattr(record, "uk_spp_amount", ZERO)
+            )
+
+            totals["spp_salary_withheld"] += cls._decimal(
+                getattr(record, "uk_spp_salary_withheld", ZERO)
             )
 
             totals["employee_nssa"] += cls._decimal(

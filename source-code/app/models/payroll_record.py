@@ -129,6 +129,20 @@ class PayrollRecord(db.Model):
     uk_smp_eligibility_confirmed = db.Column(db.Boolean)
     uk_smp_matb1_received = db.Column(db.Boolean)
 
+    uk_spp_amount = db.Column(
+        db.Numeric(12, 2), nullable=False, default=0, server_default="0"
+    )
+    uk_spp_salary_withheld = db.Column(
+        db.Numeric(12, 2), nullable=False, default=0, server_default="0"
+    )
+    uk_spp_average_weekly_earnings = db.Column(db.Numeric(12, 2))
+    uk_spp_weekly_rate = db.Column(db.Numeric(12, 2))
+    uk_spp_paid_days = db.Column(db.Integer)
+    uk_spp_prior_paid_days = db.Column(db.Integer)
+    uk_spp_ppp_start_date = db.Column(db.Date)
+    uk_spp_eligibility_confirmed = db.Column(db.Boolean)
+    uk_spp_declaration_received = db.Column(db.Boolean)
+
     regular_paye = db.Column(
         db.Numeric(12, 2), nullable=False, default=0, server_default="0"
     )
@@ -255,6 +269,10 @@ class PayrollRecord(db.Model):
         db.CheckConstraint(
             "uk_smp_amount >= 0 AND uk_smp_salary_withheld >= 0",
             name="ck_payroll_record_uk_smp_amounts_non_negative",
+        ),
+        db.CheckConstraint(
+            "uk_spp_amount >= 0 AND uk_spp_salary_withheld >= 0",
+            name="ck_payroll_record_uk_spp_amounts_non_negative",
         ),
         db.CheckConstraint(
             "total_deductions >= 0",

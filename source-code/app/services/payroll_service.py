@@ -16,6 +16,7 @@ from app.models import (
 )
 from app.models.payroll_ssp_input import PayrollSSPInput
 from app.models.payroll_smp_input import PayrollSMPInput
+from app.models.payroll_spp_input import PayrollSPPInput
 from app.services.audit_log_service import AuditLogService
 from app.services.payroll_calculator import ZERO
 from app.services.statutory_engines import (
@@ -442,6 +443,115 @@ class PayrollService:
         }
         return result.amount, salary_withheld, snapshot
 
+    @staticmethod
+    def _uk_spp_history_records(
+        employee_id,
+        paternity_pay_period_start,
+        calculation_date,
+    ):
+        """Load prior snapshots for the same paternity pay entitlement."""
+
+        return (
+            PayrollRecord.query
+            .join(PayrollPeriod)
+            .filter(
+                PayrollRecord.employee_id == employee_id,
+                PayrollRecord.uk_spp_ppp_start_date
+                == paternity_pay_period_start,
+                PayrollPeriod.payment_date < calculation_date,
+            )
+            .order_by(PayrollPeriod.payment_date.asc())
+            .all()
+        )
+
+    @classmethod
+    def _uk_prior_spp_paid_days(
+        cls,
+        employee_id,
+        paternity_pay_period_start,
+        calculation_date,
+    ):
+        """Return SPP days already paid for this entitlement."""
+
+        return sum(
+            int(getattr(row, "uk_spp_paid_days", 0) or 0)
+            for row in cls._uk_spp_history_records(
+                employee_id,
+                paternity_pay_period_start,
+                calculation_date,
+            )
+        )
+
+    @classmethod
+    def _uk_spp_snapshot(
+        cls,
+        *,
+        employee,
+        period,
+        statutory_engine,
+        statutory_config,
+        calculation_date,
+    ):
+        """Calculate period SPP input and return pay/snapshot values."""
+
+        entry = PayrollSPPInput.query.filter_by(
+            payroll_period_id=period.id,
+            employee_id=employee.id,
+        ).one_or_none()
+        if entry is None:
+            return ZERO, ZERO, {}
+
+        if not entry.eligibility_confirmed:
+            raise PayrollConfigurationError(
+                f"SPP eligibility is not confirmed for employee "
+                f"{employee.employee_number}."
+            )
+        if not entry.declaration_received:
+            raise PayrollConfigurationError(
+                f"SPP declaration or evidence is not recorded for employee "
+                f"{employee.employee_number}."
+            )
+
+        contractual_salary = cls._decimal_value(employee.basic_salary)
+        salary_withheld = cls._decimal_value(entry.salary_withheld)
+        if salary_withheld > contractual_salary:
+            raise PayrollConfigurationError(
+                "SPP salary withheld cannot exceed the employee's "
+                "contractual basic salary."
+            )
+
+        prior_paid_days = cls._uk_prior_spp_paid_days(
+            employee.id,
+            entry.paternity_pay_period_start,
+            calculation_date,
+        )
+        try:
+            result = statutory_engine.calculate_statutory_paternity_pay(
+                average_weekly_earnings=entry.average_weekly_earnings,
+                paid_days=entry.paid_days,
+                prior_paid_days=prior_paid_days,
+                payment_date=calculation_date,
+                statutory_config=statutory_config,
+            )
+        except ValueError as error:
+            raise PayrollConfigurationError(
+                f"Invalid SPP input for employee {employee.employee_number}: "
+                f"{error}"
+            ) from error
+
+        snapshot = {
+            "uk_spp_amount": result.amount,
+            "uk_spp_salary_withheld": salary_withheld,
+            "uk_spp_average_weekly_earnings": result.average_weekly_earnings,
+            "uk_spp_weekly_rate": result.weekly_rate,
+            "uk_spp_paid_days": result.payable_days,
+            "uk_spp_prior_paid_days": result.prior_paid_days,
+            "uk_spp_ppp_start_date": entry.paternity_pay_period_start,
+            "uk_spp_eligibility_confirmed": entry.eligibility_confirmed,
+            "uk_spp_declaration_received": entry.declaration_received,
+        }
+        return result.amount, salary_withheld, snapshot
+
     @classmethod
     def _uk_ssp_snapshot(
         cls,
@@ -837,6 +947,7 @@ class PayrollService:
                     uk_snapshot = None
                     uk_ssp_snapshot = {}
                     uk_smp_snapshot = {}
+                    uk_spp_snapshot = {}
                     persisted_basic_salary = cls._decimal_value(
                         employee.basic_salary
                     )
@@ -925,6 +1036,29 @@ class PayrollService:
                         persisted_basic_salary -= smp_salary_withheld
                         statutory_basic_pay = (
                             persisted_basic_salary + ssp_amount + smp_amount
+                        )
+                        (
+                            spp_amount,
+                            spp_salary_withheld,
+                            uk_spp_snapshot,
+                        ) = cls._uk_spp_snapshot(
+                            employee=employee,
+                            period=period,
+                            statutory_engine=statutory_engine,
+                            statutory_config=employee_statutory_config,
+                            calculation_date=calculation_date,
+                        )
+                        if spp_salary_withheld > persisted_basic_salary:
+                            raise PayrollConfigurationError(
+                                "Combined SSP, SMP and SPP salary withheld cannot "
+                                "exceed contractual basic salary."
+                            )
+                        persisted_basic_salary -= spp_salary_withheld
+                        statutory_basic_pay = (
+                            persisted_basic_salary
+                            + ssp_amount
+                            + smp_amount
+                            + spp_amount
                         )
                         calculation_arguments["basic_salary"] = statutory_basic_pay
                         current_taxable_pay = max(
@@ -1053,6 +1187,7 @@ class PayrollService:
                     **(uk_snapshot or {}),
                     **uk_ssp_snapshot,
                     **uk_smp_snapshot,
+                    **uk_spp_snapshot,
                 )
 
                 db.session.add(payroll_record)
