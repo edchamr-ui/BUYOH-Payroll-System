@@ -20,6 +20,7 @@ from app.models.payroll_spp_input import PayrollSPPInput
 from app.models.payroll_sap_input import PayrollSAPInput
 from app.models.payroll_shpp_input import PayrollShPPInput
 from app.models.payroll_spbp_input import PayrollSPBPInput
+from app.models.payroll_sncp_input import PayrollSNCPInput
 from app.services.audit_log_service import AuditLogService
 from app.services.payroll_calculator import ZERO
 from app.services.statutory_engines import (
@@ -786,6 +787,158 @@ class PayrollService:
         }
         return result.amount, salary_withheld, snapshot
 
+    @staticmethod
+    def _uk_sncp_history_records(
+        employee_id, entitlement_reference, calculation_date
+    ):
+        return (
+            PayrollRecord.query.join(PayrollPeriod)
+            .filter(
+                PayrollRecord.employee_id == employee_id,
+                PayrollRecord.uk_sncp_entitlement_reference
+                == entitlement_reference,
+                PayrollPeriod.payment_date < calculation_date,
+            )
+            .order_by(PayrollPeriod.payment_date.asc())
+            .all()
+        )
+
+    @classmethod
+    def _uk_prior_sncp_paid_days(
+        cls, employee_id, entitlement_reference, calculation_date
+    ):
+        return sum(
+            int(getattr(row, "uk_sncp_paid_days", 0) or 0)
+            for row in cls._uk_sncp_history_records(
+                employee_id, entitlement_reference, calculation_date
+            )
+        )
+
+    @classmethod
+    def _uk_sncp_snapshot(
+        cls,
+        *,
+        employee,
+        period,
+        statutory_engine,
+        statutory_config,
+        calculation_date,
+    ):
+        entry = PayrollSNCPInput.query.filter_by(
+            payroll_period_id=period.id,
+            employee_id=employee.id,
+        ).one_or_none()
+        if entry is None:
+            return ZERO, ZERO, {}
+
+        for valid, message in (
+            (entry.eligibility_confirmed, "SNCP eligibility is not confirmed"),
+            (entry.service_confirmed, "SNCP employment service is not confirmed"),
+            (entry.neonatal_care_confirmed, "SNCP neonatal care is not confirmed"),
+            (entry.notice_received, "SNCP notice is not recorded"),
+            (entry.declaration_received, "SNCP declaration is not recorded"),
+        ):
+            if not valid:
+                raise PayrollConfigurationError(
+                    f"{message} for employee {employee.employee_number}."
+                )
+
+        care_start = entry.neonatal_care_start_date
+        care_through = entry.neonatal_care_through_date
+        birth_date = entry.baby_date_of_birth
+        pay_start = entry.neonatal_pay_period_start
+
+        if care_start < birth_date:
+            raise PayrollConfigurationError(
+                "SNCP neonatal care cannot start before the baby's birth."
+            )
+        if (care_start - birth_date).days > 28:
+            raise PayrollConfigurationError(
+                "SNCP neonatal care must start within 28 days of birth."
+            )
+        if care_through < care_start:
+            raise PayrollConfigurationError(
+                "SNCP confirmed care date cannot be before care started."
+            )
+
+        completed_care_days = (care_through - care_start).days
+        accrued_weeks = min(12, completed_care_days // 7)
+        if accrued_weeks < 1:
+            raise PayrollConfigurationError(
+                "SNCP requires at least 7 consecutive full days of neonatal care."
+            )
+        if pay_start < care_start + timedelta(days=8):
+            raise PayrollConfigurationError(
+                "SNCP leave cannot start until the first qualifying care week "
+                "has completed."
+            )
+        if (pay_start - birth_date).days > 476:
+            raise PayrollConfigurationError(
+                "SNCP leave must start within 68 weeks of birth."
+            )
+        if entry.paid_days and (
+            pay_start + timedelta(days=entry.paid_days - 1) - birth_date
+        ).days > 476:
+            raise PayrollConfigurationError(
+                "SNCP leave must finish within 68 weeks of birth."
+            )
+
+        salary_withheld = cls._decimal_value(entry.salary_withheld)
+        if salary_withheld > cls._decimal_value(employee.basic_salary):
+            raise PayrollConfigurationError(
+                "SNCP salary withheld cannot exceed the employee's "
+                "contractual basic salary."
+            )
+
+        prior = cls._uk_prior_sncp_paid_days(
+            employee.id,
+            entry.entitlement_reference,
+            calculation_date,
+        )
+        try:
+            result = statutory_engine.calculate_statutory_neonatal_care_pay(
+                average_weekly_earnings=entry.average_weekly_earnings,
+                accrued_weeks=accrued_weeks,
+                paid_days=entry.paid_days,
+                prior_paid_days=prior,
+                payment_date=calculation_date,
+                statutory_config=statutory_config,
+            )
+        except ValueError as error:
+            raise PayrollConfigurationError(
+                f"Invalid SNCP input for employee "
+                f"{employee.employee_number}: {error}"
+            ) from error
+
+        snapshot = {
+            "uk_sncp_amount": result.amount,
+            "uk_sncp_salary_withheld": salary_withheld,
+            "uk_sncp_average_weekly_earnings": (
+                result.average_weekly_earnings
+            ),
+            "uk_sncp_weekly_rate": result.weekly_rate,
+            "uk_sncp_accrued_weeks": result.accrued_weeks,
+            "uk_sncp_accrued_days": result.accrued_days,
+            "uk_sncp_paid_days": result.payable_days,
+            "uk_sncp_prior_paid_days": result.prior_paid_days,
+            "uk_sncp_remaining_accrued_days": (
+                result.remaining_accrued_days
+            ),
+            "uk_sncp_entitlement_reference": entry.entitlement_reference,
+            "uk_sncp_baby_date_of_birth": birth_date,
+            "uk_sncp_care_start_date": care_start,
+            "uk_sncp_care_through_date": care_through,
+            "uk_sncp_period_start_date": pay_start,
+            "uk_sncp_eligibility_confirmed": entry.eligibility_confirmed,
+            "uk_sncp_service_confirmed": entry.service_confirmed,
+            "uk_sncp_neonatal_care_confirmed": (
+                entry.neonatal_care_confirmed
+            ),
+            "uk_sncp_notice_received": entry.notice_received,
+            "uk_sncp_declaration_received": entry.declaration_received,
+        }
+        return result.amount, salary_withheld, snapshot
+
     @classmethod
     def _uk_ssp_snapshot(
         cls,
@@ -1185,6 +1338,7 @@ class PayrollService:
                     uk_sap_snapshot = {}
                     uk_shpp_snapshot = {}
                     uk_spbp_snapshot = {}
+                    uk_sncp_snapshot = {}
                     persisted_basic_salary = cls._decimal_value(
                         employee.basic_salary
                     )
@@ -1323,6 +1477,13 @@ class PayrollService:
                             raise PayrollConfigurationError("Combined SSP, SMP, SPP, SAP, ShPP and SPBP salary withheld cannot exceed contractual basic salary.")
                         persisted_basic_salary -= spbp_salary_withheld
                         statutory_basic_pay = persisted_basic_salary + ssp_amount + smp_amount + spp_amount + sap_amount + shpp_amount + spbp_amount
+                        sncp_amount, sncp_salary_withheld, uk_sncp_snapshot = cls._uk_sncp_snapshot(
+                            employee=employee, period=period, statutory_engine=statutory_engine,
+                            statutory_config=employee_statutory_config, calculation_date=calculation_date)
+                        if sncp_salary_withheld > persisted_basic_salary:
+                            raise PayrollConfigurationError("Combined SSP, SMP, SPP, SAP, ShPP, SPBP and SNCP salary withheld cannot exceed contractual basic salary.")
+                        persisted_basic_salary -= sncp_salary_withheld
+                        statutory_basic_pay = persisted_basic_salary + ssp_amount + smp_amount + spp_amount + sap_amount + shpp_amount + spbp_amount + sncp_amount
                         calculation_arguments["basic_salary"] = statutory_basic_pay
                         current_taxable_pay = max(
                             ZERO,
@@ -1454,6 +1615,7 @@ class PayrollService:
                     **uk_sap_snapshot,
                     **uk_shpp_snapshot,
                     **uk_spbp_snapshot,
+                    **uk_sncp_snapshot,
                 )
 
                 db.session.add(payroll_record)

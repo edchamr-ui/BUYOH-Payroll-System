@@ -184,6 +184,26 @@ class PayrollRecord(db.Model):
     uk_spbp_notice_received = db.Column(db.Boolean)
     uk_spbp_declaration_received = db.Column(db.Boolean)
 
+    uk_sncp_amount = db.Column(db.Numeric(12, 2), nullable=False, default=0, server_default="0")
+    uk_sncp_salary_withheld = db.Column(db.Numeric(12, 2), nullable=False, default=0, server_default="0")
+    uk_sncp_average_weekly_earnings = db.Column(db.Numeric(12, 2))
+    uk_sncp_weekly_rate = db.Column(db.Numeric(12, 2))
+    uk_sncp_accrued_weeks = db.Column(db.Integer)
+    uk_sncp_accrued_days = db.Column(db.Integer)
+    uk_sncp_paid_days = db.Column(db.Integer)
+    uk_sncp_prior_paid_days = db.Column(db.Integer)
+    uk_sncp_remaining_accrued_days = db.Column(db.Integer)
+    uk_sncp_entitlement_reference = db.Column(db.String(80))
+    uk_sncp_baby_date_of_birth = db.Column(db.Date)
+    uk_sncp_care_start_date = db.Column(db.Date)
+    uk_sncp_care_through_date = db.Column(db.Date)
+    uk_sncp_period_start_date = db.Column(db.Date)
+    uk_sncp_eligibility_confirmed = db.Column(db.Boolean)
+    uk_sncp_service_confirmed = db.Column(db.Boolean)
+    uk_sncp_neonatal_care_confirmed = db.Column(db.Boolean)
+    uk_sncp_notice_received = db.Column(db.Boolean)
+    uk_sncp_declaration_received = db.Column(db.Boolean)
+
     regular_paye = db.Column(
         db.Numeric(12, 2), nullable=False, default=0, server_default="0"
     )
@@ -321,6 +341,7 @@ class PayrollRecord(db.Model):
         ),
         db.CheckConstraint("uk_shpp_amount >= 0 AND uk_shpp_salary_withheld >= 0", name="ck_payroll_record_uk_shpp_amounts_non_negative"),
         db.CheckConstraint("uk_spbp_amount >= 0 AND uk_spbp_salary_withheld >= 0", name="ck_payroll_record_uk_spbp_amounts_non_negative"),
+        db.CheckConstraint("uk_sncp_amount >= 0 AND uk_sncp_salary_withheld >= 0", name="ck_payroll_record_uk_sncp_amounts_non_negative"),
         db.CheckConstraint(
             "total_deductions >= 0",
             name="ck_payroll_record_deductions_non_negative",

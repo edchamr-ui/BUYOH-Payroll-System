@@ -130,6 +130,8 @@ class ReportingService:
             "shpp_salary_withheld": ZERO,
             "statutory_parental_bereavement_pay": ZERO,
             "spbp_salary_withheld": ZERO,
+            "statutory_neonatal_care_pay": ZERO,
+            "sncp_salary_withheld": ZERO,
             "employee_nssa": ZERO,
             "employer_nssa": ZERO,
             "paye": ZERO,
@@ -189,6 +191,12 @@ class ReportingService:
             )
             totals["spbp_salary_withheld"] += cls._decimal(
                 getattr(record, "uk_spbp_salary_withheld", ZERO)
+            )
+            totals["statutory_neonatal_care_pay"] += cls._decimal(
+                getattr(record, "uk_sncp_amount", ZERO)
+            )
+            totals["sncp_salary_withheld"] += cls._decimal(
+                getattr(record, "uk_sncp_salary_withheld", ZERO)
             )
 
             totals["employee_nssa"] += cls._decimal(

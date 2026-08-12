@@ -1093,6 +1093,14 @@ class PayslipService:
                 )
             )
 
+        if getattr(payroll_record, "uk_sncp_amount", 0):
+            earnings_rows.append(
+                (
+                    "Statutory Neonatal Care Pay (SNCP)",
+                    payroll_record.uk_sncp_amount,
+                )
+            )
+
         earnings_rows.extend(
             (
                 (
