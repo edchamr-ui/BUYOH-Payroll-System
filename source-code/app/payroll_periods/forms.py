@@ -2,6 +2,7 @@ from calendar import month_name
 
 from flask_wtf import FlaskForm
 from wtforms import (
+    BooleanField,
     DateField,
     DecimalField,
     IntegerField,
@@ -110,3 +111,49 @@ class PayrollSSPInputForm(FlaskForm):
         validators=[Optional(), Length(max=500)],
     )
     submit = SubmitField("Save SSP Input")
+
+
+class PayrollSMPInputForm(FlaskForm):
+    """Capture one employee's maternity-pay input for a Draft period."""
+
+    maternity_pay_period_start = DateField(
+        "Maternity Pay Period Start",
+        validators=[DataRequired()],
+    )
+    average_weekly_earnings = DecimalField(
+        "Average Weekly Earnings",
+        places=2,
+        validators=[
+            InputRequired(),
+            NumberRange(min=0, message="Average weekly earnings cannot be negative."),
+        ],
+    )
+    paid_days = IntegerField(
+        "SMP Paid Days in this Period",
+        validators=[
+            InputRequired(),
+            NumberRange(min=0, max=31, message="Enter between 0 and 31 paid days."),
+        ],
+    )
+    salary_withheld = DecimalField(
+        "Contractual Salary Withheld",
+        places=2,
+        default=0,
+        validators=[
+            InputRequired(),
+            NumberRange(min=0, message="Salary withheld cannot be negative."),
+        ],
+    )
+    eligibility_confirmed = BooleanField(
+        "Employer eligibility checks completed",
+        validators=[DataRequired(message="Confirm eligibility before saving SMP.")],
+    )
+    matb1_received = BooleanField(
+        "MATB1 evidence received",
+        validators=[DataRequired(message="Confirm MATB1 evidence before saving SMP.")],
+    )
+    notes = TextAreaField(
+        "Payroll Notes",
+        validators=[Optional(), Length(max=500)],
+    )
+    submit = SubmitField("Save SMP Input")
