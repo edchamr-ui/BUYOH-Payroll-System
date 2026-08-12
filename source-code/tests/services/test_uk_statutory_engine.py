@@ -321,3 +321,12 @@ def test_engine_exposes_statutory_adoption_pay_calculation():
 
     assert result.standard_rate_days == 7
     assert result.amount == Decimal("194.32")
+
+
+def test_engine_exposes_shared_parental_pay_calculation():
+    result = UKStatutoryEngine().calculate_statutory_shared_parental_pay(
+        average_weekly_earnings="500", allocated_days=70, paid_days=7,
+        statutory_config=uk_config(),
+    )
+    assert result.remaining_allocated_days == 63
+    assert result.amount == Decimal("194.32")

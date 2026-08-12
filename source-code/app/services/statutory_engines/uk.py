@@ -19,6 +19,7 @@ from app.services.statutory_engines.uk_ssp import calculate_ssp_2026_27
 from app.services.statutory_engines.uk_smp import calculate_smp_2026_27
 from app.services.statutory_engines.uk_spp import calculate_spp_2026_27
 from app.services.statutory_engines.uk_sap import calculate_sap_2026_27
+from app.services.statutory_engines.uk_shpp import calculate_shpp_2026_27
 
 
 ZERO = Decimal("0.00")
@@ -188,6 +189,19 @@ class UKStatutoryEngine(BaseStatutoryEngine):
             paid_days=paid_days,
             prior_paid_days=prior_paid_days,
             payment_date=payment_date,
+        )
+
+    def calculate_statutory_shared_parental_pay(self, *, average_weekly_earnings,
+                                                allocated_days, paid_days,
+                                                prior_paid_days=0,
+                                                payment_date=None,
+                                                statutory_config=None):
+        """Return an auditable 2026/27 Shared Parental Pay result."""
+        self._require_valid_configuration(statutory_config)
+        return calculate_shpp_2026_27(
+            average_weekly_earnings=average_weekly_earnings,
+            allocated_days=allocated_days, paid_days=paid_days,
+            prior_paid_days=prior_paid_days, payment_date=payment_date,
         )
 
     def calculate(
