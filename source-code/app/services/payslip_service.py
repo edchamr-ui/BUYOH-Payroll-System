@@ -1069,6 +1069,11 @@ class PayslipService:
                 ("Statutory Sick Pay (SSP)", payroll_record.uk_ssp_amount)
             )
 
+        if getattr(payroll_record, "uk_smp_amount", 0):
+            earnings_rows.append(
+                ("Statutory Maternity Pay (SMP)", payroll_record.uk_smp_amount)
+            )
+
         earnings_rows.extend(
             (
                 (
