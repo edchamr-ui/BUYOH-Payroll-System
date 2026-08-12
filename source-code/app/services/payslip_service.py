@@ -1085,6 +1085,14 @@ class PayslipService:
         if getattr(payroll_record, "uk_shpp_amount", 0):
             earnings_rows.append(("Statutory Shared Parental Pay (ShPP)", payroll_record.uk_shpp_amount))
 
+        if getattr(payroll_record, "uk_spbp_amount", 0):
+            earnings_rows.append(
+                (
+                    "Statutory Parental Bereavement Pay (SPBP)",
+                    payroll_record.uk_spbp_amount,
+                )
+            )
+
         earnings_rows.extend(
             (
                 (

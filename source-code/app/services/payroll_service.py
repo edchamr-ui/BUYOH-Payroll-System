@@ -19,6 +19,7 @@ from app.models.payroll_smp_input import PayrollSMPInput
 from app.models.payroll_spp_input import PayrollSPPInput
 from app.models.payroll_sap_input import PayrollSAPInput
 from app.models.payroll_shpp_input import PayrollShPPInput
+from app.models.payroll_spbp_input import PayrollSPBPInput
 from app.services.audit_log_service import AuditLogService
 from app.services.payroll_calculator import ZERO
 from app.services.statutory_engines import (
@@ -664,6 +665,127 @@ class PayrollService:
         }
         return result.amount, salary_withheld, snapshot
 
+    @staticmethod
+    def _uk_spbp_history_records(
+        employee_id, entitlement_reference, calculation_date
+    ):
+        return (
+            PayrollRecord.query.join(PayrollPeriod)
+            .filter(
+                PayrollRecord.employee_id == employee_id,
+                PayrollRecord.uk_spbp_entitlement_reference
+                == entitlement_reference,
+                PayrollPeriod.payment_date < calculation_date,
+            )
+            .order_by(PayrollPeriod.payment_date.asc())
+            .all()
+        )
+
+    @classmethod
+    def _uk_prior_spbp_paid_days(
+        cls, employee_id, entitlement_reference, calculation_date
+    ):
+        return sum(
+            int(getattr(row, "uk_spbp_paid_days", 0) or 0)
+            for row in cls._uk_spbp_history_records(
+                employee_id, entitlement_reference, calculation_date
+            )
+        )
+
+    @classmethod
+    def _uk_spbp_snapshot(
+        cls,
+        *,
+        employee,
+        period,
+        statutory_engine,
+        statutory_config,
+        calculation_date,
+    ):
+        entry = PayrollSPBPInput.query.filter_by(
+            payroll_period_id=period.id,
+            employee_id=employee.id,
+        ).one_or_none()
+        if entry is None:
+            return ZERO, ZERO, {}
+
+        for valid, message in (
+            (entry.eligibility_confirmed, "SPBP eligibility is not confirmed"),
+            (entry.notice_received, "SPBP notice is not recorded"),
+            (entry.declaration_received, "SPBP declaration is not recorded"),
+        ):
+            if not valid:
+                raise PayrollConfigurationError(
+                    f"{message} for employee {employee.employee_number}."
+                )
+
+        if entry.bereavement_pay_period_start < entry.bereavement_date:
+            raise PayrollConfigurationError(
+                "SPBP leave cannot start before the bereavement date."
+            )
+        if (
+            entry.bereavement_pay_period_start - entry.bereavement_date
+        ).days > 392:
+            raise PayrollConfigurationError(
+                "SPBP leave must start within 56 weeks of the bereavement date."
+            )
+        if entry.paid_days and (
+            entry.bereavement_pay_period_start
+            + timedelta(days=entry.paid_days - 1)
+            - entry.bereavement_date
+        ).days > 392:
+            raise PayrollConfigurationError(
+                "SPBP leave must finish within 56 weeks of the bereavement date."
+            )
+
+        salary_withheld = cls._decimal_value(entry.salary_withheld)
+        if salary_withheld > cls._decimal_value(employee.basic_salary):
+            raise PayrollConfigurationError(
+                "SPBP salary withheld cannot exceed the employee's "
+                "contractual basic salary."
+            )
+
+        prior = cls._uk_prior_spbp_paid_days(
+            employee.id,
+            entry.entitlement_reference,
+            calculation_date,
+        )
+        try:
+            result = (
+                statutory_engine
+                .calculate_statutory_parental_bereavement_pay(
+                    average_weekly_earnings=entry.average_weekly_earnings,
+                    paid_days=entry.paid_days,
+                    prior_paid_days=prior,
+                    payment_date=calculation_date,
+                    statutory_config=statutory_config,
+                )
+            )
+        except ValueError as error:
+            raise PayrollConfigurationError(
+                f"Invalid SPBP input for employee "
+                f"{employee.employee_number}: {error}"
+            ) from error
+
+        snapshot = {
+            "uk_spbp_amount": result.amount,
+            "uk_spbp_salary_withheld": salary_withheld,
+            "uk_spbp_average_weekly_earnings": (
+                result.average_weekly_earnings
+            ),
+            "uk_spbp_weekly_rate": result.weekly_rate,
+            "uk_spbp_paid_days": result.payable_days,
+            "uk_spbp_prior_paid_days": result.prior_paid_days,
+            "uk_spbp_remaining_paid_days": result.remaining_paid_days,
+            "uk_spbp_entitlement_reference": entry.entitlement_reference,
+            "uk_spbp_bereavement_date": entry.bereavement_date,
+            "uk_spbp_period_start_date": entry.bereavement_pay_period_start,
+            "uk_spbp_eligibility_confirmed": entry.eligibility_confirmed,
+            "uk_spbp_notice_received": entry.notice_received,
+            "uk_spbp_declaration_received": entry.declaration_received,
+        }
+        return result.amount, salary_withheld, snapshot
+
     @classmethod
     def _uk_ssp_snapshot(
         cls,
@@ -1062,6 +1184,7 @@ class PayrollService:
                     uk_spp_snapshot = {}
                     uk_sap_snapshot = {}
                     uk_shpp_snapshot = {}
+                    uk_spbp_snapshot = {}
                     persisted_basic_salary = cls._decimal_value(
                         employee.basic_salary
                     )
@@ -1193,6 +1316,13 @@ class PayrollService:
                             raise PayrollConfigurationError("Combined SSP, SMP, SPP, SAP and ShPP salary withheld cannot exceed contractual basic salary.")
                         persisted_basic_salary -= shpp_salary_withheld
                         statutory_basic_pay = persisted_basic_salary + ssp_amount + smp_amount + spp_amount + sap_amount + shpp_amount
+                        spbp_amount, spbp_salary_withheld, uk_spbp_snapshot = cls._uk_spbp_snapshot(
+                            employee=employee, period=period, statutory_engine=statutory_engine,
+                            statutory_config=employee_statutory_config, calculation_date=calculation_date)
+                        if spbp_salary_withheld > persisted_basic_salary:
+                            raise PayrollConfigurationError("Combined SSP, SMP, SPP, SAP, ShPP and SPBP salary withheld cannot exceed contractual basic salary.")
+                        persisted_basic_salary -= spbp_salary_withheld
+                        statutory_basic_pay = persisted_basic_salary + ssp_amount + smp_amount + spp_amount + sap_amount + shpp_amount + spbp_amount
                         calculation_arguments["basic_salary"] = statutory_basic_pay
                         current_taxable_pay = max(
                             ZERO,
@@ -1323,6 +1453,7 @@ class PayrollService:
                     **uk_spp_snapshot,
                     **uk_sap_snapshot,
                     **uk_shpp_snapshot,
+                    **uk_spbp_snapshot,
                 )
 
                 db.session.add(payroll_record)
