@@ -17,6 +17,7 @@ from app.models import (
 from app.models.payroll_ssp_input import PayrollSSPInput
 from app.models.payroll_smp_input import PayrollSMPInput
 from app.models.payroll_spp_input import PayrollSPPInput
+from app.models.payroll_sap_input import PayrollSAPInput
 from app.services.audit_log_service import AuditLogService
 from app.services.payroll_calculator import ZERO
 from app.services.statutory_engines import (
@@ -552,6 +553,65 @@ class PayrollService:
         }
         return result.amount, salary_withheld, snapshot
 
+    @staticmethod
+    def _uk_sap_history_records(employee_id, adoption_pay_period_start, calculation_date):
+        return (PayrollRecord.query.join(PayrollPeriod).filter(
+            PayrollRecord.employee_id == employee_id,
+            PayrollRecord.uk_sap_app_start_date == adoption_pay_period_start,
+            PayrollPeriod.payment_date < calculation_date,
+        ).order_by(PayrollPeriod.payment_date.asc()).all())
+
+    @classmethod
+    def _uk_prior_sap_paid_days(cls, employee_id, adoption_pay_period_start, calculation_date):
+        return sum(int(getattr(row, "uk_sap_paid_days", 0) or 0) for row in
+                   cls._uk_sap_history_records(employee_id, adoption_pay_period_start, calculation_date))
+
+    @classmethod
+    def _uk_sap_snapshot(cls, *, employee, period, statutory_engine, statutory_config, calculation_date):
+        """Calculate period SAP and preserve its immutable audit snapshot."""
+        entry = PayrollSAPInput.query.filter_by(
+            payroll_period_id=period.id, employee_id=employee.id
+        ).one_or_none()
+        if entry is None:
+            return ZERO, ZERO, {}
+        if not entry.eligibility_confirmed:
+            raise PayrollConfigurationError(f"SAP eligibility is not confirmed for employee {employee.employee_number}.")
+        if not entry.adoption_evidence_received:
+            raise PayrollConfigurationError(f"SAP adoption evidence is not recorded for employee {employee.employee_number}.")
+        salary_withheld = cls._decimal_value(entry.salary_withheld)
+        if salary_withheld > cls._decimal_value(employee.basic_salary):
+            raise PayrollConfigurationError("SAP salary withheld cannot exceed the employee's contractual basic salary.")
+        prior_paid_days = cls._uk_prior_sap_paid_days(
+            employee.id, entry.adoption_pay_period_start, calculation_date
+        )
+        try:
+            result = statutory_engine.calculate_statutory_adoption_pay(
+                average_weekly_earnings=entry.average_weekly_earnings,
+                paid_days=entry.paid_days,
+                prior_paid_days=prior_paid_days,
+                payment_date=calculation_date,
+                statutory_config=statutory_config,
+            )
+        except ValueError as error:
+            raise PayrollConfigurationError(
+                f"Invalid SAP input for employee {employee.employee_number}: {error}"
+            ) from error
+        snapshot = {
+            "uk_sap_amount": result.amount,
+            "uk_sap_salary_withheld": salary_withheld,
+            "uk_sap_average_weekly_earnings": result.average_weekly_earnings,
+            "uk_sap_higher_weekly_rate": result.higher_weekly_rate,
+            "uk_sap_standard_weekly_rate": result.standard_weekly_rate,
+            "uk_sap_paid_days": result.payable_days,
+            "uk_sap_prior_paid_days": result.prior_paid_days,
+            "uk_sap_higher_rate_days": result.higher_rate_days,
+            "uk_sap_standard_rate_days": result.standard_rate_days,
+            "uk_sap_app_start_date": entry.adoption_pay_period_start,
+            "uk_sap_eligibility_confirmed": entry.eligibility_confirmed,
+            "uk_sap_adoption_evidence_received": entry.adoption_evidence_received,
+        }
+        return result.amount, salary_withheld, snapshot
+
     @classmethod
     def _uk_ssp_snapshot(
         cls,
@@ -948,6 +1008,7 @@ class PayrollService:
                     uk_ssp_snapshot = {}
                     uk_smp_snapshot = {}
                     uk_spp_snapshot = {}
+                    uk_sap_snapshot = {}
                     persisted_basic_salary = cls._decimal_value(
                         employee.basic_salary
                     )
@@ -1060,6 +1121,18 @@ class PayrollService:
                             + smp_amount
                             + spp_amount
                         )
+                        sap_amount, sap_salary_withheld, uk_sap_snapshot = cls._uk_sap_snapshot(
+                            employee=employee, period=period,
+                            statutory_engine=statutory_engine,
+                            statutory_config=employee_statutory_config,
+                            calculation_date=calculation_date,
+                        )
+                        if sap_salary_withheld > persisted_basic_salary:
+                            raise PayrollConfigurationError(
+                                "Combined SSP, SMP, SPP and SAP salary withheld cannot exceed contractual basic salary."
+                            )
+                        persisted_basic_salary -= sap_salary_withheld
+                        statutory_basic_pay = persisted_basic_salary + ssp_amount + smp_amount + spp_amount + sap_amount
                         calculation_arguments["basic_salary"] = statutory_basic_pay
                         current_taxable_pay = max(
                             ZERO,
@@ -1188,6 +1261,7 @@ class PayrollService:
                     **uk_ssp_snapshot,
                     **uk_smp_snapshot,
                     **uk_spp_snapshot,
+                    **uk_sap_snapshot,
                 )
 
                 db.session.add(payroll_record)

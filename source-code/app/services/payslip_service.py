@@ -1079,6 +1079,9 @@ class PayslipService:
                 ("Statutory Paternity Pay (SPP)", payroll_record.uk_spp_amount)
             )
 
+        if getattr(payroll_record, "uk_sap_amount", 0):
+            earnings_rows.append(("Statutory Adoption Pay (SAP)", payroll_record.uk_sap_amount))
+
         earnings_rows.extend(
             (
                 (
