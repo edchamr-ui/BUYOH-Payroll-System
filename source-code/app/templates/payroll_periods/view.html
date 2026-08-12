@@ -42,6 +42,8 @@ Payroll Period Details
 
     <div class="d-flex flex-wrap gap-2">
 
+        <a href="{{ url_for('payroll_periods.list_shpp_inputs', period_id=period.id) }}" class="btn btn-outline-primary"><i class="bi bi-people-fill me-1"></i>UK ShPP Inputs</a>
+
         <a href="{{ url_for('payroll_periods.list_sap_inputs', period_id=period.id) }}" class="btn btn-outline-primary"><i class="bi bi-house-heart me-1"></i>UK SAP Inputs</a>
 
         <a

@@ -26,6 +26,7 @@ from app.models.payroll_ssp_input import PayrollSSPInput
 from app.models.payroll_smp_input import PayrollSMPInput
 from app.models.payroll_spp_input import PayrollSPPInput
 from app.models.payroll_sap_input import PayrollSAPInput
+from app.models.payroll_shpp_input import PayrollShPPInput
 from app.payroll_periods import payroll_periods_bp
 from app.payroll_periods.forms import (
     PayrollPeriodActionForm,
@@ -34,6 +35,7 @@ from app.payroll_periods.forms import (
     PayrollSMPInputForm,
     PayrollSPPInputForm,
     PayrollSAPInputForm,
+    PayrollShPPInputForm,
 )
 
 
@@ -96,6 +98,19 @@ def validate_sap_dates(form, period):
     if start is not None and start > period.end_date:
         return ["Adoption pay period start cannot be after the payroll period end date."]
     return []
+
+
+def can_manage_shpp(period):
+    return can_manage_ssp(period)
+
+
+def validate_shpp_input(form, period):
+    errors = []
+    if form.shared_pay_period_start.data and form.shared_pay_period_start.data > period.end_date:
+        errors.append("Shared pay period start cannot be after the payroll period end date.")
+    if form.paid_days.data is not None and form.allocated_days.data is not None and form.paid_days.data > form.allocated_days.data:
+        errors.append("Paid days cannot exceed the transferred allocation.")
+    return errors
 
 
 def validate_ssp_dates(form, period):
@@ -942,6 +957,52 @@ def delete_sap_input(period_id, employee_id):
         if item is not None:
             db.session.delete(item); db.session.commit(); flash(f"SAP input removed for {employee.full_name}.", "success")
     return redirect(url_for("payroll_periods.list_sap_inputs", period_id=period.id))
+
+
+@payroll_periods_bp.route("/<int:period_id>/shpp")
+@login_required
+def list_shpp_inputs(period_id):
+    period = PayrollPeriod.query.get_or_404(period_id)
+    employees = Employee.query.filter(Employee.uk_tax_profile.has()).filter(Employee.is_active.is_(True)).order_by(Employee.last_name, Employee.first_name).all()
+    saved_inputs = {item.employee_id:item for item in PayrollShPPInput.query.filter_by(payroll_period_id=period.id).all()}
+    return render_template("payroll_periods/shpp_inputs.html", period=period, employees=employees, saved_inputs=saved_inputs, can_edit=can_manage_shpp(period), action_form=PayrollPeriodActionForm(), month_name=month_name)
+
+
+@payroll_periods_bp.route("/<int:period_id>/shpp/<int:employee_id>", methods=["GET","POST"])
+@login_required
+def edit_shpp_input(period_id, employee_id):
+    period=PayrollPeriod.query.get_or_404(period_id);employee=get_uk_employee_or_404(employee_id)
+    if not can_manage_shpp(period):
+        flash("ShPP inputs can only be changed in an open Draft period.","warning");return redirect(url_for("payroll_periods.list_shpp_inputs",period_id=period.id))
+    item=PayrollShPPInput.query.filter_by(payroll_period_id=period.id,employee_id=employee.id).first();form=PayrollShPPInputForm(obj=item)
+    if form.validate_on_submit():
+        errors=validate_shpp_input(form,period)
+        if errors:
+            for error in errors: flash(error,"danger")
+        else:
+            if item is None:
+                item=PayrollShPPInput(payroll_period_id=period.id,employee_id=employee.id);db.session.add(item)
+            item.entitlement_reference=form.entitlement_reference.data.strip();item.shared_pay_period_start=form.shared_pay_period_start.data
+            item.average_weekly_earnings=form.average_weekly_earnings.data;item.allocated_days=form.allocated_days.data;item.paid_days=form.paid_days.data
+            item.salary_withheld=form.salary_withheld.data;item.eligibility_confirmed=form.eligibility_confirmed.data
+            item.curtailment_notice_received=form.curtailment_notice_received.data;item.partner_declaration_received=form.partner_declaration_received.data
+            item.notes=(form.notes.data or "").strip() or None
+            try: db.session.commit()
+            except IntegrityError: db.session.rollback();flash("The ShPP input could not be saved. Please try again.","danger")
+            else: flash(f"ShPP input saved for {employee.full_name}.","success");return redirect(url_for("payroll_periods.list_shpp_inputs",period_id=period.id))
+    return render_template("payroll_periods/shpp_form.html",period=period,employee=employee,form=form,month_name=month_name)
+
+
+@payroll_periods_bp.route("/<int:period_id>/shpp/<int:employee_id>/delete",methods=["POST"])
+@login_required
+def delete_shpp_input(period_id,employee_id):
+    period=PayrollPeriod.query.get_or_404(period_id);employee=get_uk_employee_or_404(employee_id);form=PayrollPeriodActionForm()
+    if not form.validate_on_submit(): flash("The ShPP deletion request was invalid.","danger")
+    elif not can_manage_shpp(period): flash("ShPP inputs can only be deleted in an open Draft period.","warning")
+    else:
+        item=PayrollShPPInput.query.filter_by(payroll_period_id=period.id,employee_id=employee.id).first()
+        if item is not None: db.session.delete(item);db.session.commit();flash(f"ShPP input removed for {employee.full_name}.","success")
+    return redirect(url_for("payroll_periods.list_shpp_inputs",period_id=period.id))
 
 
 @payroll_periods_bp.route(

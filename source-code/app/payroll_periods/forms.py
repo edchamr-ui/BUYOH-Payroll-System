@@ -9,6 +9,7 @@ from wtforms import (
     SelectField,
     SubmitField,
     TextAreaField,
+    StringField,
 )
 from wtforms.validators import (
     DataRequired,
@@ -215,3 +216,17 @@ class PayrollSAPInputForm(FlaskForm):
     adoption_evidence_received = BooleanField("Adoption evidence received", validators=[DataRequired(message="Confirm adoption evidence before saving SAP.")])
     notes = TextAreaField("Payroll Notes", validators=[Optional(), Length(max=500)])
     submit = SubmitField("Save SAP Input")
+
+
+class PayrollShPPInputForm(FlaskForm):
+    entitlement_reference = StringField("Entitlement Reference", validators=[DataRequired(), Length(max=80)])
+    shared_pay_period_start = DateField("Shared Pay Period Start", validators=[DataRequired()])
+    average_weekly_earnings = DecimalField("Average Weekly Earnings", places=2, validators=[InputRequired(), NumberRange(min=0, message="Average weekly earnings cannot be negative.")])
+    allocated_days = IntegerField("Transferred Pay Allocation (Days)", validators=[InputRequired(), NumberRange(min=0, max=259, message="Enter between 0 and 259 allocated days.")])
+    paid_days = IntegerField("ShPP Paid Days in this Period", validators=[InputRequired(), NumberRange(min=0, max=31, message="Enter between 0 and 31 paid days.")])
+    salary_withheld = DecimalField("Contractual Salary Withheld", places=2, default=0, validators=[InputRequired(), NumberRange(min=0, message="Salary withheld cannot be negative.")])
+    eligibility_confirmed = BooleanField("Employer eligibility checks completed", validators=[DataRequired(message="Confirm eligibility before saving ShPP.")])
+    curtailment_notice_received = BooleanField("Curtailment notice received", validators=[DataRequired(message="Confirm the curtailment notice before saving ShPP.")])
+    partner_declaration_received = BooleanField("Partner declaration received", validators=[DataRequired(message="Confirm the partner declaration before saving ShPP.")])
+    notes = TextAreaField("Payroll Notes", validators=[Optional(), Length(max=500)])
+    submit = SubmitField("Save ShPP Input")
