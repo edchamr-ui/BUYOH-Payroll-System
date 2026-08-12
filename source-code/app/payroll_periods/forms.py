@@ -230,3 +230,72 @@ class PayrollShPPInputForm(FlaskForm):
     partner_declaration_received = BooleanField("Partner declaration received", validators=[DataRequired(message="Confirm the partner declaration before saving ShPP.")])
     notes = TextAreaField("Payroll Notes", validators=[Optional(), Length(max=500)])
     submit = SubmitField("Save ShPP Input")
+
+
+class PayrollSPBPInputForm(FlaskForm):
+    """Capture one employee's parental-bereavement-pay input."""
+
+    entitlement_reference = StringField(
+        "Entitlement Reference",
+        validators=[DataRequired(), Length(max=80)],
+    )
+    bereavement_date = DateField(
+        "Bereavement Date",
+        validators=[DataRequired()],
+    )
+    bereavement_pay_period_start = DateField(
+        "Parental Bereavement Pay Period Start",
+        validators=[DataRequired()],
+    )
+    average_weekly_earnings = DecimalField(
+        "Average Weekly Earnings",
+        places=2,
+        validators=[
+            InputRequired(),
+            NumberRange(
+                min=0,
+                message="Average weekly earnings cannot be negative.",
+            ),
+        ],
+    )
+    paid_days = IntegerField(
+        "SPBP Paid Days in this Period",
+        validators=[
+            InputRequired(),
+            NumberRange(
+                min=0,
+                max=14,
+                message="Enter between 0 and 14 paid days.",
+            ),
+        ],
+    )
+    salary_withheld = DecimalField(
+        "Contractual Salary Withheld",
+        places=2,
+        default=0,
+        validators=[
+            InputRequired(),
+            NumberRange(min=0, message="Salary withheld cannot be negative."),
+        ],
+    )
+    eligibility_confirmed = BooleanField(
+        "Employer eligibility checks completed",
+        validators=[
+            DataRequired(message="Confirm eligibility before saving SPBP.")
+        ],
+    )
+    notice_received = BooleanField(
+        "Employee notice received",
+        validators=[DataRequired(message="Confirm notice before saving SPBP.")],
+    )
+    declaration_received = BooleanField(
+        "Employee declaration received",
+        validators=[
+            DataRequired(message="Confirm the declaration before saving SPBP.")
+        ],
+    )
+    notes = TextAreaField(
+        "Payroll Notes",
+        validators=[Optional(), Length(max=500)],
+    )
+    submit = SubmitField("Save SPBP Input")
