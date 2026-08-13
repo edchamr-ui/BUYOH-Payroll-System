@@ -9,6 +9,7 @@ from sqlalchemy import func
 from config import Config
 from app.cli import register_cli_commands
 from app.extensions import db, login_manager, migrate
+from app.health import health_bp
 from app.security import register_security_headers, validate_runtime_config
 from app.models import (
     Allowance,
@@ -39,6 +40,8 @@ def create_app(config_overrides=None):
 
     validate_runtime_config(app)
     register_security_headers(app)
+
+    app.register_blueprint(health_bp)
 
     app.register_blueprint(
         payroll_years_bp
