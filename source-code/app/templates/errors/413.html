@@ -1,0 +1,12 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Upload Too Large</title></head>
+<body>
+    <main>
+        <h1>Upload too large</h1>
+        <p>The submitted file exceeds the permitted upload size.</p>
+        {% if request_id %}<p>Reference: {{ request_id }}</p>{% endif %}
+        <p><a href="/">Return to the application</a></p>
+    </main>
+</body>
+</html>

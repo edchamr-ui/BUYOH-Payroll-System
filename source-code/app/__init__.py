@@ -10,6 +10,11 @@ from config import Config
 from app.cli import register_cli_commands
 from app.extensions import db, login_manager, migrate
 from app.health import health_bp
+from app.observability import (
+    configure_logging,
+    register_error_handlers,
+    register_request_observability,
+)
 from app.security import register_security_headers, validate_runtime_config
 from app.models import (
     Allowance,
@@ -40,6 +45,10 @@ def create_app(config_overrides=None):
 
     validate_runtime_config(app)
     register_security_headers(app)
+
+    configure_logging(app)
+    register_request_observability(app)
+    register_error_handlers(app)
 
     app.register_blueprint(health_bp)
 

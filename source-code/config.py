@@ -59,6 +59,7 @@ class Config:
     SQLALCHEMY_ENGINE_OPTIONS = {"pool_pre_ping": True}
 
     DEBUG = env_bool("FLASK_DEBUG", False)
+    LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO").strip().upper()
     MAX_CONTENT_LENGTH = 5 * 1024 * 1024
     PERMANENT_SESSION_LIFETIME = timedelta(hours=8)
 
