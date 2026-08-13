@@ -29,6 +29,7 @@ from app.models import Payslip, PayrollRecord
 from app.services.company_settings_service import (
     CompanySettingsService,
 )
+from app.time_utils import legacy_utc_now
 
 
 ZERO = Decimal("0.00")
@@ -508,7 +509,7 @@ class PayslipService:
                 )
 
                 payslip.generated_at = (
-                    datetime.utcnow()
+                    legacy_utc_now()
                 )
 
             db.session.commit()

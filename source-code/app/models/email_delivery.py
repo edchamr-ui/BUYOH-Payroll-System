@@ -3,6 +3,7 @@
 from datetime import datetime
 
 from app.extensions import db
+from app.time_utils import legacy_utc_now
 
 
 class EmailDelivery(db.Model):
@@ -86,7 +87,7 @@ class EmailDelivery(db.Model):
     created_at = db.Column(
         db.DateTime,
         nullable=False,
-        default=datetime.utcnow,
+        default=legacy_utc_now,
         index=True,
     )
 
@@ -188,7 +189,7 @@ class EmailDelivery(db.Model):
 
         self.status = self.STATUS_DELIVERED
         self.failure_reason = None
-        self.sent_at = datetime.utcnow()
+        self.sent_at = legacy_utc_now()
 
     def mark_failed(self, reason):
         """Mark the attempt as failed."""
@@ -198,7 +199,7 @@ class EmailDelivery(db.Model):
             str(reason).strip()
             or "Unknown email delivery failure."
         )
-        self.sent_at = datetime.utcnow()
+        self.sent_at = legacy_utc_now()
 
     def __repr__(self):
         return (

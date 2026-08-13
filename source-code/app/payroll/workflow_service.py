@@ -7,6 +7,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from app.extensions import db
 from app.models.payroll_period import PayrollPeriod
 from app.services.audit_log_service import AuditLogService
+from app.time_utils import legacy_utc_now
 
 
 class PayrollWorkflowError(Exception):
@@ -42,7 +43,7 @@ class PayrollWorkflowService:
         try:
             payroll_period.status = "Approved"
             payroll_period.approved_by = user_id
-            payroll_period.approved_at = datetime.utcnow()
+            payroll_period.approved_at = legacy_utc_now()
 
             AuditLogService.log(
                 user_id=user_id,
@@ -93,7 +94,7 @@ class PayrollWorkflowService:
         try:
             payroll_period.status = "Locked"
             payroll_period.locked_by = user_id
-            payroll_period.locked_at = datetime.utcnow()
+            payroll_period.locked_at = legacy_utc_now()
 
             AuditLogService.log(
                 user_id=user_id,

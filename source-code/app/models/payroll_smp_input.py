@@ -1,6 +1,7 @@
 from datetime import datetime
 
 from app.extensions import db
+from app.time_utils import legacy_utc_now
 
 
 class PayrollSMPInput(db.Model):
@@ -34,12 +35,12 @@ class PayrollSMPInput(db.Model):
         db.Boolean, nullable=False, default=False, server_default="false"
     )
     notes = db.Column(db.String(500), nullable=True)
-    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, nullable=False, default=legacy_utc_now)
     updated_at = db.Column(
         db.DateTime,
         nullable=False,
-        default=datetime.utcnow,
-        onupdate=datetime.utcnow,
+        default=legacy_utc_now,
+        onupdate=legacy_utc_now,
     )
 
     __table_args__ = (

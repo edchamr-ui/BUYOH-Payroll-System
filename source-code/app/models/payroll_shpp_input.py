@@ -1,5 +1,6 @@
 from datetime import datetime
 from app.extensions import db
+from app.time_utils import legacy_utc_now
 
 
 class PayrollShPPInput(db.Model):
@@ -18,8 +19,8 @@ class PayrollShPPInput(db.Model):
     curtailment_notice_received = db.Column(db.Boolean, nullable=False, default=False, server_default="false")
     partner_declaration_received = db.Column(db.Boolean, nullable=False, default=False, server_default="false")
     notes = db.Column(db.String(500))
-    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = db.Column(db.DateTime, nullable=False, default=legacy_utc_now)
+    updated_at = db.Column(db.DateTime, nullable=False, default=legacy_utc_now, onupdate=legacy_utc_now)
     __table_args__ = (
         db.UniqueConstraint("payroll_period_id", "employee_id", name="uq_payroll_shpp_input_period_employee"),
         db.CheckConstraint("average_weekly_earnings >= 0", name="ck_payroll_shpp_input_awe_non_negative"),

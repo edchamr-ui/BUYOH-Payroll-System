@@ -3,6 +3,7 @@
 from datetime import datetime
 
 from app.extensions import db
+from app.time_utils import legacy_utc_now
 
 
 class StatutoryRuleSetVersion(db.Model):
@@ -76,7 +77,7 @@ class StatutoryRuleSetVersion(db.Model):
     created_at = db.Column(
         db.DateTime,
         nullable=False,
-        default=datetime.utcnow,
+        default=legacy_utc_now,
         index=True,
     )
 

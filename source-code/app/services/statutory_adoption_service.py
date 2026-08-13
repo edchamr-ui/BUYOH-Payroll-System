@@ -12,6 +12,7 @@ from app.models import (
     StatutoryRuleSet,
 )
 from app.services.audit_log_service import AuditLogService
+from app.time_utils import legacy_utc_now
 
 
 class StatutoryAdoptionError(Exception):
@@ -246,7 +247,7 @@ class StatutoryAdoptionService:
         rule_set.source_engine_type = preset.engine_type
         rule_set.source_country_code = preset.country_code
         rule_set.imported_from_library = True
-        rule_set.imported_at = datetime.utcnow()
+        rule_set.imported_at = legacy_utc_now()
         rule_set.imported_by_user_id = adopted_by_user_id
 
         try:

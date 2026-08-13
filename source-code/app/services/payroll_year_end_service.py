@@ -13,6 +13,7 @@ from app.models import (
     Payslip,
 )
 from app.services.audit_log_service import AuditLogService
+from app.time_utils import legacy_utc_now
 
 
 class PayrollYearEndError(Exception):
@@ -251,7 +252,7 @@ class PayrollYearEndService:
                 )
             )
 
-        now = datetime.utcnow()
+        now = legacy_utc_now()
 
         try:
             payroll_year.status = PayrollYear.STATUS_CLOSED

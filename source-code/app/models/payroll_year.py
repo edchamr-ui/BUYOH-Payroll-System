@@ -3,6 +3,7 @@
 from datetime import datetime
 
 from app.extensions import db
+from app.time_utils import legacy_utc_now
 
 
 class PayrollYear(db.Model):
@@ -35,7 +36,7 @@ class PayrollYear(db.Model):
     opened_at = db.Column(
         db.DateTime,
         nullable=False,
-        default=datetime.utcnow,
+        default=legacy_utc_now,
     )
 
     opened_by_user_id = db.Column(
@@ -86,14 +87,14 @@ class PayrollYear(db.Model):
     created_at = db.Column(
         db.DateTime,
         nullable=False,
-        default=datetime.utcnow,
+        default=legacy_utc_now,
     )
 
     updated_at = db.Column(
         db.DateTime,
         nullable=False,
-        default=datetime.utcnow,
-        onupdate=datetime.utcnow,
+        default=legacy_utc_now,
+        onupdate=legacy_utc_now,
     )
 
     opened_by_user = db.relationship(

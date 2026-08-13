@@ -1,6 +1,7 @@
 from datetime import datetime
 
 from app.extensions import db
+from app.time_utils import legacy_utc_now
 
 
 class PayrollRecord(db.Model):
@@ -249,7 +250,7 @@ class PayrollRecord(db.Model):
     processed_at = db.Column(
         db.DateTime,
         nullable=False,
-        default=datetime.utcnow,
+        default=legacy_utc_now,
     )
 
     payroll_period = db.relationship(

@@ -17,6 +17,7 @@ from app.services.statutory_update_difference_service import (
 from app.services.statutory_update_service import (
     StatutoryUpdateService,
 )
+from app.time_utils import legacy_utc_now
 
 
 class StatutoryUpdateApplyError(Exception):
@@ -246,7 +247,7 @@ class StatutoryTransactionalUpdateService:
                 latest_preset.country_code
             )
             rule_set.imported_from_library = True
-            rule_set.imported_at = datetime.utcnow()
+            rule_set.imported_at = legacy_utc_now()
             rule_set.imported_by_user_id = (
                 applied_by_user_id
             )

@@ -3,6 +3,7 @@
 from datetime import datetime
 
 from app.extensions import db
+from app.time_utils import legacy_utc_now
 
 
 class EmployeeAllowance(db.Model):
@@ -81,14 +82,14 @@ class EmployeeAllowance(db.Model):
     created_at = db.Column(
         db.DateTime,
         nullable=False,
-        default=datetime.utcnow,
+        default=legacy_utc_now,
     )
 
     updated_at = db.Column(
         db.DateTime,
         nullable=False,
-        default=datetime.utcnow,
-        onupdate=datetime.utcnow,
+        default=legacy_utc_now,
+        onupdate=legacy_utc_now,
     )
 
     employee = db.relationship(

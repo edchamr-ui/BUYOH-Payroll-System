@@ -6,6 +6,7 @@ from flask_login import UserMixin
 from werkzeug.security import check_password_hash, generate_password_hash
 
 from app.extensions import db
+from app.time_utils import legacy_utc_now
 
 
 class User(UserMixin, db.Model):
@@ -59,14 +60,14 @@ class User(UserMixin, db.Model):
     created_at = db.Column(
         db.DateTime,
         nullable=False,
-        default=datetime.utcnow,
+        default=legacy_utc_now,
     )
 
     updated_at = db.Column(
         db.DateTime,
         nullable=False,
-        default=datetime.utcnow,
-        onupdate=datetime.utcnow,
+        default=legacy_utc_now,
+        onupdate=legacy_utc_now,
     )
 
     created_payroll_periods = db.relationship(

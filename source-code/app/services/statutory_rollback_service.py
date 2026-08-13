@@ -8,6 +8,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from app.extensions import db
 from app.models import StatutoryPreset, StatutoryRuleSetVersion, TaxBand
 from app.services.audit_log_service import AuditLogService
+from app.time_utils import legacy_utc_now
 
 
 class StatutoryRollbackError(Exception):
@@ -124,7 +125,7 @@ class StatutoryRollbackService:
             rule_set.source_engine_type = restore_data.get("source_engine_type")
             rule_set.source_country_code = restore_data.get("source_country_code")
             rule_set.imported_from_library = bool(rule_set.source_preset_key)
-            rule_set.imported_at = datetime.utcnow()
+            rule_set.imported_at = legacy_utc_now()
             rule_set.imported_by_user_id = rolled_back_by_user_id
 
             for band in list(rule_set.tax_bands):

@@ -15,6 +15,7 @@ from app.models import (
 )
 from app.services.audit_log_service import AuditLogService
 from app.statutory_data import BUILTIN_PRESETS
+from app.time_utils import legacy_utc_now
 
 
 class StatutoryLibraryError(Exception):
@@ -146,7 +147,7 @@ class StatutoryLibraryService:
             "source_engine_type": preset.engine_type,
             "source_country_code": preset.country_code,
             "imported_from_library": True,
-            "imported_at": datetime.utcnow(),
+            "imported_at": legacy_utc_now(),
             "imported_by_user_id": imported_by_user_id,
         }
 
