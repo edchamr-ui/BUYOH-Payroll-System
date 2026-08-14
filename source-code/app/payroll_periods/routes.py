@@ -2,6 +2,7 @@
 
 from calendar import month_name
 from datetime import timedelta
+from decimal import Decimal
 
 from flask import (
     flash,
@@ -29,6 +30,8 @@ from app.models.payroll_sap_input import PayrollSAPInput
 from app.models.payroll_shpp_input import PayrollShPPInput
 from app.models.payroll_spbp_input import PayrollSPBPInput
 from app.models.payroll_sncp_input import PayrollSNCPInput
+from app.models.payroll_one_off_deduction import PayrollOneOffDeduction
+from app.models.payroll_overtime_input import PayrollOvertimeInput
 from app.payroll_periods import payroll_periods_bp
 from app.payroll_periods.forms import (
     PayrollPeriodActionForm,
@@ -40,7 +43,10 @@ from app.payroll_periods.forms import (
     PayrollShPPInputForm,
     PayrollSPBPInputForm,
     PayrollSNCPInputForm,
+    PayrollOneOffDeductionForm,
+    PayrollOvertimeInputForm,
 )
+from app.time_utils import legacy_utc_now
 
 
 def can_manage_ssp(period):
@@ -51,6 +57,23 @@ def can_manage_ssp(period):
         and period.payroll_year is not None
         and period.payroll_year.is_open
     )
+
+
+def can_manage_transaction_inputs(period):
+    """Return whether variable payroll inputs may still be changed."""
+
+    return can_manage_ssp(period)
+
+
+def validate_overtime_work_date(form, period):
+    """Keep an optional overtime work date inside its payroll period."""
+
+    work_date = form.work_date.data
+    if work_date is None:
+        return []
+    if work_date < period.start_date or work_date > period.end_date:
+        return ["Overtime work date must fall inside the payroll period."]
+    return []
 
 
 def can_manage_smp(period):
@@ -1565,3 +1588,339 @@ def edit_period(period_id):
         page_heading="Edit Payroll Period",
         period=period,
     )
+
+
+def get_active_employee_or_404(employee_id):
+    """Resolve an active employee for a variable payroll input."""
+
+    return Employee.query.filter_by(
+        id=employee_id,
+        is_active=True,
+    ).first_or_404()
+
+
+@payroll_periods_bp.route("/<int:period_id>/transaction-inputs")
+@login_required
+def list_transaction_inputs(period_id):
+    """Display overtime and one-off deductions for a payroll period."""
+
+    period = PayrollPeriod.query.get_or_404(period_id)
+    employees = (
+        Employee.query
+        .filter(Employee.is_active.is_(True))
+        .order_by(Employee.last_name, Employee.first_name)
+        .all()
+    )
+    overtime_entries = (
+        PayrollOvertimeInput.query
+        .filter_by(payroll_period_id=period.id)
+        .order_by(
+            PayrollOvertimeInput.employee_id,
+            PayrollOvertimeInput.work_date,
+            PayrollOvertimeInput.id,
+        )
+        .all()
+    )
+    deduction_entries = (
+        PayrollOneOffDeduction.query
+        .filter_by(payroll_period_id=period.id)
+        .order_by(
+            PayrollOneOffDeduction.employee_id,
+            PayrollOneOffDeduction.priority,
+            PayrollOneOffDeduction.id,
+        )
+        .all()
+    )
+    overtime_by_employee = {}
+    deductions_by_employee = {}
+    for item in overtime_entries:
+        overtime_by_employee.setdefault(item.employee_id, []).append(item)
+    for item in deduction_entries:
+        deductions_by_employee.setdefault(item.employee_id, []).append(item)
+
+    return render_template(
+        "payroll_periods/transaction_inputs.html",
+        period=period,
+        employees=employees,
+        overtime_by_employee=overtime_by_employee,
+        deductions_by_employee=deductions_by_employee,
+        overtime_total=sum(
+            (Decimal(str(item.amount)) for item in overtime_entries),
+            Decimal("0.00"),
+        ),
+        deduction_total=sum(
+            (Decimal(str(item.amount)) for item in deduction_entries),
+            Decimal("0.00"),
+        ),
+        can_edit=can_manage_transaction_inputs(period),
+        action_form=PayrollPeriodActionForm(),
+        month_name=month_name,
+    )
+
+
+@payroll_periods_bp.route(
+    "/<int:period_id>/transaction-inputs/<int:employee_id>/overtime/new",
+    methods=["GET", "POST"],
+)
+@login_required
+def add_overtime_input(period_id, employee_id):
+    """Create one Draft overtime input."""
+
+    period = PayrollPeriod.query.get_or_404(period_id)
+    employee = get_active_employee_or_404(employee_id)
+    if not can_manage_transaction_inputs(period):
+        flash("Overtime can only be changed in an open Draft period.", "warning")
+        return redirect(url_for("payroll_periods.list_transaction_inputs", period_id=period.id))
+
+    form = PayrollOvertimeInputForm()
+    if form.validate_on_submit():
+        errors = validate_overtime_work_date(form, period)
+        if errors:
+            form.work_date.errors.extend(errors)
+        else:
+            item = PayrollOvertimeInput(
+                payroll_period_id=period.id,
+                employee_id=employee.id,
+                category=form.category.data,
+                work_date=form.work_date.data,
+                hours=form.hours.data,
+                hourly_rate=form.hourly_rate.data,
+                multiplier=form.multiplier.data,
+                amount=0,
+                description=(form.description.data or "").strip() or None,
+                status="Draft",
+                created_by=current_user.id,
+            )
+            item.recalculate()
+            db.session.add(item)
+            db.session.commit()
+            flash(f"Overtime saved for {employee.full_name}; approval is still required.", "success")
+            return redirect(url_for("payroll_periods.list_transaction_inputs", period_id=period.id))
+
+    return render_template(
+        "payroll_periods/overtime_form.html",
+        period=period,
+        employee=employee,
+        form=form,
+        month_name=month_name,
+    )
+
+
+@payroll_periods_bp.route(
+    "/<int:period_id>/transaction-inputs/overtime/<int:input_id>",
+    methods=["GET", "POST"],
+)
+@login_required
+def edit_overtime_input(period_id, input_id):
+    period = PayrollPeriod.query.get_or_404(period_id)
+    item = PayrollOvertimeInput.query.filter_by(
+        id=input_id, payroll_period_id=period.id
+    ).first_or_404()
+    employee = get_active_employee_or_404(item.employee_id)
+    if not can_manage_transaction_inputs(period):
+        flash("Overtime can only be changed in an open Draft period.", "warning")
+        return redirect(url_for("payroll_periods.list_transaction_inputs", period_id=period.id))
+
+    form = PayrollOvertimeInputForm(obj=item)
+    if form.validate_on_submit():
+        errors = validate_overtime_work_date(form, period)
+        if errors:
+            form.work_date.errors.extend(errors)
+        else:
+            item.category = form.category.data
+            item.work_date = form.work_date.data
+            item.hours = form.hours.data
+            item.hourly_rate = form.hourly_rate.data
+            item.multiplier = form.multiplier.data
+            item.description = (form.description.data or "").strip() or None
+            item.status = "Draft"
+            item.approved_by = None
+            item.approved_at = None
+            item.recalculate()
+            db.session.commit()
+            flash("Overtime updated and returned to Draft for approval.", "success")
+            return redirect(url_for("payroll_periods.list_transaction_inputs", period_id=period.id))
+
+    return render_template(
+        "payroll_periods/overtime_form.html",
+        period=period,
+        employee=employee,
+        form=form,
+        month_name=month_name,
+    )
+
+
+@payroll_periods_bp.route(
+    "/<int:period_id>/transaction-inputs/overtime/<int:input_id>/approve",
+    methods=["POST"],
+)
+@login_required
+def approve_overtime_input(period_id, input_id):
+    period = PayrollPeriod.query.get_or_404(period_id)
+    item = PayrollOvertimeInput.query.filter_by(
+        id=input_id, payroll_period_id=period.id
+    ).first_or_404()
+    form = PayrollPeriodActionForm()
+    if not form.validate_on_submit():
+        flash("The overtime approval request was invalid.", "danger")
+    elif not can_manage_transaction_inputs(period):
+        flash("Overtime can only be approved in an open Draft period.", "warning")
+    else:
+        item.recalculate()
+        item.status = "Approved"
+        item.approved_by = current_user.id
+        item.approved_at = legacy_utc_now()
+        db.session.commit()
+        flash("Overtime approved for payroll processing.", "success")
+    return redirect(url_for("payroll_periods.list_transaction_inputs", period_id=period.id))
+
+
+@payroll_periods_bp.route(
+    "/<int:period_id>/transaction-inputs/overtime/<int:input_id>/delete",
+    methods=["POST"],
+)
+@login_required
+def delete_overtime_input(period_id, input_id):
+    period = PayrollPeriod.query.get_or_404(period_id)
+    item = PayrollOvertimeInput.query.filter_by(
+        id=input_id, payroll_period_id=period.id
+    ).first_or_404()
+    form = PayrollPeriodActionForm()
+    if not form.validate_on_submit():
+        flash("The overtime deletion request was invalid.", "danger")
+    elif not can_manage_transaction_inputs(period):
+        flash("Overtime can only be deleted in an open Draft period.", "warning")
+    elif item.status != "Draft":
+        flash("Approved overtime must be edited back to Draft before deletion.", "warning")
+    else:
+        db.session.delete(item)
+        db.session.commit()
+        flash("Draft overtime input deleted.", "success")
+    return redirect(url_for("payroll_periods.list_transaction_inputs", period_id=period.id))
+
+
+@payroll_periods_bp.route(
+    "/<int:period_id>/transaction-inputs/<int:employee_id>/deduction/new",
+    methods=["GET", "POST"],
+)
+@login_required
+def add_one_off_deduction(period_id, employee_id):
+    """Create one Draft period-specific deduction."""
+
+    period = PayrollPeriod.query.get_or_404(period_id)
+    employee = get_active_employee_or_404(employee_id)
+    if not can_manage_transaction_inputs(period):
+        flash("One-off deductions can only be changed in an open Draft period.", "warning")
+        return redirect(url_for("payroll_periods.list_transaction_inputs", period_id=period.id))
+
+    form = PayrollOneOffDeductionForm()
+    if form.validate_on_submit():
+        item = PayrollOneOffDeduction(
+            payroll_period_id=period.id,
+            employee_id=employee.id,
+            deduction_type=form.deduction_type.data,
+            amount=PayrollOneOffDeduction.money(form.amount.data),
+            priority=form.priority.data,
+            allow_partial=False,
+            description=(form.description.data or "").strip() or None,
+            status="Draft",
+            created_by=current_user.id,
+        )
+        db.session.add(item)
+        db.session.commit()
+        flash(f"One-off deduction saved for {employee.full_name}; approval is still required.", "success")
+        return redirect(url_for("payroll_periods.list_transaction_inputs", period_id=period.id))
+
+    return render_template(
+        "payroll_periods/one_off_deduction_form.html",
+        period=period,
+        employee=employee,
+        form=form,
+        month_name=month_name,
+    )
+
+
+@payroll_periods_bp.route(
+    "/<int:period_id>/transaction-inputs/deduction/<int:input_id>",
+    methods=["GET", "POST"],
+)
+@login_required
+def edit_one_off_deduction(period_id, input_id):
+    period = PayrollPeriod.query.get_or_404(period_id)
+    item = PayrollOneOffDeduction.query.filter_by(
+        id=input_id, payroll_period_id=period.id
+    ).first_or_404()
+    employee = get_active_employee_or_404(item.employee_id)
+    if not can_manage_transaction_inputs(period):
+        flash("One-off deductions can only be changed in an open Draft period.", "warning")
+        return redirect(url_for("payroll_periods.list_transaction_inputs", period_id=period.id))
+
+    form = PayrollOneOffDeductionForm(obj=item)
+    if form.validate_on_submit():
+        item.deduction_type = form.deduction_type.data
+        item.amount = PayrollOneOffDeduction.money(form.amount.data)
+        item.priority = form.priority.data
+        item.description = (form.description.data or "").strip() or None
+        item.status = "Draft"
+        item.approved_by = None
+        item.approved_at = None
+        db.session.commit()
+        flash("One-off deduction updated and returned to Draft for approval.", "success")
+        return redirect(url_for("payroll_periods.list_transaction_inputs", period_id=period.id))
+
+    return render_template(
+        "payroll_periods/one_off_deduction_form.html",
+        period=period,
+        employee=employee,
+        form=form,
+        month_name=month_name,
+    )
+
+
+@payroll_periods_bp.route(
+    "/<int:period_id>/transaction-inputs/deduction/<int:input_id>/approve",
+    methods=["POST"],
+)
+@login_required
+def approve_one_off_deduction(period_id, input_id):
+    period = PayrollPeriod.query.get_or_404(period_id)
+    item = PayrollOneOffDeduction.query.filter_by(
+        id=input_id, payroll_period_id=period.id
+    ).first_or_404()
+    form = PayrollPeriodActionForm()
+    if not form.validate_on_submit():
+        flash("The deduction approval request was invalid.", "danger")
+    elif not can_manage_transaction_inputs(period):
+        flash("Deductions can only be approved in an open Draft period.", "warning")
+    else:
+        item.amount = PayrollOneOffDeduction.money(item.amount)
+        item.status = "Approved"
+        item.approved_by = current_user.id
+        item.approved_at = legacy_utc_now()
+        db.session.commit()
+        flash("One-off deduction approved for payroll processing.", "success")
+    return redirect(url_for("payroll_periods.list_transaction_inputs", period_id=period.id))
+
+
+@payroll_periods_bp.route(
+    "/<int:period_id>/transaction-inputs/deduction/<int:input_id>/delete",
+    methods=["POST"],
+)
+@login_required
+def delete_one_off_deduction(period_id, input_id):
+    period = PayrollPeriod.query.get_or_404(period_id)
+    item = PayrollOneOffDeduction.query.filter_by(
+        id=input_id, payroll_period_id=period.id
+    ).first_or_404()
+    form = PayrollPeriodActionForm()
+    if not form.validate_on_submit():
+        flash("The deduction deletion request was invalid.", "danger")
+    elif not can_manage_transaction_inputs(period):
+        flash("Deductions can only be deleted in an open Draft period.", "warning")
+    elif item.status != "Draft":
+        flash("Approved deductions must be edited back to Draft before deletion.", "warning")
+    else:
+        db.session.delete(item)
+        db.session.commit()
+        flash("Draft one-off deduction deleted.", "success")
+    return redirect(url_for("payroll_periods.list_transaction_inputs", period_id=period.id))

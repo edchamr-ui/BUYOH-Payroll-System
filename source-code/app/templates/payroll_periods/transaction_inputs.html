@@ -1,0 +1,102 @@
+{% extends "base.html" %}
+
+{% block title %}Payroll Transaction Inputs | BUYOH Payroll{% endblock %}
+{% block page_title %}Payroll Transaction Inputs{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-4">
+    <div>
+        <h2 class="h3 mb-1">{{ month_name[period.month] }} {{ period.year }}</h2>
+        <p class="text-muted mb-0">Overtime and one-off deductions entered before payroll processing.</p>
+    </div>
+    <a class="btn btn-outline-secondary" href="{{ url_for('payroll_periods.view_period', period_id=period.id) }}">
+        <i class="bi bi-arrow-left me-1"></i>Period Details
+    </a>
+</div>
+
+{% if not can_edit %}
+<div class="alert alert-warning">This payroll period is read-only. Transaction inputs can only be changed in an open Draft period.</div>
+{% endif %}
+
+<div class="row g-3 mb-4">
+    <div class="col-md-6">
+        <div class="app-card h-100"><div class="card-body p-4">
+            <div class="text-muted small">Period Overtime</div>
+            <div class="fs-3 fw-bold">${{ '%.2f'|format(overtime_total) }}</div>
+        </div></div>
+    </div>
+    <div class="col-md-6">
+        <div class="app-card h-100"><div class="card-body p-4">
+            <div class="text-muted small">One-Off Deductions</div>
+            <div class="fs-3 fw-bold">${{ '%.2f'|format(deduction_total) }}</div>
+        </div></div>
+    </div>
+</div>
+
+{% for employee in employees %}
+{% set overtime_items = overtime_by_employee.get(employee.id, []) %}
+{% set deduction_items = deductions_by_employee.get(employee.id, []) %}
+<div class="app-card mb-4">
+    <div class="card-header bg-white d-flex flex-wrap justify-content-between align-items-center gap-2 p-3">
+        <div>
+            <div class="fw-semibold">{{ employee.full_name }}</div>
+            <div class="text-muted small">{{ employee.employee_number }} · {{ employee.department.name if employee.department else 'No department' }}</div>
+        </div>
+        {% if can_edit %}
+        <div class="d-flex gap-2">
+            <a class="btn btn-sm btn-outline-primary" href="{{ url_for('payroll_periods.add_overtime_input', period_id=period.id, employee_id=employee.id) }}"><i class="bi bi-clock-history me-1"></i>Add Overtime</a>
+            <a class="btn btn-sm btn-outline-danger" href="{{ url_for('payroll_periods.add_one_off_deduction', period_id=period.id, employee_id=employee.id) }}"><i class="bi bi-dash-circle me-1"></i>Add Deduction</a>
+        </div>
+        {% endif %}
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table align-middle mb-0">
+                <thead class="table-light"><tr><th>Input</th><th>Calculation / Description</th><th>Status</th><th class="text-end">Amount</th><th class="text-end">Actions</th></tr></thead>
+                <tbody>
+                    {% for item in overtime_items %}
+                    <tr>
+                        <td><span class="badge text-bg-primary">Overtime</span> {{ item.category }}</td>
+                        <td>{{ item.hours }} hrs × ${{ item.hourly_rate }} × {{ item.multiplier }}{% if item.work_date %}<div class="text-muted small">{{ item.work_date.strftime('%d %b %Y') }}</div>{% endif %}</td>
+                        <td><span class="badge text-bg-{{ 'success' if item.status == 'Approved' else 'secondary' }}">{{ item.status }}</span></td>
+                        <td class="text-end fw-semibold">${{ '%.2f'|format(item.amount) }}</td>
+                        <td class="text-end">
+                            {% if can_edit %}
+                            <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('payroll_periods.edit_overtime_input', period_id=period.id, input_id=item.id) }}">Edit</a>
+                            {% if item.status == 'Draft' %}
+                            <form method="post" class="d-inline" action="{{ url_for('payroll_periods.approve_overtime_input', period_id=period.id, input_id=item.id) }}">{{ action_form.hidden_tag() }}<button class="btn btn-sm btn-success">Approve</button></form>
+                            <form method="post" class="d-inline" action="{{ url_for('payroll_periods.delete_overtime_input', period_id=period.id, input_id=item.id) }}">{{ action_form.hidden_tag() }}<button class="btn btn-sm btn-outline-danger">Delete</button></form>
+                            {% endif %}
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                    {% for item in deduction_items %}
+                    <tr>
+                        <td><span class="badge text-bg-danger">Deduction</span> {{ item.deduction_type }}</td>
+                        <td>{{ item.description or 'No description' }}<div class="text-muted small">Priority {{ item.priority }}</div></td>
+                        <td><span class="badge text-bg-{{ 'success' if item.status == 'Approved' else 'secondary' }}">{{ item.status }}</span></td>
+                        <td class="text-end fw-semibold">${{ '%.2f'|format(item.amount) }}</td>
+                        <td class="text-end">
+                            {% if can_edit %}
+                            <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('payroll_periods.edit_one_off_deduction', period_id=period.id, input_id=item.id) }}">Edit</a>
+                            {% if item.status == 'Draft' %}
+                            <form method="post" class="d-inline" action="{{ url_for('payroll_periods.approve_one_off_deduction', period_id=period.id, input_id=item.id) }}">{{ action_form.hidden_tag() }}<button class="btn btn-sm btn-success">Approve</button></form>
+                            <form method="post" class="d-inline" action="{{ url_for('payroll_periods.delete_one_off_deduction', period_id=period.id, input_id=item.id) }}">{{ action_form.hidden_tag() }}<button class="btn btn-sm btn-outline-danger">Delete</button></form>
+                            {% endif %}
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                    {% if not overtime_items and not deduction_items %}
+                    <tr><td colspan="5" class="text-center text-muted py-4">No transaction inputs for this employee.</td></tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% else %}
+<div class="app-card"><div class="card-body text-center text-muted py-5">No active employees were found.</div></div>
+{% endfor %}
+{% endblock %}

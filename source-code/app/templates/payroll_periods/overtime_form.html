@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+
+{% block title %}Overtime Input | BUYOH Payroll{% endblock %}
+{% block page_title %}Overtime Input{% endblock %}
+
+{% block content %}
+<div class="app-card">
+    <div class="card-body p-4">
+        <div class="d-flex justify-content-between align-items-start mb-4">
+            <div>
+                <h2 class="h4 mb-1">{{ employee.full_name }}</h2>
+                <p class="text-muted mb-0">
+                    {{ month_name[period.month] }} {{ period.year }} ·
+                    {{ employee.employee_number }}
+                </p>
+            </div>
+            <span class="badge text-bg-secondary">Draft-period input</span>
+        </div>
+
+        <form method="post" novalidate>
+            {{ form.hidden_tag() }}
+            <div class="row g-3">
+                <div class="col-md-6">
+                    {{ form.category.label(class="form-label") }}
+                    {{ form.category(class="form-select") }}
+                </div>
+                <div class="col-md-6">
+                    {{ form.work_date.label(class="form-label") }}
+                    {{ form.work_date(class="form-control") }}
+                    {% for error in form.work_date.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+                </div>
+                <div class="col-md-4">
+                    {{ form.hours.label(class="form-label") }}
+                    {{ form.hours(class="form-control", step="0.01", id="overtime-hours") }}
+                    {% for error in form.hours.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+                </div>
+                <div class="col-md-4">
+                    {{ form.hourly_rate.label(class="form-label") }}
+                    <div class="input-group">
+                        <span class="input-group-text">$</span>
+                        {{ form.hourly_rate(class="form-control", step="0.0001", id="overtime-rate") }}
+                    </div>
+                    {% for error in form.hourly_rate.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+                </div>
+                <div class="col-md-4">
+                    {{ form.multiplier.label(class="form-label") }}
+                    {{ form.multiplier(class="form-control", step="0.0001", id="overtime-multiplier") }}
+                    {% for error in form.multiplier.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+                </div>
+                <div class="col-12">
+                    <div class="alert alert-primary mb-0">
+                        Calculated overtime: <strong id="overtime-preview">$0.00</strong>
+                        <div class="small mt-1">Hours × hourly rate × multiplier. The server recalculates this value when saved and approved.</div>
+                    </div>
+                </div>
+                <div class="col-12">
+                    {{ form.description.label(class="form-label") }}
+                    {{ form.description(class="form-control", rows="3") }}
+                    {% for error in form.description.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+                </div>
+            </div>
+            <div class="d-flex gap-2 mt-4">
+                {{ form.submit(class="btn btn-primary") }}
+                <a class="btn btn-outline-secondary" href="{{ url_for('payroll_periods.list_transaction_inputs', period_id=period.id) }}">Cancel</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+(() => {
+    const fields = ['overtime-hours', 'overtime-rate', 'overtime-multiplier'].map(id => document.getElementById(id));
+    const preview = document.getElementById('overtime-preview');
+    const update = () => {
+        const values = fields.map(field => Number.parseFloat(field.value || '0'));
+        const amount = values.reduce((total, value) => total * value, 1);
+        preview.textContent = Number.isFinite(amount) ? `$${amount.toFixed(2)}` : '$0.00';
+    };
+    fields.forEach(field => field.addEventListener('input', update));
+    update();
+})();
+</script>
+{% endblock %}

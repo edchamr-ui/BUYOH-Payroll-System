@@ -1,4 +1,5 @@
 from calendar import month_name
+from decimal import Decimal
 
 from flask_wtf import FlaskForm
 from wtforms import (
@@ -67,6 +68,107 @@ class PayrollPeriodActionForm(FlaskForm):
     """CSRF-protected form for payroll workflow actions."""
 
     submit = SubmitField("Continue")
+
+
+class PayrollOvertimeInputForm(FlaskForm):
+    """Capture a period-specific overtime calculation snapshot."""
+
+    category = SelectField(
+        "Overtime Category",
+        choices=(
+            ("Ordinary", "Ordinary overtime"),
+            ("Saturday", "Saturday"),
+            ("Sunday", "Sunday"),
+            ("Public Holiday", "Public holiday"),
+            ("Night", "Night overtime"),
+            ("Other", "Other"),
+        ),
+        validators=[DataRequired()],
+    )
+    work_date = DateField("Work Date", validators=[Optional()])
+    hours = DecimalField(
+        "Hours Worked",
+        places=2,
+        validators=[
+            InputRequired(),
+            NumberRange(
+                min=Decimal("0.01"),
+                max=Decimal("744"),
+                message="Enter overtime hours between 0.01 and 744.",
+            ),
+        ],
+    )
+    hourly_rate = DecimalField(
+        "Hourly Rate",
+        places=4,
+        validators=[
+            InputRequired(),
+            NumberRange(min=0, message="Hourly rate cannot be negative."),
+        ],
+    )
+    multiplier = DecimalField(
+        "Multiplier",
+        places=4,
+        default=Decimal("1.5"),
+        validators=[
+            InputRequired(),
+            NumberRange(
+                min=Decimal("0.0001"),
+                max=Decimal("10"),
+                message="Enter a multiplier greater than zero and not above 10.",
+            ),
+        ],
+    )
+    description = TextAreaField(
+        "Description or Approval Reference",
+        validators=[Optional(), Length(max=300)],
+    )
+    submit = SubmitField("Save Overtime Input")
+
+
+class PayrollOneOffDeductionForm(FlaskForm):
+    """Capture a period-specific net-pay deduction."""
+
+    deduction_type = SelectField(
+        "Deduction Type",
+        choices=(
+            ("Salary Advance Recovery", "Salary advance recovery"),
+            ("Employee Loan Repayment", "Employee loan repayment"),
+            ("Staff Purchase", "Staff purchase"),
+            ("Uniform or Equipment Recovery", "Uniform or equipment recovery"),
+            ("Medical Recovery", "Medical recovery"),
+            ("Other One-Off Deduction", "Other one-off deduction"),
+        ),
+        validators=[DataRequired()],
+    )
+    amount = DecimalField(
+        "Deduction Amount",
+        places=2,
+        validators=[
+            InputRequired(),
+            NumberRange(
+                min=Decimal("0.01"),
+                message="The deduction must be greater than zero.",
+            ),
+        ],
+    )
+    priority = IntegerField(
+        "Recovery Priority",
+        default=100,
+        validators=[
+            InputRequired(),
+            NumberRange(
+                min=0,
+                max=999,
+                message="Enter a priority between 0 and 999.",
+            ),
+        ],
+    )
+    description = TextAreaField(
+        "Description or Approval Reference",
+        validators=[Optional(), Length(max=300)],
+    )
+    submit = SubmitField("Save One-Off Deduction")
 
 
 class PayrollSSPInputForm(FlaskForm):
