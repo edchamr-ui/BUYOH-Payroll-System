@@ -6,3 +6,5 @@ app/static/uploads/company/*
 .env.*
 !.env.example
 instance/
+.env.docker
+backups/
