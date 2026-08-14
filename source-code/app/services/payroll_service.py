@@ -21,6 +21,8 @@ from app.models.payroll_sap_input import PayrollSAPInput
 from app.models.payroll_shpp_input import PayrollShPPInput
 from app.models.payroll_spbp_input import PayrollSPBPInput
 from app.models.payroll_sncp_input import PayrollSNCPInput
+from app.models.payroll_one_off_deduction import PayrollOneOffDeduction
+from app.models.payroll_overtime_input import PayrollOvertimeInput
 from app.services.audit_log_service import AuditLogService
 from app.services.payroll_calculator import ZERO
 from app.services.statutory_engines import (
@@ -197,6 +199,82 @@ class PayrollService:
             "allowance_lines": allowance_lines,
             "deduction_lines": deduction_lines,
         }
+
+    @classmethod
+    def _approved_transaction_inputs(cls, employee_id, payroll_period_id):
+        """Return approved variable inputs for one employee and period.
+
+        Draft inputs never affect payroll.  The stored overtime amount is used
+        as the immutable approved snapshot rather than recalculating against a
+        later employee salary or changed company rule.
+        """
+
+        overtime_entries = (
+            PayrollOvertimeInput.query
+            .filter_by(
+                employee_id=employee_id,
+                payroll_period_id=payroll_period_id,
+                status="Approved",
+            )
+            .order_by(
+                PayrollOvertimeInput.work_date.asc(),
+                PayrollOvertimeInput.id.asc(),
+            )
+            .all()
+        )
+        deduction_entries = (
+            PayrollOneOffDeduction.query
+            .filter_by(
+                employee_id=employee_id,
+                payroll_period_id=payroll_period_id,
+                status="Approved",
+            )
+            .order_by(
+                PayrollOneOffDeduction.priority.asc(),
+                PayrollOneOffDeduction.id.asc(),
+            )
+            .all()
+        )
+
+        overtime_total = sum(
+            (cls._decimal_value(entry.amount) for entry in overtime_entries),
+            ZERO,
+        )
+        deduction_total = sum(
+            (cls._decimal_value(entry.amount) for entry in deduction_entries),
+            ZERO,
+        )
+        return {
+            "overtime_entries": overtime_entries,
+            "overtime_total": overtime_total,
+            "deduction_entries": deduction_entries,
+            "deduction_total": deduction_total,
+        }
+
+    @classmethod
+    def _transaction_calculation_values(cls, pay_components, inputs):
+        """Build the variable values forwarded to every statutory engine."""
+
+        return {
+            "overtime_amount": cls._decimal_value(inputs["overtime_total"]),
+            "other_deductions_total": (
+                cls._decimal_value(pay_components["net_pay_deductions"])
+                + cls._decimal_value(inputs["deduction_total"])
+            ),
+        }
+
+    @staticmethod
+    def _one_off_deduction_snapshot(entry, employee_id):
+        """Create the immutable historical line shown on payslips/reports."""
+
+        return Deduction(
+            employee_id=employee_id,
+            deduction_type=entry.deduction_type,
+            amount=entry.amount,
+            description=entry.description,
+            is_tax_deductible=False,
+            reduces_net_pay=True,
+        )
 
     @classmethod
     def _botswana_ytd_context(cls, employee_id, calculation_date):
@@ -1308,6 +1386,10 @@ class PayrollService:
                         employee,
                         calculation_date,
                     )
+                    transaction_inputs = cls._approved_transaction_inputs(
+                        employee.id,
+                        period.id,
+                    )
                     employee_statutory_config = replace(
                         statutory_config,
                         tax_residency=(
@@ -1325,10 +1407,12 @@ class PayrollService:
 
                     calculation_arguments = {
                         "basic_salary": employee.basic_salary,
-                        "overtime_amount": ZERO,
                         "allowances_total": pay_components["cash_allowances"],
-                        "other_deductions_total": pay_components["net_pay_deductions"],
                         "statutory_config": employee_statutory_config,
+                        **cls._transaction_calculation_values(
+                            pay_components,
+                            transaction_inputs,
+                        ),
                     }
 
                     uk_snapshot = None
@@ -1350,6 +1434,7 @@ class PayrollService:
                         fixed_current = max(
                             ZERO,
                             cls._decimal_value(employee.basic_salary)
+                            + transaction_inputs["overtime_total"]
                             + pay_components["taxable_cash_allowances"]
                             + pay_components["non_cash_benefits"]
                             - pay_components["regular_variable_pay"]
@@ -1488,6 +1573,7 @@ class PayrollService:
                         current_taxable_pay = max(
                             ZERO,
                             statutory_basic_pay
+                            + transaction_inputs["overtime_total"]
                             + pay_components["taxable_cash_allowances"]
                             + pay_components["non_cash_benefits"]
                             - pay_components["allowable_deductions"],
@@ -1643,6 +1729,14 @@ class PayrollService:
                         is_tax_deductible=definition.is_tax_deductible,
                         reduces_net_pay=definition.reduces_net_pay,
                     ))
+
+                for entry in transaction_inputs["deduction_entries"]:
+                    payroll_record.deductions.append(
+                        cls._one_off_deduction_snapshot(
+                            entry,
+                            employee.id,
+                        )
+                    )
 
                 created_count += 1
 
